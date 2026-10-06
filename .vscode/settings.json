@@ -1,0 +1,9 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/.env": true,
+    "**/.env.local": true,
+    "**/.env.*": true
+  }
+}
