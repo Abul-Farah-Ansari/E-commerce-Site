@@ -1,450 +1,227 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@iconify/react";
 
 import heroImage from "../assets/images/hero.jpg";
+import heroImage2 from "../assets/images/2.jpg";
+import heroImage3 from "../assets/images/3.jpg";
+import heroImage4 from "../assets/images/4.jpg";
 
-const slides = [
-  {
-    id: 1,
-    image: heroImage,
-    label: "New Collection · 2026",
-    title: "Style",
-    titleLight: "Without Limits.",
-    description:
-      "Discover carefully selected pieces designed for modern living. Timeless style, effortless comfort, and quality made to last.",
-    position: "center",
-  },
-  {
-    id: 2,
-    image:
-      "https://images.unsplash.com/photo-1711467714592-56781075e928?q=80&w=1331&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    label: "The Essentials · 2026",
-    title: "Defined",
-    titleLight: "By Detail.",
-    description:
-      "Refined silhouettes and considered details created for a wardrobe that feels effortlessly modern.",
-    position: "center",
-  },
-  {
-    id: 3,
-    image:
-      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=2200&q=90",
-    label: "The Edit · 2026",
-    title: "Made",
-    titleLight: "To Stand Out.",
-    description:
-      "Explore contemporary pieces that balance confidence, comfort, and timeless design.",
-    position: "center",
-  },
+const images = [
+  heroImage.src,
+  heroImage2.src,
+  heroImage3.src,
+  heroImage4.src,
 ];
 
 export default function Hero() {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-  const totalSlides = slides.length;
-
-  /* =========================================
-     NEXT SLIDE
-  ========================================= */
-
-  const nextSlide = () => {
-    setCurrentSlide((previous) =>
-      previous === totalSlides - 1
-        ? 0
-        : previous + 1
-    );
-  };
-
-  /* =========================================
-     PREVIOUS SLIDE
-  ========================================= */
-
-  const previousSlide = () => {
-    setCurrentSlide((previous) =>
-      previous === 0
-        ? totalSlides - 1
-        : previous - 1
-    );
-  };
-
-  /* =========================================
-     AUTO CAROUSEL
-  ========================================= */
+  const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    if (isPaused) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      setCurrentSlide((previous) =>
-        previous === totalSlides - 1
-          ? 0
-          : previous + 1
+    const timer = setInterval(() => {
+      setCurrent((prev) =>
+        prev === images.length - 1 ? 0 : prev + 1
       );
     }, 5000);
 
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [isPaused, totalSlides]);
-
-  const slide = slides[currentSlide];
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <section
-      className="hero-section"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
+    <section className="hero">
+
       {/* =====================================
-          BACKGROUND CAROUSEL
+          HERO IMAGES
       ===================================== */}
 
-      <div className="hero-background">
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={slide.id}
-            className="hero-slide-image"
-            initial={{
-              opacity: 0,
-              scale: 1.06,
-            }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-            }}
-            exit={{
-              opacity: 0,
-              scale: 1.02,
-            }}
-            transition={{
-              opacity: {
-                duration: 1,
-              },
-              scale: {
-                duration: 6,
-                ease: "easeOut",
-              },
-            }}
-            style={{
-              backgroundImage:
-                typeof slide.image === "string"
-                  ? `url("${slide.image}")`
-                  : undefined,
-              backgroundPosition:
-                slide.position,
-            }}
-          >
-            {/* Local next/image background */}
-            {slide.id === 1 && (
-              <Image
-                src={heroImage}
-                alt="New fashion collection"
-                fill
-                priority
-                sizes="100vw"
-                className="hero-local-image"
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+      <div className="hero-images">
+        {images.map((image, index) => (
+          <img
+            key={image}
+            src={image}
+            alt="House Of Orive fashion collection"
+            className={`hero-image ${
+              current === index ? "active" : ""
+            }`}
+          />
+        ))}
       </div>
 
-
       {/* =====================================
-          PREMIUM OVERLAY
+          OVERLAYS
       ===================================== */}
 
       <div className="hero-overlay" />
 
-      <div className="hero-overlay-secondary" />
-
+      <div className="hero-gradient" />
 
       {/* =====================================
-          TOP RIGHT SLIDE NUMBER
+          TOP BRAND
       ===================================== */}
 
-      <div className="hero-slide-number">
+      <div className="hero-brand">
+        HOUSE OF ORIVE
+      </div>
 
-        <span className="hero-slide-current">
-          {String(currentSlide + 1).padStart(
-            2,
-            "0"
-          )}
+      {/* =====================================
+          SLIDE NUMBER
+      ===================================== */}
+
+      <div className="hero-number">
+        <span className="active-number">
+          {String(current + 1).padStart(2, "0")}
         </span>
 
-        <span className="hero-slide-divider">
+        <span className="number-divider">
           /
         </span>
 
-        <span className="hero-slide-total">
-          {String(totalSlides).padStart(
-            2,
-            "0"
-          )}
+        <span>
+          {String(images.length).padStart(2, "0")}
         </span>
-
       </div>
 
-
       {/* =====================================
-          CONTENT
+          MAIN CONTENT
       ===================================== */}
 
-      <div className="hero-content-layer">
+      <div className="hero-content">
+        <div className="hero-copy">
 
-        <div className="hero-content-container">
+          {/* EYEBROW */}
 
-          <AnimatePresence mode="wait">
+          <div className="hero-eyebrow">
+            <span className="eyebrow-line" />
 
-            <motion.div
-              key={slide.id}
-              initial={{
-                opacity: 0,
-                y: 25,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              exit={{
-                opacity: 0,
-                y: -15,
-              }}
-              transition={{
-                duration: 0.65,
-                ease: "easeOut",
-              }}
-              className="hero-content"
+            <span>
+              THE NEW EDIT · 2026
+            </span>
+          </div>
+
+          {/* TITLE */}
+
+          <h1>
+            Modern
+            <br />
+            <span>Essentials.</span>
+          </h1>
+
+          {/* DESCRIPTION */}
+
+          <p className="hero-description">
+            Thoughtfully selected fashion for
+            effortless everyday elegance.
+          </p>
+
+          {/* BUTTON */}
+
+          <div className="hero-button-wrapper">
+            <Link
+              href="/products"
+              className="shop-button"
             >
+              <span className="shop-button-text">
+                Shop Collection
+              </span>
 
-              {/* =========================
-                  LABEL
-              ========================= */}
-
-              <div className="hero-label">
-
-                <span className="hero-label-line" />
-
-                <span className="hero-label-text">
-                  {slide.label}
-                </span>
-
-              </div>
-
-
-              {/* =========================
-                  HEADING
-              ========================= */}
-
-              <h1 className="hero-title">
-
-                {slide.title}
-
-                <br />
-
-                <span>
-                  {slide.titleLight}
-                </span>
-
-              </h1>
-
-
-              {/* =========================
-                  DESCRIPTION
-              ========================= */}
-
-              <p className="hero-description">
-                {slide.description}
-              </p>
-
-
-              {/* =========================
-                  BUTTON
-              ========================= */}
-
-              <div className="hero-button-wrapper">
-
-                <Link
-                  href="/products"
-                  className="hero-button"
-                >
-
-                  <span>
-                    Shop Collection
-                  </span>
-
-                  <span className="hero-button-icon">
-
-                    <Icon
-                      icon="solar:arrow-right-linear"
-                      width="20"
-                      height="20"
-                    />
-
-                  </span>
-
-                </Link>
-
-              </div>
-
-            </motion.div>
-
-          </AnimatePresence>
+              <span className="shop-button-arrow">
+                <Icon
+                  icon="solar:arrow-right-linear"
+                  width="20"
+                  height="20"
+                />
+              </span>
+            </Link>
+          </div>
 
         </div>
-
       </div>
 
-
       {/* =====================================
-          CAROUSEL CONTROLS
+          BOTTOM LEFT
       ===================================== */}
 
-      <div className="hero-controls">
+      <div className="hero-bottom-left">
+        <span>Timeless</span>
 
-        {/* PREVIOUS */}
-
-        <button
-          type="button"
-          className="hero-arrow hero-arrow-prev"
-          onClick={previousSlide}
-          aria-label="Previous slide"
-        >
-
-          <Icon
-            icon="solar:arrow-left-linear"
-            width="20"
-            height="20"
-          />
-
-        </button>
-
-
-        {/* DOTS */}
-
-        <div className="hero-dots">
-
-          {slides.map((item, index) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`hero-dot ${
-                currentSlide === index
-                  ? "hero-dot-active"
-                  : ""
-              }`}
-              onClick={() =>
-                setCurrentSlide(index)
-              }
-              aria-label={`Go to slide ${
-                index + 1
-              }`}
-            />
-          ))}
-
-        </div>
-
-
-        {/* NEXT */}
-
-        <button
-          type="button"
-          className="hero-arrow hero-arrow-next"
-          onClick={nextSlide}
-          aria-label="Next slide"
-        >
-
-          <Icon
-            icon="solar:arrow-right-linear"
-            width="20"
-            height="20"
-          />
-
-        </button>
-
-      </div>
-
-
-      {/* =====================================
-          BOTTOM INFORMATION
-      ===================================== */}
-
-      <div className="hero-bottom-info">
-
-        <span className="hero-bottom-text">
-          Timeless · Modern · Essential
+        <span className="bottom-dot">
+          •
         </span>
 
+        <span>Modern</span>
 
-        <div className="hero-scroll">
+        <span className="bottom-dot">
+          •
+        </span>
 
-          <span>
-            Scroll
+        <span>Essential</span>
+      </div>
+
+      {/* =====================================
+          SLIDE INDICATOR
+      ===================================== */}
+
+      <div className="hero-indicator">
+
+        <div className="indicator-numbers">
+          <span className="indicator-current">
+            {String(current + 1).padStart(2, "0")}
           </span>
 
-          <Icon
-            icon="solar:arrow-down-linear"
-            width="17"
-            height="17"
-          />
+          <span className="indicator-total">
+            {String(images.length).padStart(2, "0")}
+          </span>
+        </div>
 
+        <div className="indicator-line">
+          <div
+            className="indicator-progress"
+            style={{
+              width: `${
+                ((current + 1) / images.length) * 100
+              }%`,
+            }}
+          />
         </div>
 
       </div>
 
-
       {/* =====================================
-          PROGRESS BAR
+          DOTS
       ===================================== */}
 
-      <div className="hero-progress">
-
-        <motion.div
-          key={`${currentSlide}-${isPaused}`}
-          className="hero-progress-bar"
-          initial={{
-            width: "0%",
-          }}
-          animate={{
-            width: isPaused
-              ? undefined
-              : "100%",
-          }}
-          transition={{
-            duration: isPaused
-              ? 0
-              : 5,
-            ease: "linear",
-          }}
-        />
-
+      <div className="hero-dots">
+        {images.map((image, index) => (
+          <button
+            key={image}
+            type="button"
+            aria-label={`Go to slide ${index + 1}`}
+            onClick={() => setCurrent(index)}
+            className={`hero-dot ${
+              current === index
+                ? "hero-dot-active"
+                : ""
+            }`}
+          />
+        ))}
       </div>
 
-
       {/* =====================================
-          RESPONSIVE CSS
+          STYLES
       ===================================== */}
 
       <style jsx>{`
-
         /* =====================================
            HERO
         ===================================== */
 
-        .hero-section {
+        .hero {
           position: relative;
 
           width: 100%;
-
-          height: 620px;
+          height: 650px;
 
           overflow: hidden;
 
@@ -453,49 +230,58 @@ export default function Hero() {
           isolation: isolate;
         }
 
-
         /* =====================================
-           BACKGROUND
+           IMAGES
         ===================================== */
 
-        .hero-background {
-          position: absolute;
-
-          inset: 0;
-
-          z-index: 0;
-
-          overflow: hidden;
-        }
-
-        .hero-slide-image {
+        .hero-images {
           position: absolute;
 
           inset: 0;
 
           width: 100%;
-
           height: 100%;
 
-          background-size: cover;
+          overflow: hidden;
 
-          background-repeat: no-repeat;
+          z-index: 0;
         }
 
-        .hero-local-image {
-          position: absolute !important;
+        .hero-image {
+          position: absolute;
 
-          inset: 0 !important;
+          inset: 0;
 
-          width: 100% !important;
+          width: 100%;
+          height: 100%;
 
-          height: 100% !important;
+          display: block;
 
-          object-fit: cover !important;
+          object-fit: cover;
 
-          object-position: center !important;
+          object-position: center;
+
+          opacity: 0;
+
+          filter:
+            grayscale(100%)
+            contrast(1.08)
+            brightness(0.92);
+
+          transform: scale(1.025);
+
+          transition:
+            opacity 1.2s ease,
+            transform 6s ease;
+
+          user-select: none;
         }
 
+        .hero-image.active {
+          opacity: 1;
+
+          transform: scale(1);
+        }
 
         /* =====================================
            OVERLAY
@@ -508,89 +294,153 @@ export default function Hero() {
 
           z-index: 1;
 
+          pointer-events: none;
+
           background:
             linear-gradient(
               90deg,
-              rgba(0, 0, 0, 0.76) 0%,
-              rgba(0, 0, 0, 0.56) 30%,
-              rgba(0, 0, 0, 0.22) 68%,
-              rgba(0, 0, 0, 0.05) 100%
+              rgba(0, 0, 0, 0.74) 0%,
+              rgba(0, 0, 0, 0.48) 34%,
+              rgba(0, 0, 0, 0.16) 70%,
+              rgba(0, 0, 0, 0.04) 100%
             );
         }
 
-        .hero-overlay-secondary {
+        .hero-gradient {
           position: absolute;
 
           inset: 0;
 
-          z-index: 1;
+          z-index: 2;
+
+          pointer-events: none;
 
           background:
             linear-gradient(
               180deg,
-              rgba(0, 0, 0, 0.18) 0%,
-              transparent 35%,
-              rgba(0, 0, 0, 0.32) 100%
+              rgba(0, 0, 0, 0.16) 0%,
+              transparent 45%,
+              rgba(0, 0, 0, 0.5) 100%
             );
-
-          pointer-events: none;
         }
 
+        /* =====================================
+           BRAND
+        ===================================== */
+
+        .hero-brand {
+          position: absolute;
+
+          top: 32px;
+          left: 6%;
+
+          z-index: 10;
+
+          color:
+            rgba(255, 255, 255, 0.88);
+
+          font-size: 9px;
+
+          font-weight: 700;
+
+          letter-spacing: 0.32em;
+
+          text-transform: uppercase;
+        }
+
+        /* =====================================
+           NUMBER
+        ===================================== */
+
+        .hero-number {
+          position: absolute;
+
+          top: 32px;
+          right: 6%;
+
+          z-index: 10;
+
+          display: flex;
+
+          align-items: center;
+
+          gap: 8px;
+
+          color:
+            rgba(255, 255, 255, 0.42);
+
+          font-size: 10px;
+
+          font-weight: 500;
+
+          letter-spacing: 0.16em;
+        }
+
+        .active-number {
+          color: #ffffff;
+
+          font-weight: 700;
+        }
+
+        .number-divider {
+          color:
+            rgba(255, 255, 255, 0.28);
+        }
 
         /* =====================================
            CONTENT
         ===================================== */
 
-        .hero-content-layer {
+        .hero-content {
           position: relative;
 
-          z-index: 3;
+          z-index: 8;
 
           width: 100%;
-
           height: 100%;
 
           display: flex;
 
           align-items: center;
-        }
-
-        .hero-content-container {
-          width: 100%;
-
-          max-width: 1280px;
-
-          margin: 0 auto;
-
-          padding:
-            0 40px;
 
           box-sizing: border-box;
+
+          padding-left: 7%;
         }
 
-        .hero-content {
-          max-width: 600px;
-        }
+        .hero-copy {
+          width: 620px;
 
+          max-width: 100%;
+        }
 
         /* =====================================
-           LABEL
+           EYEBROW
         ===================================== */
 
-        .hero-label {
+        .hero-eyebrow {
           display: flex;
 
           align-items: center;
 
-          gap: 12px;
+          gap: 14px;
 
-          margin-bottom: 22px;
+          margin-bottom: 28px;
+
+          color:
+            rgba(255, 255, 255, 0.84);
+
+          font-size: 10px;
+
+          font-weight: 700;
+
+          letter-spacing: 0.3em;
+
+          text-transform: uppercase;
         }
 
-        .hero-label-line {
-          display: block;
-
-          width: 38px;
+        .eyebrow-line {
+          width: 42px;
 
           height: 1px;
 
@@ -600,92 +450,89 @@ export default function Hero() {
           flex-shrink: 0;
         }
 
-        .hero-label-text {
-          color:
-            rgba(255, 255, 255, 0.88);
-
-          font-size: 11px;
-
-          font-weight: 600;
-
-          letter-spacing:
-            0.28em;
-
-          text-transform: uppercase;
-        }
-
-
         /* =====================================
            TITLE
         ===================================== */
 
-        .hero-title {
+        .hero-copy h1 {
           margin: 0;
 
           color: #ffffff;
 
           font-size:
-            clamp(58px, 7vw, 92px);
+            clamp(
+              65px,
+              8vw,
+              108px
+            );
 
           line-height: 0.88;
 
-          font-weight: 700;
+          font-weight: 600;
 
-          letter-spacing:
-            -0.045em;
+          letter-spacing: -0.065em;
 
           text-transform: uppercase;
         }
 
-        .hero-title span {
+        .hero-copy h1 span {
           color:
-            rgba(255, 255, 255, 0.76);
+            rgba(255, 255, 255, 0.62);
 
           font-weight: 300;
         }
-
 
         /* =====================================
            DESCRIPTION
         ===================================== */
 
         .hero-description {
-          margin:
-            28px 0 0;
+          max-width: 410px;
 
-          max-width: 500px;
+          margin: 34px 0 0;
 
           color:
-            rgba(255, 255, 255, 0.82);
+            rgba(255, 255, 255, 0.84);
 
-          font-size: 16px;
+          font-size: 15px;
 
           line-height: 1.8;
 
-          font-weight: 400;
-
-          letter-spacing:
-            0.01em;
+          letter-spacing: 0.015em;
         }
 
-
         /* =====================================
-           BUTTON
+           BUTTON WRAPPER
         ===================================== */
 
         .hero-button-wrapper {
-          margin-top: 32px;
+          margin-top: 34px;
+
+          display: block;
         }
 
-        .hero-button {
+        /* =====================================
+           PREMIUM BUTTON
+        ===================================== */
+
+        .shop-button {
+          position: relative;
+
           display: inline-flex;
 
           align-items: center;
 
-          gap: 13px;
+          justify-content: center;
 
-          padding:
-            15px 17px 15px 24px;
+          gap: 18px;
+
+          min-height: 54px;
+
+          padding: 7px 8px 7px 27px;
+
+          box-sizing: border-box;
+
+          border: 1px solid #ffffff;
 
           border-radius: 999px;
 
@@ -693,39 +540,60 @@ export default function Hero() {
 
           color: #111111;
 
-          font-size: 13px;
-
-          font-weight: 600;
-
           text-decoration: none;
+
+          font-size: 11px;
+
+          font-weight: 800;
+
+          letter-spacing: 0.13em;
+
+          text-transform: uppercase;
+
+          box-shadow:
+            0 12px 30px
+              rgba(0, 0, 0, 0.42),
+            0 0 0 5px
+              rgba(255, 255, 255, 0.08);
 
           transition:
             transform 0.3s ease,
             background 0.3s ease,
+            color 0.3s ease,
             box-shadow 0.3s ease;
         }
 
-        .hero-button:hover {
+        .shop-button:hover {
           transform:
             translateY(-3px);
 
-          background: #f3f3f3;
+          background: #111111;
+
+          color: #ffffff;
 
           box-shadow:
-            0 12px 30px
-            rgba(0, 0, 0, 0.2);
+            0 18px 42px
+              rgba(0, 0, 0, 0.55),
+            0 0 0 5px
+              rgba(255, 255, 255, 0.13);
         }
 
-        .hero-button-icon {
-          width: 31px;
+        .shop-button-text {
+          display: block;
 
-          height: 31px;
+          white-space: nowrap;
+        }
+
+        .shop-button-arrow {
+          width: 39px;
+          height: 39px;
 
           display: flex;
 
           align-items: center;
-
           justify-content: center;
+
+          flex-shrink: 0;
 
           border-radius: 50%;
 
@@ -734,155 +602,148 @@ export default function Hero() {
           color: #ffffff;
 
           transition:
-            transform 0.3s ease;
+            transform 0.3s ease,
+            background 0.3s ease,
+            color 0.3s ease;
         }
 
-        .hero-button:hover
-          .hero-button-icon {
+        .shop-button:hover
+          .shop-button-arrow {
           transform:
-            translateX(3px);
-        }
+            translateX(4px);
 
+          background: #ffffff;
+
+          color: #111111;
+        }
 
         /* =====================================
-           SLIDE NUMBER
+           BOTTOM LEFT
         ===================================== */
 
-        .hero-slide-number {
+        .hero-bottom-left {
           position: absolute;
 
-          top: 34px;
+          left: 6%;
 
-          right: 40px;
+          bottom: 31px;
 
-          z-index: 4;
+          z-index: 10;
 
           display: flex;
 
           align-items: center;
+
+          gap: 10px;
+
+          color:
+            rgba(255, 255, 255, 0.5);
+
+          font-size: 8px;
+
+          font-weight: 500;
+
+          letter-spacing: 0.24em;
+
+          text-transform: uppercase;
+        }
+
+        .bottom-dot {
+          color:
+            rgba(255, 255, 255, 0.25);
+        }
+
+        /* =====================================
+           INDICATOR
+        ===================================== */
+
+        .hero-indicator {
+          position: absolute;
+
+          right: 6%;
+
+          bottom: 31px;
+
+          z-index: 10;
+
+          display: flex;
+
+          align-items: center;
+
+          gap: 14px;
+        }
+
+        .indicator-numbers {
+          display: flex;
 
           gap: 7px;
 
           color:
-            rgba(255, 255, 255, 0.68);
+            rgba(255, 255, 255, 0.4);
 
-          font-size: 11px;
+          font-size: 8px;
 
-          letter-spacing:
-            0.12em;
-
-          font-weight: 500;
+          letter-spacing: 0.12em;
         }
 
-        .hero-slide-current {
+        .indicator-current {
           color: #ffffff;
-
-          font-weight: 700;
         }
 
-        .hero-slide-divider {
-          color:
-            rgba(255, 255, 255, 0.35);
-        }
+        .indicator-line {
+          width: 80px;
 
-
-        /* =====================================
-           CAROUSEL CONTROLS
-        ===================================== */
-
-        .hero-controls {
-          position: absolute;
-
-          right: 40px;
-
-          bottom: 72px;
-
-          z-index: 5;
-
-          display: flex;
-
-          align-items: center;
-
-          gap: 11px;
-        }
-
-        .hero-arrow {
-          width: 43px;
-
-          height: 43px;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content: center;
-
-          padding: 0;
-
-          border:
-            1px solid
-            rgba(255, 255, 255, 0.32);
-
-          border-radius: 50%;
+          height: 1px;
 
           background:
-            rgba(0, 0, 0, 0.18);
+            rgba(255, 255, 255, 0.25);
+        }
 
-          backdrop-filter: blur(8px);
+        .indicator-progress {
+          height: 1px;
 
-          -webkit-backdrop-filter:
-            blur(8px);
-
-          color: #ffffff;
-
-          cursor: pointer;
+          background: #ffffff;
 
           transition:
-            background 0.25s ease,
-            border-color 0.25s ease,
-            transform 0.25s ease;
+            width 0.5s ease;
         }
-
-        .hero-arrow:hover {
-          background:
-            rgba(255, 255, 255, 0.15);
-
-          border-color:
-            rgba(255, 255, 255, 0.7);
-
-          transform:
-            translateY(-2px);
-        }
-
 
         /* =====================================
            DOTS
         ===================================== */
 
         .hero-dots {
+          position: absolute;
+
+          left: 50%;
+
+          bottom: 30px;
+
+          z-index: 10;
+
+          transform:
+            translateX(-50%);
+
           display: flex;
 
           align-items: center;
 
           gap: 6px;
-
-          padding:
-            0 3px;
         }
 
         .hero-dot {
-          width: 6px;
+          width: 5px;
 
-          height: 6px;
+          height: 5px;
 
           padding: 0;
 
-          border: none;
+          border: 0;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
           background:
-            rgba(255, 255, 255, 0.38);
+            rgba(255, 255, 255, 0.35);
 
           cursor: pointer;
 
@@ -894,489 +755,202 @@ export default function Hero() {
         .hero-dot-active {
           width: 25px;
 
-          background: #ffffff;
-        }
-
-
-        /* =====================================
-           BOTTOM INFORMATION
-        ===================================== */
-
-        .hero-bottom-info {
-          position: absolute;
-
-          left: 0;
-
-          right: 0;
-
-          bottom: 25px;
-
-          z-index: 4;
-
-          padding:
-            0 40px;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content:
-            space-between;
-
-          pointer-events: none;
-        }
-
-        .hero-bottom-text {
-          color:
-            rgba(255, 255, 255, 0.58);
-
-          font-size: 9px;
-
-          letter-spacing:
-            0.3em;
-
-          text-transform: uppercase;
-        }
-
-        .hero-scroll {
-          display: flex;
-
-          align-items: center;
-
-          gap: 8px;
-
-          color:
-            rgba(255, 255, 255, 0.58);
-        }
-
-        .hero-scroll span {
-          font-size: 9px;
-
-          letter-spacing:
-            0.25em;
-
-          text-transform: uppercase;
-        }
-
-
-        /* =====================================
-           PROGRESS
-        ===================================== */
-
-        .hero-progress {
-          position: absolute;
-
-          left: 0;
-
-          right: 0;
-
-          bottom: 0;
-
-          z-index: 6;
-
-          height: 2px;
-
-          background:
-            rgba(255, 255, 255, 0.16);
-        }
-
-        .hero-progress-bar {
-          height: 100%;
+          border-radius: 10px;
 
           background: #ffffff;
         }
-
 
         /* =====================================
            TABLET
         ===================================== */
 
-        @media (max-width: 1024px) {
-
-          .hero-section {
-            height: 570px;
-          }
-
-          .hero-content-container {
-            padding:
-              0 30px;
+        @media (max-width: 900px) {
+          .hero {
+            height: 590px;
           }
 
           .hero-content {
-            max-width: 540px;
+            padding-left: 6%;
           }
 
-          .hero-title {
+          .hero-copy h1 {
             font-size:
               clamp(
-                52px,
-                8vw,
-                76px
+                58px,
+                9vw,
+                90px
               );
           }
-
-          .hero-description {
-            max-width: 450px;
-
-            font-size: 15px;
-          }
-
-          .hero-slide-number {
-            right: 30px;
-          }
-
-          .hero-controls {
-            right: 30px;
-
-            bottom: 68px;
-          }
-
-          .hero-bottom-info {
-            padding:
-              0 30px;
-          }
         }
-
 
         /* =====================================
            MOBILE
         ===================================== */
 
-        @media (max-width: 768px) {
-
-          .hero-section {
-            height: 540px;
+        @media (max-width: 600px) {
+          .hero {
+            height: 560px;
           }
 
-          .hero-slide-image {
-            background-position:
-              62% center;
-          }
-
-          .hero-local-image {
-            object-position:
-              62% center !important;
+          .hero-image {
+            object-position: 62% center;
           }
 
           .hero-overlay {
             background:
               linear-gradient(
                 90deg,
-                rgba(0, 0, 0, 0.76) 0%,
-                rgba(0, 0, 0, 0.56) 48%,
-                rgba(0, 0, 0, 0.20) 100%
+                rgba(0, 0, 0, 0.78) 0%,
+                rgba(0, 0, 0, 0.53) 55%,
+                rgba(0, 0, 0, 0.18) 100%
               );
           }
 
-          .hero-content-container {
-            padding:
-              0 22px;
+          .hero-brand {
+            top: 23px;
+
+            left: 22px;
+
+            font-size: 7px;
+
+            letter-spacing: 0.23em;
           }
 
-          .hero-content {
-            width: 100%;
-
-            max-width: 520px;
-          }
-
-          .hero-label {
-            gap: 9px;
-
-            margin-bottom: 18px;
-          }
-
-          .hero-label-line {
-            width: 28px;
-          }
-
-          .hero-label-text {
-            font-size: 9px;
-
-            letter-spacing:
-              0.18em;
-          }
-
-          .hero-title {
-            font-size:
-              clamp(
-                46px,
-                13vw,
-                68px
-              );
-
-            line-height: 0.92;
-          }
-
-          .hero-description {
-            margin-top: 22px;
-
-            max-width: 430px;
-
-            font-size: 14px;
-
-            line-height: 1.65;
-          }
-
-          .hero-button-wrapper {
-            margin-top: 26px;
-          }
-
-          .hero-button {
-            padding:
-              12px 14px 12px 20px;
-
-            gap: 10px;
-
-            font-size: 12px;
-          }
-
-          .hero-button-icon {
-            width: 28px;
-
-            height: 28px;
-          }
-
-          .hero-slide-number {
+          .hero-number {
             top: 23px;
 
             right: 22px;
 
-            font-size: 9px;
+            font-size: 8px;
           }
 
-          .hero-controls {
+          .hero-content {
+            padding: 0 24px;
+          }
+
+          .hero-eyebrow {
+            gap: 9px;
+
+            margin-bottom: 21px;
+
+            font-size: 8px;
+
+            letter-spacing: 0.19em;
+          }
+
+          .eyebrow-line {
+            width: 26px;
+          }
+
+          .hero-copy h1 {
+            font-size: 56px;
+
+            line-height: 0.9;
+          }
+
+          .hero-description {
+            max-width: 310px;
+
+            margin-top: 25px;
+
+            font-size: 12px;
+
+            line-height: 1.7;
+          }
+
+          .hero-button-wrapper {
+            margin-top: 28px;
+          }
+
+          .shop-button {
+            min-height: 50px;
+
+            padding:
+              6px 7px 6px 20px;
+
+            gap: 12px;
+
+            font-size: 9px;
+
+            letter-spacing: 0.1em;
+          }
+
+          .shop-button-arrow {
+            width: 35px;
+
+            height: 35px;
+          }
+
+          .hero-bottom-left {
             left: 22px;
 
-            right: auto;
+            bottom: 22px;
 
-            bottom: 67px;
+            font-size: 6px;
 
-            gap: 8px;
+            letter-spacing: 0.16em;
+
+            gap: 6px;
           }
 
-          .hero-arrow {
-            width: 37px;
-
-            height: 37px;
+          .hero-indicator {
+            display: none;
           }
 
           .hero-dots {
-            gap: 5px;
-          }
+            left: auto;
 
-          .hero-dot {
-            width: 5px;
+            right: 22px;
 
-            height: 5px;
-          }
+            bottom: 23px;
 
-          .hero-dot-active {
-            width: 21px;
-          }
-
-          .hero-bottom-info {
-            bottom: 17px;
-
-            padding:
-              0 22px;
-          }
-
-          .hero-bottom-text {
-            font-size: 7px;
-
-            letter-spacing:
-              0.18em;
-          }
-
-          .hero-scroll {
-            gap: 5px;
-          }
-
-          .hero-scroll span {
-            font-size: 7px;
-
-            letter-spacing:
-              0.16em;
-          }
-
-          .hero-scroll :global(svg) {
-            width: 13px;
-
-            height: 13px;
+            transform: none;
           }
         }
-
 
         /* =====================================
            SMALL MOBILE
         ===================================== */
 
-        @media (max-width: 480px) {
-
-          .hero-section {
-            height: 500px;
+        @media (max-width: 400px) {
+          .hero {
+            height: 520px;
           }
 
-          .hero-slide-image {
-            background-position:
-              65% center;
+          .hero-content {
+            padding: 0 20px;
           }
 
-          .hero-local-image {
-            object-position:
-              65% center !important;
-          }
-
-          .hero-content-container {
-            padding:
-              0 18px;
-          }
-
-          .hero-label {
-            margin-bottom: 15px;
-          }
-
-          .hero-label-line {
-            width: 22px;
-          }
-
-          .hero-label-text {
-            font-size: 8px;
-
-            letter-spacing:
-              0.14em;
-          }
-
-          .hero-title {
-            font-size: 46px;
-
-            line-height: 0.94;
+          .hero-copy h1 {
+            font-size: 49px;
           }
 
           .hero-description {
-            margin-top: 19px;
+            max-width: 290px;
 
-            max-width: 340px;
+            margin-top: 22px;
 
-            font-size: 12px;
-
-            line-height: 1.6;
+            font-size: 11px;
           }
 
           .hero-button-wrapper {
-            margin-top: 22px;
+            margin-top: 25px;
           }
 
-          .hero-button {
-            padding:
-              11px 13px 11px 17px;
-
-            font-size: 11px;
-
-            gap: 8px;
-          }
-
-          .hero-button-icon {
-            width: 26px;
-
-            height: 26px;
-          }
-
-          .hero-slide-number {
-            top: 19px;
-
-            right: 18px;
-
-            font-size: 8px;
-          }
-
-          .hero-controls {
-            left: 18px;
-
-            bottom: 61px;
-          }
-
-          .hero-arrow {
-            width: 34px;
-
-            height: 34px;
-          }
-
-          .hero-arrow :global(svg) {
-            width: 17px;
-
-            height: 17px;
-          }
-
-          .hero-bottom-info {
-            bottom: 13px;
-
-            padding:
-              0 18px;
-          }
-
-          .hero-bottom-text {
-            font-size: 6px;
-
-            letter-spacing:
-              0.12em;
-          }
-
-          .hero-scroll {
+          .hero-bottom-left {
             display: none;
           }
-        }
 
+          .hero-dots {
+            left: 20px;
 
-        /* =====================================
-           EXTRA SMALL
-        ===================================== */
+            right: auto;
 
-        @media (max-width: 360px) {
-
-          .hero-section {
-            height: 480px;
-          }
-
-          .hero-title {
-            font-size: 41px;
-          }
-
-          .hero-description {
-            font-size: 11px;
-
-            max-width: 310px;
-          }
-
-          .hero-button {
-            padding:
-              10px 12px 10px 15px;
-
-            font-size: 10px;
-          }
-
-          .hero-button-icon {
-            width: 24px;
-
-            height: 24px;
-          }
-
-          .hero-controls {
-            bottom: 57px;
-          }
-
-          .hero-arrow {
-            width: 32px;
-
-            height: 32px;
-          }
-
-          .hero-bottom-text {
-            font-size: 5px;
+            bottom: 22px;
           }
         }
-
-      `}</style>
+      `}
+      </style>
     </section>
   );
 }

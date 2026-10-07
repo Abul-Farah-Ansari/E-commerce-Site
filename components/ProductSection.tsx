@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import WishlistButton from "@/components/WishlistButton";
 
 type Product = {
   _id: string;
@@ -38,7 +39,6 @@ export default function ProductSection({
   limit = 5,
 }: ProductSectionProps) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [visibleCount, setVisibleCount] = useState(limit);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -102,9 +102,6 @@ export default function ProductSection({
         }
 
         setProducts(items);
-
-        // Reset visible products when section type changes
-        setVisibleCount(limit);
       } catch (error) {
         console.error(
           "Product section error:",
@@ -130,10 +127,7 @@ export default function ProductSection({
   ============================================================
   */
 
-  const visibleProducts = products.slice(
-    0,
-    visibleCount
-  );
+  const visibleProducts = products;
 
   /*
   ============================================================
@@ -141,27 +135,11 @@ export default function ProductSection({
   ============================================================
   */
 
-  const hasMore =
-    visibleCount < products.length;
-
   /*
   ============================================================
   VIEW ALL
   ============================================================
   */
-
-  const handleViewAll = () => {
-    if (hasMore) {
-      setVisibleCount(
-        Math.min(
-          visibleCount + limit,
-          products.length
-        )
-      );
-    } else {
-      setVisibleCount(limit);
-    }
-  };
 
   /*
   ============================================================
@@ -254,10 +232,12 @@ export default function ProductSection({
       {!loading &&
         !error &&
         visibleProducts.length > 0 && (
+
           <div className="product-grid">
 
             {visibleProducts.map(
               (product) => (
+
                 <Link
                   key={product._id}
                   href={`/products/${product.slug}`}
@@ -271,6 +251,12 @@ export default function ProductSection({
                         product
                       )}
                       alt={product.name}
+                    />
+
+                    {/* WISHLIST */}
+
+                    <WishlistButton
+                      productId={product._id}
                     />
 
                     {/* QUICK ICON */}
@@ -312,6 +298,7 @@ export default function ProductSection({
                       {product.compareAtPrice &&
                         product.compareAtPrice >
                           product.price && (
+
                           <del>
                             ₹
                             {Number(
@@ -320,6 +307,7 @@ export default function ProductSection({
                               "en-IN"
                             )}
                           </del>
+
                         )}
 
                     </div>
@@ -327,10 +315,12 @@ export default function ProductSection({
                   </div>
 
                 </Link>
+
               )
             )}
 
           </div>
+
         )}
 
       {/* NO PRODUCTS */}
@@ -338,42 +328,11 @@ export default function ProductSection({
       {!loading &&
         !error &&
         products.length === 0 && (
+
           <div className="no-products">
             No products available.
           </div>
-        )}
 
-      {/* VIEW ALL */}
-
-      {!loading &&
-        !error &&
-        products.length > limit && (
-          <div className="view-all-wrapper">
-
-            <button
-              type="button"
-              onClick={handleViewAll}
-              className="view-all-button"
-            >
-
-              <span>
-                {hasMore
-                  ? "View All"
-                  : "Show Less"}
-              </span>
-
-              <Icon
-                icon={
-                  hasMore
-                    ? "solar:arrow-down-linear"
-                    : "solar:arrow-up-linear"
-                }
-                width={18}
-              />
-
-            </button>
-
-          </div>
         )}
 
       <style jsx>{`
@@ -564,29 +523,6 @@ export default function ProductSection({
         }
 
         /* VIEW ALL */
-
-        .view-all-wrapper {
-          display: flex;
-          justify-content: center;
-          padding-top: 55px;
-        }
-
-        .view-all-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 25px;
-          padding: 14px 0;
-          border: 0;
-          border-bottom: 1px solid #111;
-          background: transparent;
-          color: #111;
-          font-family: var(--font-dm-sans);
-          font-size: 8px;
-          font-weight: 700;
-          letter-spacing: .14em;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
 
         /* SKELETON */
 

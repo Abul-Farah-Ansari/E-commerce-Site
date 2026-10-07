@@ -85,7 +85,13 @@ export default function ProductDetailsPage() {
           );
         }
 
-        const fetchedProduct = data?.products?.[0] || null;
+        const fetchedProduct =
+  Array.isArray(data?.products)
+    ? data.products.find(
+        (item: Product) =>
+          item.slug === slug
+      ) || null
+    : null;
 
         if (!fetchedProduct) {
           setProduct(null);

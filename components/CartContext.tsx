@@ -9,6 +9,8 @@ import {
   ReactNode,
 } from "react";
 
+import { usePathname } from "next/navigation";
+
 /*
 |--------------------------------------------------------------------------
 | PRODUCT
@@ -23,38 +25,54 @@ interface ProductCategory {
 
 export interface Product {
   /*
+  |--------------------------------------------------------------------------
   | MongoDB Product _id
-  |
-  | IMPORTANT:
-  | This must be a string, not number.
+  |--------------------------------------------------------------------------
   */
+
   id: string;
 
   name: string;
+
   slug: string;
+
   price: number;
 
   /*
+  |--------------------------------------------------------------------------
   | Old compatibility fields
+  |--------------------------------------------------------------------------
   */
+
   oldPrice?: number;
+
   discount?: number;
+
   image?: string;
 
   /*
+  |--------------------------------------------------------------------------
   | New MongoDB product images
+  |--------------------------------------------------------------------------
   */
+
   images?: string[];
 
   /*
-  | Category can be either the old string
-  | or the new MongoDB category object.
+  |--------------------------------------------------------------------------
+  | Category
+  |--------------------------------------------------------------------------
   */
-  category?: string | ProductCategory | null;
+
+  category?:
+    | string
+    | ProductCategory
+    | null;
 
   description?: string;
 
   sizes?: string[];
+
   colors?: string[];
 
   sku?: string;
@@ -134,13 +152,44 @@ const CartContext =
 |--------------------------------------------------------------------------
 | STORAGE
 |--------------------------------------------------------------------------
+|
+| IMPORTANT:
+|
+| We DO NOT use one common cart anymore.
+|
+| Instead:
+|
+| ecommerce-cart-USER_ID
+|
+| Example:
+|
+| ecommerce-cart-68f123456789012345678901
+|
+|--------------------------------------------------------------------------
 */
 
-const CART_STORAGE_KEY =
+const CART_STORAGE_PREFIX =
+  "ecommerce-cart-";
+
+const LEGACY_CART_STORAGE_KEY =
   "ecommerce-cart";
 
 const CART_UPDATE_EVENT =
   "ecommerce-cart-updated";
+
+/*
+|--------------------------------------------------------------------------
+| AUTH UPDATE EVENT
+|--------------------------------------------------------------------------
+|
+| This allows the cart to refresh when login/logout
+| happens in another component.
+|
+|--------------------------------------------------------------------------
+*/
+
+const AUTH_UPDATE_EVENT =
+  "auth-updated";
 
 /*
 |--------------------------------------------------------------------------
@@ -150,6 +199,7 @@ const CART_UPDATE_EVENT =
 | MongoDB's default ObjectId is a 24-character
 | hexadecimal string.
 |
+|--------------------------------------------------------------------------
 */
 
 function isValidMongoId(
@@ -179,6 +229,101 @@ export function getProductImage(
 
 /*
 |--------------------------------------------------------------------------
+| GET USER ID
+|--------------------------------------------------------------------------
+*/
+
+async function getCurrentUserId(): Promise<
+  string | null
+> {
+  try {
+    const response = await fetch(
+      "/api/auth/me",
+      {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+
+    /*
+     * Your auth API returns the user object.
+     *
+     * We support both:
+     *
+     * data.user.id
+     *
+     * and
+     *
+     * data.user._id
+     */
+
+    const userId =
+      data?.user?.id ||
+      data?.user?._id ||
+      null;
+
+    if (!userId) {
+      return null;
+    }
+
+    return String(userId);
+  } catch (error) {
+    console.error(
+      "Cart auth check error:",
+      error
+    );
+
+    return null;
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| GET USER-SPECIFIC STORAGE KEY
+|--------------------------------------------------------------------------
+*/
+
+function getCartStorageKey(
+  userId: string
+) {
+  return `${CART_STORAGE_PREFIX}${userId}`;
+}
+
+/*
+|--------------------------------------------------------------------------
+| CLEAN CART
+|--------------------------------------------------------------------------
+*/
+
+function validateCart(
+  cart: unknown
+): CartItem[] {
+  if (!Array.isArray(cart)) {
+    return [];
+  }
+
+  return cart.filter(
+    (item: CartItem) => {
+      if (!item?.product) {
+        return false;
+      }
+
+      return isValidMongoId(
+        item.product.id
+      );
+    }
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
 | CART PROVIDER
 |--------------------------------------------------------------------------
 */
@@ -188,24 +333,251 @@ export function CartProvider({
 }: {
   children: ReactNode;
 }) {
+  const pathname = usePathname();
+
+  /*
+  |--------------------------------------------------------------------------
+  | CART STATE
+  |--------------------------------------------------------------------------
+  */
+
   const [cartItems, setCartItems] =
     useState<CartItem[]>([]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CURRENT USER
+  |--------------------------------------------------------------------------
+  */
+
+  const [userId, setUserId] =
+    useState<string | null>(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | AUTH RESOLVED
+  |--------------------------------------------------------------------------
+  |
+  | This is important.
+  |
+  | We must NOT save an empty cart before we know
+  | which user is logged in.
+  |
+  |--------------------------------------------------------------------------
+  */
+
+  const [authResolved, setAuthResolved] =
+    useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CART LOADED
+  |--------------------------------------------------------------------------
+  */
 
   const [isLoaded, setIsLoaded] =
     useState(false);
 
   /*
   |--------------------------------------------------------------------------
-  | LOAD CART FROM LOCAL STORAGE
+  | LOAD CURRENT USER
+  |--------------------------------------------------------------------------
+  |
+  | We check /api/auth/me whenever the route changes.
+  |
+  | This catches:
+  |
+  | Login
+  | Logout
+  | Switching accounts
+  |
   |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadUser = async () => {
+      try {
+        const currentUserId =
+          await getCurrentUserId();
+
+        if (!mounted) {
+          return;
+        }
+
+        setUserId(currentUserId);
+      } catch (error) {
+        console.error(
+          "Current user loading error:",
+          error
+        );
+
+        if (mounted) {
+          setUserId(null);
+        }
+      } finally {
+        if (mounted) {
+          setAuthResolved(true);
+        }
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, [pathname]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | ALSO CHECK AUTH WHEN WINDOW GETS FOCUS
+  |--------------------------------------------------------------------------
+  |
+  | This helps when the user logs in/out and returns
+  | to the existing page.
+  |
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const handleFocus = async () => {
+      const currentUserId =
+        await getCurrentUserId();
+
+      setUserId(
+        currentUserId
+      );
+
+      setAuthResolved(true);
+    };
+
+    const handleVisibilityChange =
+      async () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          await handleFocus();
+        }
+      };
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | AUTH EVENT
+  |--------------------------------------------------------------------------
+  |
+  | If login/logout dispatches "auth-updated",
+  | immediately reload the current user.
+  |
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const handleAuthUpdate =
+      async () => {
+        const currentUserId =
+          await getCurrentUserId();
+
+        setUserId(
+          currentUserId
+        );
+
+        setAuthResolved(true);
+      };
+
+    window.addEventListener(
+      AUTH_UPDATE_EVENT,
+      handleAuthUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        AUTH_UPDATE_EVENT,
+        handleAuthUpdate
+      );
+    };
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD USER-SPECIFIC CART
+  |--------------------------------------------------------------------------
+  |
+  | Whenever userId changes:
+  |
+  | User A
+  |   ↓
+  | ecommerce-cart-A
+  |
+  | User B
+  |   ↓
+  | ecommerce-cart-B
+  |
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NO USER LOGGED IN
+    |--------------------------------------------------------------------------
+    |
+    | Never show another user's cart.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    if (!userId) {
+      setCartItems([]);
+      setIsLoaded(true);
+      return;
+    }
+
     try {
+      const storageKey =
+        getCartStorageKey(
+          userId
+        );
+
       const savedCart =
         localStorage.getItem(
-          CART_STORAGE_KEY
+          storageKey
         );
+
+      /*
+      |--------------------------------------------------------------------------
+      | NO CART FOR THIS USER
+      |--------------------------------------------------------------------------
+      */
 
       if (!savedCart) {
         setCartItems([]);
@@ -213,10 +585,26 @@ export function CartProvider({
         return;
       }
 
+      /*
+      |--------------------------------------------------------------------------
+      | PARSE CART
+      |--------------------------------------------------------------------------
+      */
+
       const parsedCart =
         JSON.parse(savedCart);
 
+      /*
+      |--------------------------------------------------------------------------
+      | INVALID CART
+      |--------------------------------------------------------------------------
+      */
+
       if (!Array.isArray(parsedCart)) {
+        localStorage.removeItem(
+          storageKey
+        );
+
         setCartItems([]);
         setIsLoaded(true);
         return;
@@ -224,42 +612,28 @@ export function CartProvider({
 
       /*
       |--------------------------------------------------------------------------
-      | CLEAN OLD CART DATA
+      | VALIDATE CART ITEMS
       |--------------------------------------------------------------------------
-      |
-      | Previous products used numeric IDs.
-      |
-      | Example:
-      |
-      | Old:
-      | id: 1
-      |
-      | New:
-      | id: "68fxxxxxxxxxxxxxxxxxxxx"
-      |
-      | We remove old numeric products automatically.
-      |
       */
 
       const validCart =
-        parsedCart.filter(
-          (item: CartItem) => {
-            if (!item?.product) {
-              return false;
-            }
-
-            return isValidMongoId(
-              item.product.id
-            );
-          }
+        validateCart(
+          parsedCart
         );
-
-      setCartItems(validCart);
 
       /*
       |--------------------------------------------------------------------------
-      | If old/invalid cart items existed,
-      | update localStorage immediately.
+      | SET CART
+      |--------------------------------------------------------------------------
+      */
+
+      setCartItems(
+        validCart
+      );
+
+      /*
+      |--------------------------------------------------------------------------
+      | CLEAN INVALID DATA
       |--------------------------------------------------------------------------
       */
 
@@ -268,50 +642,121 @@ export function CartProvider({
         parsedCart.length
       ) {
         localStorage.setItem(
-          CART_STORAGE_KEY,
-          JSON.stringify(validCart)
+          storageKey,
+          JSON.stringify(
+            validCart
+          )
         );
       }
     } catch (error) {
       console.error(
-        "Cart loading error:",
+        "User cart loading error:",
         error
       );
 
-      /*
-      | If corrupted cart data exists,
-      | reset it.
-      */
-
       try {
+        const storageKey =
+          getCartStorageKey(
+            userId
+          );
+
         localStorage.removeItem(
-          CART_STORAGE_KEY
+          storageKey
         );
       } catch {
-        // Ignore storage cleanup error
+        // Ignore storage cleanup errors
       }
 
       setCartItems([]);
     } finally {
       setIsLoaded(true);
     }
-  }, []);
+  }, [
+    userId,
+    authResolved,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
-  | SAVE CART TO LOCAL STORAGE
+  | REMOVE OLD GLOBAL CART
+  |--------------------------------------------------------------------------
+  |
+  | IMPORTANT:
+  |
+  | Your previous implementation used:
+  |
+  | ecommerce-cart
+  |
+  | That cart doesn't belong to a specific user.
+  |
+  | We remove it once so it cannot leak into
+  | another account.
+  |
   |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+
+    try {
+      localStorage.removeItem(
+        LEGACY_CART_STORAGE_KEY
+      );
+    } catch {
+      // Ignore cleanup error
+    }
+  }, [authResolved]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SAVE CART TO USER-SPECIFIC LOCAL STORAGE
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    /*
+    |--------------------------------------------------------------------------
+    | DO NOT SAVE UNTIL AUTH IS KNOWN
+    |--------------------------------------------------------------------------
+    */
+
+    if (!authResolved) {
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DO NOT SAVE CART FOR LOGGED-OUT USER
+    |--------------------------------------------------------------------------
+    */
+
+    if (!userId) {
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DO NOT SAVE BEFORE CART IS LOADED
+    |--------------------------------------------------------------------------
+    */
+
     if (!isLoaded) {
       return;
     }
 
     try {
+      const storageKey =
+        getCartStorageKey(
+          userId
+        );
+
       localStorage.setItem(
-        CART_STORAGE_KEY,
-        JSON.stringify(cartItems)
+        storageKey,
+        JSON.stringify(
+          cartItems
+        )
       );
     } catch (error) {
       console.error(
@@ -319,7 +764,12 @@ export function CartProvider({
         error
       );
     }
-  }, [cartItems, isLoaded]);
+  }, [
+    cartItems,
+    userId,
+    authResolved,
+    isLoaded,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -328,59 +778,96 @@ export function CartProvider({
   */
 
   useEffect(() => {
-    const handleCartUpdate = () => {
-      try {
-        const savedCart =
-          localStorage.getItem(
-            CART_STORAGE_KEY
+    if (!userId) {
+      return;
+    }
+
+    const storageKey =
+      getCartStorageKey(
+        userId
+      );
+
+    /*
+    |--------------------------------------------------------------------------
+    | HANDLE CART UPDATE
+    |--------------------------------------------------------------------------
+    */
+
+    const handleCartUpdate =
+      () => {
+        try {
+          const savedCart =
+            localStorage.getItem(
+              storageKey
+            );
+
+          if (!savedCart) {
+            setCartItems([]);
+            return;
+          }
+
+          const parsedCart =
+            JSON.parse(
+              savedCart
+            );
+
+          const validCart =
+            validateCart(
+              parsedCart
+            );
+
+          setCartItems(
+            validCart
           );
-
-        if (!savedCart) {
-          setCartItems([]);
-          return;
-        }
-
-        const parsedCart =
-          JSON.parse(savedCart);
-
-        if (!Array.isArray(parsedCart)) {
-          setCartItems([]);
-          return;
-        }
-
-        const validCart =
-          parsedCart.filter(
-            (item: CartItem) =>
-              item?.product &&
-              isValidMongoId(
-                item.product.id
-              )
+        } catch (error) {
+          console.error(
+            "Cart sync error:",
+            error
           );
+        }
+      };
 
-        setCartItems(validCart);
-      } catch (error) {
-        console.error(
-          "Cart sync error:",
-          error
-        );
-      }
-    };
+    /*
+    |--------------------------------------------------------------------------
+    | HANDLE STORAGE EVENT
+    |--------------------------------------------------------------------------
+    */
 
     const handleStorage = (
       event: StorageEvent
     ) => {
+      /*
+      |--------------------------------------------------------------------------
+      | IMPORTANT:
+      |
+      | Only respond to THIS user's cart key.
+      |--------------------------------------------------------------------------
+      */
+
       if (
         event.key ===
-        CART_STORAGE_KEY
+        storageKey
       ) {
         handleCartUpdate();
       }
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | CUSTOM CART EVENT
+    |--------------------------------------------------------------------------
+    */
+
     window.addEventListener(
       CART_UPDATE_EVENT,
       handleCartUpdate
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | BROWSER STORAGE EVENT
+    |--------------------------------------------------------------------------
+    */
 
     window.addEventListener(
       "storage",
@@ -398,7 +885,7 @@ export function CartProvider({
         handleStorage
       );
     };
-  }, []);
+  }, [userId]);
 
   /*
   |--------------------------------------------------------------------------
@@ -433,11 +920,29 @@ export function CartProvider({
   ) => {
     /*
     |--------------------------------------------------------------------------
-    | Validate MongoDB ID
+    | USER MUST BE LOGGED IN
     |--------------------------------------------------------------------------
     */
 
-    if (!isValidMongoId(product.id)) {
+    if (!userId) {
+      console.error(
+        "Cannot add to cart without a logged-in user."
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATE MONGODB ID
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      !isValidMongoId(
+        product.id
+      )
+    ) {
       console.error(
         "Invalid MongoDB product ID:",
         product.id
@@ -448,18 +953,21 @@ export function CartProvider({
 
     /*
     |--------------------------------------------------------------------------
-    | Validate quantity
+    | VALIDATE QUANTITY
     |--------------------------------------------------------------------------
     */
 
-    let selectedQuantity = Math.max(
-      1,
-      Number(quantity || 1)
-    );
+    let selectedQuantity =
+      Math.max(
+        1,
+        Number(
+          quantity || 1
+        )
+      );
 
     /*
     |--------------------------------------------------------------------------
-    | Respect stock
+    | RESPECT STOCK
     |--------------------------------------------------------------------------
     */
 
@@ -477,7 +985,7 @@ export function CartProvider({
 
     /*
     |--------------------------------------------------------------------------
-    | Normalize variant values
+    | NORMALIZE VARIANTS
     |--------------------------------------------------------------------------
     */
 
@@ -489,7 +997,7 @@ export function CartProvider({
 
     /*
     |--------------------------------------------------------------------------
-    | Add / Replace existing item
+    | ADD / REPLACE EXISTING ITEM
     |--------------------------------------------------------------------------
     */
 
@@ -508,15 +1016,19 @@ export function CartProvider({
 
         /*
         |--------------------------------------------------------------------------
-        | Existing product
+        | EXISTING PRODUCT
         |--------------------------------------------------------------------------
         */
 
         if (
-          existingIndex !== -1
+          existingIndex !==
+          -1
         ) {
           return currentItems.map(
-            (item, index) => {
+            (
+              item,
+              index
+            ) => {
               if (
                 index !==
                 existingIndex
@@ -528,8 +1040,9 @@ export function CartProvider({
                 ...item,
 
                 /*
-                | Keep the newest MongoDB
-                | product information.
+                |--------------------------------------------------------------------------
+                | Keep newest product information
+                |--------------------------------------------------------------------------
                 */
 
                 product,
@@ -549,7 +1062,7 @@ export function CartProvider({
 
         /*
         |--------------------------------------------------------------------------
-        | New product
+        | NEW PRODUCT
         |--------------------------------------------------------------------------
         */
 
@@ -630,11 +1143,13 @@ export function CartProvider({
 
     /*
     |--------------------------------------------------------------------------
-    | Remove if quantity is zero
+    | REMOVE IF QUANTITY IS ZERO
     |--------------------------------------------------------------------------
     */
 
-    if (quantity <= 0) {
+    if (
+      quantity <= 0
+    ) {
       removeFromCart(
         productId,
         size,
@@ -662,17 +1177,20 @@ export function CartProvider({
             let newQuantity =
               Math.max(
                 1,
-                Number(quantity)
+                Number(
+                  quantity
+                )
               );
 
             /*
             |--------------------------------------------------------------------------
-            | Don't allow quantity above stock
+            | DON'T ALLOW QUANTITY ABOVE STOCK
             |--------------------------------------------------------------------------
             */
 
             if (
-              typeof item.product
+              typeof item
+                .product
                 .stock ===
                 "number" &&
               item.product.stock >
@@ -712,19 +1230,26 @@ export function CartProvider({
 
     /*
     |--------------------------------------------------------------------------
-    | Remove localStorage immediately
+    | REMOVE ONLY CURRENT USER'S CART
     |--------------------------------------------------------------------------
     */
 
-    try {
-      localStorage.removeItem(
-        CART_STORAGE_KEY
-      );
-    } catch (error) {
-      console.error(
-        "Clear cart storage error:",
-        error
-      );
+    if (userId) {
+      try {
+        const storageKey =
+          getCartStorageKey(
+            userId
+          );
+
+        localStorage.removeItem(
+          storageKey
+        );
+      } catch (error) {
+        console.error(
+          "Clear cart storage error:",
+          error
+        );
+      }
     }
 
     setTimeout(() => {
@@ -740,7 +1265,10 @@ export function CartProvider({
 
   const cartCount = useMemo(() => {
     return cartItems.reduce(
-      (total, item) =>
+      (
+        total,
+        item
+      ) =>
         total +
         Number(
           item.quantity || 0
@@ -757,13 +1285,18 @@ export function CartProvider({
 
   const cartTotal = useMemo(() => {
     return cartItems.reduce(
-      (total, item) =>
+      (
+        total,
+        item
+      ) =>
         total +
         Number(
-          item.product.price || 0
+          item.product.price ||
+            0
         ) *
           Number(
-            item.quantity || 0
+            item.quantity ||
+              0
           ),
       0
     );
@@ -822,7 +1355,9 @@ export function CartProvider({
 
 export function useCart() {
   const context =
-    useContext(CartContext);
+    useContext(
+      CartContext
+    );
 
   if (!context) {
     throw new Error(

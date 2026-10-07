@@ -12,6 +12,7 @@ import { Icon } from "@iconify/react";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import WishlistButton from "@/components/WishlistButton";
 
 type Category = {
   _id: string;
@@ -57,6 +58,8 @@ type Product = {
 
   featured?: boolean;
   newArrival?: boolean;
+  trending?: boolean;
+  sale?: boolean;
 
   createdAt?: string;
   updatedAt?: string;
@@ -119,7 +122,6 @@ function ProductsPageContent() {
     setSort(sortFromUrl || "featured");
   }, [sortFromUrl]);
 
-
   /*
    * =====================================================
    * LOAD PRODUCTS + CATEGORIES
@@ -164,11 +166,12 @@ function ProductsPageContent() {
 
         if (!mounted) return;
 
-        const productList = Array.isArray(
-          productsData?.products
-        )
-          ? productsData.products
-          : [];
+        const productList =
+          Array.isArray(
+            productsData?.products
+          )
+            ? productsData.products
+            : [];
 
         const categoryList =
           Array.isArray(
@@ -217,7 +220,6 @@ function ProductsPageContent() {
       mounted = false;
     };
   }, []);
-
 
   /*
    * =====================================================
@@ -290,7 +292,6 @@ function ProductsPageContent() {
         100
     );
   };
-
 
   /*
    * =====================================================
@@ -411,7 +412,6 @@ function ProductsPageContent() {
     sort,
   ]);
 
-
   /*
    * =====================================================
    * CLEAR FILTERS
@@ -429,7 +429,6 @@ function ProductsPageContent() {
       "/products"
     );
   };
-
 
   /*
    * =====================================================
@@ -468,7 +467,6 @@ function ProductsPageContent() {
     );
   };
 
-
   /*
    * =====================================================
    * CATEGORY CHANGE
@@ -506,7 +504,6 @@ function ProductsPageContent() {
     );
   };
 
-
   /*
    * =====================================================
    * LOADING
@@ -519,8 +516,16 @@ function ProductsPageContent() {
         <Navbar />
 
         <main className="products-page">
-
           <section className="products-hero">
+            <div className="hero-image">
+              <img
+                src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85"
+                alt=""
+              />
+            </div>
+
+            <div className="hero-overlay" />
+
             <div className="hero-content">
               <span>
                 HOUSE OF ORIVE
@@ -539,7 +544,6 @@ function ProductsPageContent() {
           </section>
 
           <section className="products-content">
-
             <div className="products-heading">
               <div>
                 <span>
@@ -561,22 +565,24 @@ function ProductsPageContent() {
                   key={index}
                 >
                   <div className="skeleton-image" />
+
                   <div className="skeleton-line large" />
+
                   <div className="skeleton-line small" />
                 </div>
               ))}
             </div>
-
           </section>
         </main>
 
         <Footer />
 
-        <style jsx>{productsStyles}</style>
+        <style jsx>
+          {productsStyles}
+        </style>
       </>
     );
   }
-
 
   /*
    * =====================================================
@@ -590,7 +596,6 @@ function ProductsPageContent() {
         <Navbar />
 
         <main className="products-state">
-
           <span>!</span>
 
           <small>
@@ -620,16 +625,16 @@ function ProductsPageContent() {
 
             Try Again
           </button>
-
         </main>
 
         <Footer />
 
-        <style jsx>{productsStyles}</style>
+        <style jsx>
+          {productsStyles}
+        </style>
       </>
     );
   }
-
 
   return (
     <>
@@ -646,7 +651,7 @@ function ProductsPageContent() {
           <div className="hero-image">
             <img
               src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85"
-              alt=""
+              alt="House of Orive collection"
             />
           </div>
 
@@ -682,7 +687,6 @@ function ProductsPageContent() {
 
         </section>
 
-
         {/* =================================================
             CONTENT
         ================================================= */}
@@ -715,7 +719,6 @@ function ProductsPageContent() {
 
           </div>
 
-
           {/* =================================================
               MOBILE FILTER BUTTON
           ================================================= */}
@@ -739,12 +742,11 @@ function ProductsPageContent() {
 
             <span>
               {selectedCategory ||
-                search
+              search
                 ? "Active"
                 : ""}
             </span>
           </button>
-
 
           <div
             className={
@@ -776,7 +778,6 @@ function ProductsPageContent() {
                 </button>
 
               </div>
-
 
               {/* SEARCH */}
 
@@ -826,7 +827,6 @@ function ProductsPageContent() {
                 </div>
 
               </div>
-
 
               {/* CATEGORIES */}
 
@@ -898,7 +898,6 @@ function ProductsPageContent() {
 
               </div>
 
-
               {/* SORT */}
 
               <div className="filter-block">
@@ -936,7 +935,6 @@ function ProductsPageContent() {
 
             </aside>
 
-
             {/* =================================================
                 PRODUCT AREA
             ================================================= */}
@@ -967,13 +965,13 @@ function ProductsPageContent() {
 
               </div>
 
+              {filteredProducts.length > 0 ? (
 
-              {filteredProducts.length >
-              0 ? (
                 <div className="products-grid">
 
                   {filteredProducts.map(
                     (product) => {
+
                       const image =
                         product.images?.[0] ||
                         FALLBACK_IMAGE;
@@ -1017,6 +1015,13 @@ function ProductsPageContent() {
                               }}
                             />
 
+                            {/* WISHLIST */}
+
+                            <WishlistButton
+                              productId={
+                                product._id
+                              }
+                            />
 
                             {/* BADGES */}
 
@@ -1036,7 +1041,6 @@ function ProductsPageContent() {
 
                             </div>
 
-
                             {/* STOCK */}
 
                             {outOfStock && (
@@ -1046,7 +1050,6 @@ function ProductsPageContent() {
                                 </span>
                               </div>
                             )}
-
 
                             {/* VIEW */}
 
@@ -1065,7 +1068,6 @@ function ProductsPageContent() {
                             </div>
 
                           </Link>
-
 
                           {/* PRODUCT INFO */}
 
@@ -1114,11 +1116,8 @@ function ProductsPageContent() {
                   )}
 
                 </div>
-              ) : (
 
-                /* =================================================
-                   EMPTY SEARCH/FILTER
-                ================================================= */
+              ) : (
 
                 <div className="empty-products">
 
@@ -1150,6 +1149,7 @@ function ProductsPageContent() {
                   </button>
 
                 </div>
+
               )}
 
             </div>
@@ -1157,7 +1157,6 @@ function ProductsPageContent() {
           </div>
 
         </section>
-
 
         {/* =================================================
             EDITORIAL CLOSING
@@ -1185,6 +1184,7 @@ function ProductsPageContent() {
             </p>
 
             <Link href="/categories">
+
               Explore Collections
 
               <Icon
@@ -1192,6 +1192,7 @@ function ProductsPageContent() {
                 width={17}
                 height={17}
               />
+
             </Link>
 
           </div>
@@ -1211,13 +1212,13 @@ function ProductsPageContent() {
 
       <Footer />
 
-      <style jsx>{productsStyles}</style>
-    </>
-    
-  );
-  
-}
+      <style jsx>
+        {productsStyles}
+      </style>
 
+    </>
+  );
+}
 
 /*
 =========================================================
@@ -1390,7 +1391,7 @@ const productsStyles = `
 
   .products-layout {
     display: grid;
-    grid-template-columns: 220px minmax(0,1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
     gap: 50px;
     align-items: start;
   }
@@ -1400,143 +1401,159 @@ const productsStyles = `
     top: 110px;
   }
 
-  .filter-header {
-    padding-bottom: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #dededb;
-  }
+  /* =====================================================
+   FILTER SIDEBAR — UPDATED FONT SIZES
+===================================================== */
 
-  .filter-header > span {
-    font-family: var(--font-dm-sans);
-    font-size: 7px;
-    font-weight: 700;
-    letter-spacing: .18em;
-  }
+.filter-header {
+  padding-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dededb;
+}
 
-  .filter-header button {
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: #888888;
-    font-family: var(--font-dm-sans);
-    font-size: 7px;
-    cursor: pointer;
-    text-transform: uppercase;
-  }
+.filter-header > span {
+  font-family: var(--font-dm-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
 
-  .filter-block {
-    padding: 23px 0;
-    border-bottom: 1px solid #e8e8e5;
-  }
+.filter-header button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #777777;
+  font-family: var(--font-dm-sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  cursor: pointer;
+  text-transform: uppercase;
+}
 
-  .filter-block > label {
-    display: block;
-    margin-bottom: 13px;
-    color: #999999;
-    font-family: var(--font-dm-sans);
-    font-size: 6px;
-    font-weight: 700;
-    letter-spacing: .16em;
-  }
+.filter-block {
+  padding: 27px 0;
+  border-bottom: 1px solid #e8e8e5;
+}
 
-  .filter-search {
-    height: 40px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 10px;
-    border: 1px solid #dededb;
-  }
+.filter-block > label {
+  display: block;
+  margin-bottom: 15px;
+  color: #999999;
+  font-family: var(--font-dm-sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .15em;
+}
 
-  .filter-search svg {
-    flex-shrink: 0;
-    color: #777777;
-  }
+/* SEARCH */
 
-  .filter-search input {
-    width: 100%;
-    min-width: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: #111111;
-    font-family: var(--font-dm-sans);
-    font-size: 9px;
-  }
+.filter-search {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border: 1px solid #dededb;
+}
 
-  .filter-search input::placeholder {
-    color: #aaa;
-  }
+.filter-search svg {
+  flex-shrink: 0;
+  color: #777777;
+}
 
-  .filter-search button {
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: #888888;
-    cursor: pointer;
-  }
+.filter-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111111;
+  font-family: var(--font-dm-sans);
+  font-size: 12px;
+}
 
-  .category-filter {
-    display: flex;
-    flex-direction: column;
-  }
+.filter-search input::placeholder {
+  color: #999999;
+  opacity: 1;
+}
 
-  .category-filter button {
-    min-height: 35px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border: 0;
-    border-bottom: 1px solid #eeeeec;
-    background: transparent;
-    color: #777777;
-    font-family: var(--font-dm-sans);
-    font-size: 8px;
-    text-align: left;
-    cursor: pointer;
-    transition: color .2s ease;
-  }
+.filter-search button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #777777;
+  cursor: pointer;
+}
 
-  .category-filter button:hover,
-  .category-filter button.active {
-    color: #111111;
-  }
+/* CATEGORY */
 
-  .category-filter button.active span {
-    font-weight: 700;
-  }
+.category-filter {
+  display: flex;
+  flex-direction: column;
+}
 
-  .category-filter button small {
-    color: #aaa;
-    font-size: 7px;
-  }
+.category-filter button {
+  min-height: 52px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid #eeeeec;
+  background: transparent;
+  color: #666666;
+  font-family: var(--font-dm-sans);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color .2s ease,
+    padding .2s ease;
+}
 
-  .category-filter button svg {
-    opacity: 0;
-    transition: opacity .2s ease;
-  }
+.category-filter button:hover,
+.category-filter button.active {
+  color: #111111;
+}
 
-  .category-filter button:hover svg,
-  .category-filter button.active svg {
-    opacity: 1;
-  }
+.category-filter button.active span {
+  font-weight: 700;
+}
 
-  .filter-block select {
-    width: 100%;
-    height: 40px;
-    padding: 0 10px;
-    border: 1px solid #dededb;
-    outline: 0;
-    background: #ffffff;
-    color: #333333;
-    font-family: var(--font-dm-sans);
-    font-size: 8px;
-    cursor: pointer;
-  }
+.category-filter button small {
+  color: #999999;
+  font-family: var(--font-dm-sans);
+  font-size: 10px;
+}
 
+.category-filter button svg {
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.category-filter button:hover svg,
+.category-filter button.active svg {
+  opacity: 1;
+}
+
+/* SORT */
+
+.filter-block select {
+  width: 100%;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid #dededb;
+  outline: 0;
+  background: #ffffff;
+  color: #333333;
+  font-family: var(--font-dm-sans);
+  font-size: 11px;
+  cursor: pointer;
+}
   /* =====================================================
      MOBILE FILTER BUTTON
   ===================================================== */
@@ -1589,7 +1606,7 @@ const productsStyles = `
 
   .products-grid {
     display: grid;
-    grid-template-columns: repeat(3,minmax(0,1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 38px 18px;
   }
 
@@ -1614,7 +1631,7 @@ const productsStyles = `
     object-fit: cover;
     transition:
       transform .75s
-      cubic-bezier(.22,1,.36,1);
+      cubic-bezier(.22, 1, .36, 1);
   }
 
   .product-card:hover .product-image {
@@ -1625,6 +1642,7 @@ const productsStyles = `
     position: absolute;
     top: 12px;
     left: 12px;
+    z-index: 10;
     display: flex;
     gap: 5px;
   }
@@ -1648,6 +1666,7 @@ const productsStyles = `
   .stock-overlay {
     position: absolute;
     inset: 0;
+    z-index: 5;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1670,6 +1689,7 @@ const productsStyles = `
     left: 12px;
     right: 12px;
     bottom: 12px;
+    z-index: 8;
     min-height: 43px;
     padding: 0 13px;
     display: flex;
@@ -1879,7 +1899,7 @@ const productsStyles = `
   .closing-copy h2 {
     margin: 22px 0 0;
     font-family: var(--font-bodoni);
-    font-size: clamp(58px,6vw,90px);
+    font-size: clamp(58px, 6vw, 90px);
     font-weight: 400;
     line-height: .78;
     letter-spacing: -.055em;
@@ -1994,6 +2014,7 @@ const productsStyles = `
   ===================================================== */
 
   @media (max-width: 1100px) {
+
     .hero-content,
     .products-content,
     .products-closing {
@@ -2002,17 +2023,18 @@ const productsStyles = `
     }
 
     .products-layout {
-      grid-template-columns: 190px minmax(0,1fr);
+      grid-template-columns: 190px minmax(0, 1fr);
       gap: 30px;
     }
 
     .products-grid {
       grid-template-columns:
-        repeat(2,minmax(0,1fr));
+        repeat(2, minmax(0, 1fr));
     }
   }
 
   @media (max-width: 700px) {
+
     .products-hero {
       min-height: 480px;
     }
@@ -2101,7 +2123,7 @@ const productsStyles = `
 
     .products-grid {
       grid-template-columns:
-        repeat(2,minmax(0,1fr));
+        repeat(2, minmax(0, 1fr));
       gap: 30px 10px;
     }
 
@@ -2172,6 +2194,7 @@ const productsStyles = `
   }
 
   @media (max-width: 390px) {
+
     .hero-content h1 {
       font-size: 65px;
     }
@@ -2189,7 +2212,8 @@ const productsStyles = `
     }
   }
 
-   @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce) {
+
     .product-image,
     .view-product,
     .skeleton-image {
