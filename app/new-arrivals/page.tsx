@@ -1129,7 +1129,7 @@ export default function NewArrivalsPage() {
 
       <style jsx>{`
         .new-arrivals-page {
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
           overflow: hidden;
         }
@@ -1505,7 +1505,7 @@ export default function NewArrivalsPage() {
           left: 57px;
           z-index: 2;
           padding: 7px 9px;
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
           font-family: var(--font-body);
           font-size: 8px;
@@ -1807,7 +1807,7 @@ export default function NewArrivalsPage() {
         }
 
         .state-box button:hover {
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
         }
 
@@ -1932,7 +1932,7 @@ export default function NewArrivalsPage() {
         }
 
         .editorial-content a:hover {
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
         }
 

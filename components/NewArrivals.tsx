@@ -505,7 +505,7 @@ export default function NewArrivals() {
 
         .new-arrivals-section {
           width: 100%;
-          background: #ffffff;
+          background: #FAF8F5;
           padding: 100px 0;
           overflow: hidden;
         }
@@ -673,7 +673,7 @@ export default function NewArrivals() {
           top: 15px;
           left: 15px;
           padding: 7px 11px;
-          background: #ffffff;
+          background: #FAF8F5;
           border-radius: 999px;
           color: #111111;
           font-size: 9px;
@@ -737,7 +737,7 @@ export default function NewArrivals() {
           height: 40px;
           border: none;
           border-radius: 50%;
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
           display: flex;
           align-items: center;
@@ -764,7 +764,7 @@ export default function NewArrivals() {
 
         .new-arrivals-details {
           padding: 19px 20px 20px;
-          background: #ffffff;
+          background: #FAF8F5;
         }
 
         .new-arrivals-info-link {

@@ -175,7 +175,7 @@ export default function Benefits() {
         }
 
         .benefit-card:hover .benefit-icon {
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
           transform: rotate(-6deg);
         }

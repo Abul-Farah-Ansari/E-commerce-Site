@@ -635,12 +635,11 @@ export default function ProductSection({
             font-size: 12px;
           }
 
-          .product-arrow {
-            opacity: 1;
-            width: 32px;
-            height: 32px;
-            transform: none;
-          }
+         
+.product-arrow {
+  display: none;
+}
+
 
         }
 

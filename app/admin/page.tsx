@@ -1604,7 +1604,7 @@ const dashboardStyles = `
     gap: 8px;
     box-sizing: border-box;
     border: 1px solid #e6e6e6;
-    background: #ffffff;
+    background: #FAF8F5;
     color: #666666;
     font-size: 10px;
     white-space: nowrap;
@@ -1648,7 +1648,7 @@ const dashboardStyles = `
     padding: 20px;
     box-sizing: border-box;
     border: 1px solid #e7e7e7;
-    background: #ffffff;
+    background: #FAF8F5;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -1755,7 +1755,7 @@ const dashboardStyles = `
     gap: 11px;
     box-sizing: border-box;
     border: 1px solid #e8e8e8;
-    background: #ffffff;
+    background: #FAF8F5;
     color: #111111;
     text-decoration: none;
     transition:
@@ -1826,7 +1826,7 @@ const dashboardStyles = `
   .dashboard-card {
     min-width: 0;
     border: 1px solid #e7e7e7;
-    background: #ffffff;
+    background: #FAF8F5;
   }
 
 
@@ -2411,7 +2411,7 @@ const dashboardStyles = `
     gap: 12px;
     box-sizing: border-box;
     border: 1px solid #e7e7e7;
-    background: #ffffff;
+    background: #FAF8F5;
     color: #111111;
     text-decoration: none;
     transition:

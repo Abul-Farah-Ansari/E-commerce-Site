@@ -342,7 +342,7 @@ export default function Footer() {
         }
 
         .footer-social a:hover {
-          background: #ffffff;
+          background: #FAF8F5;
           border-color: #ffffff;
           color: #111111;
 
@@ -438,7 +438,7 @@ export default function Footer() {
         }
 
         .contact-item:hover .contact-icon {
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
         }
 

@@ -1229,7 +1229,7 @@ STYLES
 const productsStyles = `
   .products-page {
     width: 100%;
-    background: #ffffff;
+    background: #FAF8F5;
     color: #111111;
   }
 
@@ -1548,7 +1548,7 @@ const productsStyles = `
   padding: 0 12px;
   border: 1px solid #dededb;
   outline: 0;
-  background: #ffffff;
+  background: #FAF8F5;
   color: #333333;
   font-family: var(--font-dm-sans);
   font-size: 11px;
@@ -1649,7 +1649,7 @@ const productsStyles = `
 
   .product-badges span {
     padding: 7px 8px;
-    background: #ffffff;
+    background: #FAF8F5;
     color: #111111;
     font-family: var(--font-dm-sans);
     font-size: 6px;
@@ -2083,7 +2083,7 @@ const productsStyles = `
       align-items: center;
       justify-content: space-between;
       border: 1px solid #dededb;
-      background: #ffffff;
+      background: #FAF8F5;
       color: #111111;
       font-family: var(--font-dm-sans);
       font-size: 7px;

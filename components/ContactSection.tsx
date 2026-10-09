@@ -463,7 +463,7 @@ export default function ContactSection() {
 
         .contact-form-wrapper {
           padding: 42px;
-          background: #ffffff;
+          background: #FAF8F5;
           border: 1px solid #e9e9e7;
           box-shadow:
             0 25px 70px
@@ -601,7 +601,7 @@ export default function ContactSection() {
         }
 
         .contact-submit:hover {
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
           transform: translateY(-1px);
         }

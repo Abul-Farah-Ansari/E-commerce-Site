@@ -536,7 +536,7 @@ export default function Hero() {
 
           border-radius: 999px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #111111;
 
@@ -612,7 +612,7 @@ export default function Hero() {
           transform:
             translateX(4px);
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #111111;
         }
@@ -702,7 +702,7 @@ export default function Hero() {
         .indicator-progress {
           height: 1px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           transition:
             width 0.5s ease;
@@ -757,7 +757,7 @@ export default function Hero() {
 
           border-radius: 10px;
 
-          background: #ffffff;
+          background: #FAF8F5;
         }
 
         /* =====================================

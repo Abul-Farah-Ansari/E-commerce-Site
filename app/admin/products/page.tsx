@@ -1909,7 +1909,7 @@ const handleDelete = async (
 
           border-radius: 9px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #888888;
 
@@ -2029,7 +2029,7 @@ const handleDelete = async (
 
           border-radius: 12px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
         }
 
@@ -2175,7 +2175,7 @@ const handleDelete = async (
 
           border-radius: 14px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           box-shadow: 0 5px 20px
 
@@ -2423,7 +2423,7 @@ const handleDelete = async (
 
           border-radius: 6px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #444444;
 
@@ -2719,7 +2719,7 @@ const handleDelete = async (
 
           border: 1px solid #dedede;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #333333;
 
@@ -2853,7 +2853,7 @@ const handleDelete = async (
 
           border-radius: 14px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
         }
 

@@ -372,7 +372,7 @@ export default function AdminSidebar({
         ========================================= */
 
         .admin-nav-item-active {
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #111111;
 
@@ -382,7 +382,7 @@ export default function AdminSidebar({
         }
 
         .admin-nav-item-active:hover {
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #111111;
 

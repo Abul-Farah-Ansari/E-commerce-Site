@@ -187,7 +187,7 @@ export default function AdminTopbar({
           align-items: center;
           justify-content: space-between;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           border-bottom: 1px solid #eeeeee;
 
@@ -253,7 +253,7 @@ export default function AdminTopbar({
 
           border-radius: 9px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #111111;
 
@@ -418,7 +418,7 @@ export default function AdminTopbar({
 
           width: 270px;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           border: 1px solid #e5e5e5;
 
@@ -506,7 +506,7 @@ export default function AdminTopbar({
 
           border: none;
 
-          background: #ffffff;
+          background: #FAF8F5;
 
           color: #222222;
 

@@ -121,7 +121,7 @@ export default function PromoBanner() {
         .promo-section {
           width: 100%;
           padding: 100px 0;
-          background: #ffffff;
+          background: #FAF8F5;
           overflow: hidden;
         }
 
@@ -232,7 +232,7 @@ export default function PromoBanner() {
           width: 38px;
           height: 1px;
           flex-shrink: 0;
-          background: #ffffff;
+          background: #FAF8F5;
         }
 
         .promo-label span:last-child {
@@ -301,7 +301,7 @@ export default function PromoBanner() {
           gap: 14px;
           padding: 15px 17px 15px 24px;
           border-radius: 999px;
-          background: #ffffff;
+          background: #FAF8F5;
           color: #111111;
           text-decoration: none;
           font-size: 13px;

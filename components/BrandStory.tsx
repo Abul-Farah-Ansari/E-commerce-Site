@@ -129,7 +129,7 @@ export default function BrandStory() {
         .brand-story {
           width: 100%;
           padding: 110px 24px;
-          background: #ffffff;
+          background: #FAF8F5;
           overflow: hidden;
         }
 

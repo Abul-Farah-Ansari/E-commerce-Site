@@ -437,7 +437,7 @@ export default function Navbar() {
         className={`
           border-b
           border-black/10
-          bg-white
+          bg-[#FAF8F5]
           transition-shadow
           duration-300
           ${
@@ -483,7 +483,9 @@ export default function Navbar() {
           {/* DESKTOP NAV */}
           {/* ================================================= */}
 
-          <nav className="hidden items-center gap-7 lg:flex">
+          
+<nav className="hidden items-center gap-6 lg:ml-10 xl:ml-16 lg:flex">
+
             <Link
               href="/"
               className="text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"

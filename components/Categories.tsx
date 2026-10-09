@@ -67,7 +67,7 @@ export default function Categories() {
       className="categories-section"
       style={{
         width: "100%",
-        background: "#ffffff",
+        background: "#FAF8F5",
         padding: "90px 0",
         overflow: "hidden",
       }}

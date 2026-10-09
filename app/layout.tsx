@@ -1,46 +1,31 @@
+
 import type { Metadata } from "next";
-import { Bodoni_Moda, DM_Sans } from "next/font/google";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
-
 import { CartProvider } from "@/components/CartContext";
+import GlobalAnimations from "@/components/GlobalAnimations";
 
-/* =========================================
-   PREMIUM FASHION DISPLAY FONT
-   Bodoni Moda
-========================================= */
-
-const bodoni = Bodoni_Moda({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-bodoni",
-  display: "swap",
-});
-
-/* =========================================
-   CLEAN LUXURY UI FONT
-   DM Sans
-========================================= */
-
-const dmSans = DM_Sans({
+const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-dm-sans",
+  variable: "--font-cormorant",
   display: "swap",
 });
 
-/* =========================================
-   METADATA
-========================================= */
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
     default: "House of Orive",
     template: "%s | House of Orive",
   },
-
   description:
     "House of Orive — timeless fashion, refined essentials and modern elegance.",
-
   keywords: [
     "House of Orive",
     "fashion",
@@ -50,16 +35,13 @@ export const metadata: Metadata = {
     "online fashion",
     "fashion store",
   ],
-
   applicationName: "House of Orive",
-
   openGraph: {
     title: "House of Orive",
     description:
       "Timeless fashion, refined essentials and modern elegance.",
     type: "website",
   },
-
   twitter: {
     card: "summary_large_image",
     title: "House of Orive",
@@ -67,10 +49,6 @@ export const metadata: Metadata = {
       "Timeless fashion, refined essentials and modern elegance.",
   },
 };
-
-/* =========================================
-   ROOT LAYOUT
-========================================= */
 
 export default function RootLayout({
   children,
@@ -80,10 +58,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bodoni.variable} ${dmSans.variable}`}
+      className={`${cormorant.variable} ${manrope.variable}`}
     >
       <body>
         <CartProvider>
+          <GlobalAnimations />
           {children}
         </CartProvider>
       </body>

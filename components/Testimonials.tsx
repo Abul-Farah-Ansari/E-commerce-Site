@@ -163,7 +163,7 @@ export default function Testimonials() {
 
         .testimonials-section {
           width: 100%;
-          background: #ffffff;
+          background: #FAF8F5;
           padding: 105px 0;
           border-bottom: 1px solid #eeeeec;
         }
@@ -440,7 +440,7 @@ export default function Testimonials() {
           border: 1px solid #e9e9e7;
           border-radius: 15px;
 
-          background: #ffffff;
+          background: #FAF8F5;
         }
 
         .summary-icon {
