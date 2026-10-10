@@ -93,7 +93,7 @@ export default function AdminSidebar({
             }}
           >
             <span className="admin-logo-main">
-              STORE
+              HOUSE OF ORIVE
             </span>
 
             <span className="admin-logo-sub">
@@ -261,7 +261,7 @@ export default function AdminSidebar({
 
           color: #ffffff;
 
-          font-size: 21px;
+          font-size: 18px;
           font-weight: 700;
 
           letter-spacing: 0.08em;
@@ -276,7 +276,7 @@ export default function AdminSidebar({
 
           color: #888888;
 
-          font-size: 8px;
+          font-size: 12px;
 
           letter-spacing: 0.22em;
 

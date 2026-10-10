@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -6,133 +7,32 @@ import {
   Suspense,
   useState,
 } from "react";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@iconify/react";
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [showPassword, setShowPassword] =
-    useState(false);
-
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [rememberMe, setRememberMe] =
-    useState(false);
+  // Admin 2FA challenge state
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [authenticatorCode, setAuthenticatorCode] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
+  const requestedRedirect = searchParams.get("redirect");
 
-  const [error, setError] =
-    useState("");
-
-  const [success, setSuccess] =
-    useState("");
-
-  /*
-  |--------------------------------------------------------------------------
-  | REDIRECT URL
-  |--------------------------------------------------------------------------
-  |
-  | Example:
-  | /login?redirect=/products/classic-oversized-shirt
-  |
-  */
-
-  const redirectPath =
-    searchParams.get("redirect") || "/";
-
-  /*
-  |--------------------------------------------------------------------------
-  | LOGIN
-  |--------------------------------------------------------------------------
-  */
-
-  const handleSubmit = async (
-    e: FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        "/api/auth/login",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          credentials: "include",
-
-          body: JSON.stringify({
-            email: email.trim(),
-            password,
-          }),
-        }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        setError(
-          data.message ||
-            "Login failed."
-        );
-
-        return;
-      }
-
-      setSuccess(
-        `Welcome back, ${data.user.name}!`
-      );
-
-      setPassword("");
-
-      /*
-       * Give the success message a
-       * moment to display, then return
-       * to the page where the user
-       * originally came from.
-       */
-
-      setTimeout(() => {
-        router.replace(
-          redirectPath
-        );
-      }, 500);
-    } catch (error) {
-      console.error(
-        "Login error:",
-        error
-      );
-
-      setError(
-        "Unable to connect to the server."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | STYLES
-  |--------------------------------------------------------------------------
-  */
+  const redirectPath = requestedRedirect?.startsWith("/") &&
+    !requestedRedirect.startsWith("//")
+      ? requestedRedirect
+      : null;
 
   const labelStyle = {
     display: "block",
@@ -148,34 +48,181 @@ function LoginPageContent() {
   } as const;
 
   const inputWrapperStyle = {
-    position: "relative",
+    position: "relative" as const,
     width: "100%",
-  } as const;
+  };
 
   const inputStyle = {
     width: "100%",
     height: "52px",
-    padding:
-      "0 16px 0 46px",
-    border:
-      "1px solid #dddddd",
+    padding: "0 16px 0 46px",
+    border: "1px solid #dddddd",
     borderRadius: "10px",
     outline: "none",
     background: "#ffffff",
     color: "#111111",
     fontSize: "13px",
-    boxSizing: "border-box",
-  } as const;
+    boxSizing: "border-box" as const,
+  };
 
   const iconStyle = {
-    position: "absolute",
+    position: "absolute" as const,
     left: "16px",
     top: "50%",
-    transform:
-      "translateY(-50%)",
+    transform: "translateY(-50%)",
     color: "#777777",
-    pointerEvents: "none",
+    pointerEvents: "none" as const,
+  };
+
+  const buttonStyle = {
+    width: "100%",
+    height: "52px",
+    marginTop: "25px",
+    border: "none",
+    borderRadius: "999px",
+    background: loading ? "#555555" : "#111111",
+    color: "#ffffff",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: loading ? "not-allowed" : "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "9px",
   } as const;
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          rememberMe,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.message || "Login failed.");
+        return;
+      }
+
+      // Admin has entered the correct password but must complete 2FA.
+      if (data.requiresTwoFactor === true) {
+        if (typeof data.challengeToken !== "string") {
+          setError("Unable to start two-factor verification. Please try again.");
+          return;
+        }
+
+        setChallengeToken(data.challengeToken);
+        setRequiresTwoFactor(true);
+        setPassword("");
+        setAuthenticatorCode("");
+        setSuccess("Password verified. Enter your authenticator code.");
+        return;
+      }
+
+      if (!data.user) {
+        setError("The server returned an invalid login response.");
+        return;
+      }
+
+      setSuccess(`Welcome back, ${data.user.name}!`);
+      setPassword("");
+
+      const destination =
+        redirectPath ||
+        (data.user.role === "admin" ? "/admin" : "/");
+
+      window.setTimeout(() => {
+        router.replace(destination);
+      }, 500);
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Unable to connect to the server.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleTwoFactorSubmit(
+    e: FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!/^\d{6}$/.test(authenticatorCode)) {
+      setError("Enter the six-digit code from your authenticator app.");
+      return;
+    }
+
+    if (!challengeToken) {
+      setError("Your login challenge is missing. Please log in again.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/admin-2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({
+          challengeToken,
+          code: authenticatorCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.message || "Authenticator verification failed.");
+        return;
+      }
+
+      if (!data.user || data.user.role !== "admin") {
+        setError("Unable to verify the admin session.");
+        return;
+      }
+
+      setSuccess("Two-factor verification successful. Redirecting...");
+      setChallengeToken("");
+      setAuthenticatorCode("");
+
+      const destination = redirectPath || "/admin";
+
+      window.setTimeout(() => {
+        router.replace(destination);
+      }, 500);
+    } catch (err) {
+      console.error("Admin 2FA verification error:", err);
+      setError("Unable to connect to the server.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function returnToPasswordLogin() {
+    setRequiresTwoFactor(false);
+    setChallengeToken("");
+    setAuthenticatorCode("");
+    setError("");
+    setSuccess("");
+    setPassword("");
+  }
 
   return (
     <main
@@ -186,6 +233,7 @@ function LoginPageContent() {
         justifyContent: "center",
         padding: "50px 20px",
         background: "#f7f7f5",
+        boxSizing: "border-box",
       }}
     >
       <div
@@ -195,12 +243,10 @@ function LoginPageContent() {
           background: "#ffffff",
           borderRadius: "20px",
           padding: "45px",
-          boxShadow:
-            "0 10px 40px rgba(0,0,0,0.06)",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.06)",
+          boxSizing: "border-box",
         }}
       >
-        {/* LOGO */}
-
         <Link
           href="/"
           style={{
@@ -210,21 +256,13 @@ function LoginPageContent() {
             textDecoration: "none",
             fontSize: "24px",
             fontWeight: 700,
-            letterSpacing:
-              "-0.03em",
+            letterSpacing: "-0.03em",
           }}
         >
-          E-Commerce
+          House Of Orive
         </Link>
 
-        {/* HEADING */}
-
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: "35px",
-          }}
-        >
+        <div style={{ textAlign: "center", marginTop: "35px" }}>
           <div
             style={{
               display: "flex",
@@ -238,31 +276,25 @@ function LoginPageContent() {
               style={{
                 width: "28px",
                 height: "1px",
-                background:
-                  "#111111",
+                background: "#111111",
               }}
             />
-
             <span
               style={{
                 fontSize: "10px",
                 fontWeight: 600,
-                letterSpacing:
-                  "0.2em",
-                textTransform:
-                  "uppercase",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
                 color: "#777777",
               }}
             >
-              Welcome Back
+              {requiresTwoFactor ? "Admin Security" : "Welcome Back"}
             </span>
-
             <span
               style={{
                 width: "28px",
                 height: "1px",
-                background:
-                  "#111111",
+                background: "#111111",
               }}
             />
           </div>
@@ -272,256 +304,239 @@ function LoginPageContent() {
               margin: 0,
               fontSize: "36px",
               fontWeight: 600,
-              letterSpacing:
-                "-0.04em",
+              letterSpacing: "-0.04em",
               color: "#111111",
             }}
           >
-            Login
+            {requiresTwoFactor ? "Verify It's You" : "Login"}
           </h1>
 
           <p
             style={{
-              margin:
-                "12px 0 0",
+              margin: "12px 0 0",
               fontSize: "13px",
               lineHeight: "1.6",
               color: "#777777",
             }}
           >
-            Sign in to continue
-            shopping.
+            {requiresTwoFactor
+              ? "Open Google Authenticator or your TOTP app and enter the current six-digit code."
+              : "Sign in to continue shopping."}
           </p>
         </div>
 
-        {/* LOGIN FORM */}
-
         <form
-          onSubmit={handleSubmit}
-          style={{
-            marginTop: "35px",
-          }}
+          onSubmit={
+            requiresTwoFactor
+              ? handleTwoFactorSubmit
+              : handleSubmit
+          }
+          style={{ marginTop: "35px" }}
         >
-          {/* EMAIL */}
+          {!requiresTwoFactor ? (
+            <>
+              <div>
+                <label htmlFor="login-email" style={labelStyle}>
+                  Email Address
+                  <span style={requiredStyle}>*</span>
+                </label>
 
-          <div>
-            <label
-              style={labelStyle}
-            >
-              Email Address
-              <span
-                style={
-                  requiredStyle
-                }
-              >
-                *
-              </span>
-            </label>
+                <div style={inputWrapperStyle}>
+                  <Icon
+                    icon="solar:letter-linear"
+                    width="19"
+                    height="19"
+                    style={iconStyle}
+                  />
+                  <input
+                    id="login-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError("");
+                      setSuccess("");
+                    }}
+                    required
+                    autoComplete="username"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
 
-            <div
-              style={
-                inputWrapperStyle
-              }
-            >
-              <Icon
-                icon="solar:letter-linear"
-                width="19"
-                height="19"
-                style={iconStyle}
-              />
+              <div style={{ marginTop: "18px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <label htmlFor="login-password" style={labelStyle}>
+                    Password
+                    <span style={requiredStyle}>*</span>
+                  </label>
 
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(
-                    e.target.value
-                  );
-                  setError("");
-                  setSuccess("");
-                }}
-                required
-                autoComplete="email"
-                style={inputStyle}
-              />
-            </div>
-          </div>
+                  <Link
+                    href="/forgot-password"
+                    style={{
+                      fontSize: "11px",
+                      color: "#777777",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
 
-          {/* PASSWORD */}
+                <div style={inputWrapperStyle}>
+                  <Icon
+                    icon="solar:lock-password-linear"
+                    width="19"
+                    height="19"
+                    style={iconStyle}
+                  />
 
-          <div
-            style={{
-              marginTop: "18px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent:
-                  "space-between",
-                marginBottom: "8px",
-              }}
-            >
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                      setSuccess("");
+                    }}
+                    required
+                    autoComplete="current-password"
+                    style={{
+                      ...inputStyle,
+                      paddingRight: "50px",
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    style={{
+                      position: "absolute",
+                      right: "15px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      color: "#777777",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon
+                      icon={
+                        showPassword
+                          ? "solar:eye-closed-linear"
+                          : "solar:eye-linear"
+                      }
+                      width="20"
+                      height="20"
+                    />
+                  </button>
+                </div>
+              </div>
+
               <label
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginTop: "18px",
+                  cursor: "pointer",
                   fontSize: "12px",
-                  fontWeight: 600,
-                  color: "#333333",
+                  color: "#666666",
                 }}
               >
-                Password
-                <span
-                  style={
-                    requiredStyle
-                  }
-                >
-                  *
-                </span>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{
+                    width: "15px",
+                    height: "15px",
+                    accentColor: "#111111",
+                    cursor: "pointer",
+                  }}
+                />
+                Remember me
+              </label>
+            </>
+          ) : (
+            <div>
+              <label htmlFor="authenticator-code" style={labelStyle}>
+                Authenticator Code
+                <span style={requiredStyle}>*</span>
               </label>
 
-              <Link
-                href="/forgot-password"
-                style={{
-                  fontSize: "11px",
-                  color: "#777777",
-                  textDecoration:
-                    "none",
-                }}
-              >
-                Forgot Password?
-              </Link>
-            </div>
-
-            <div
-              style={{
-                position:
-                  "relative",
-              }}
-            >
-              <Icon
-                icon="solar:lock-password-linear"
-                width="19"
-                height="19"
-                style={iconStyle}
-              />
-
-              <input
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(
-                    e.target.value
-                  );
-                  setError("");
-                  setSuccess("");
-                }}
-                required
-                autoComplete="current-password"
-                style={{
-                  ...inputStyle,
-                  paddingRight:
-                    "50px",
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowPassword(
-                    (current) =>
-                      !current
-                  )
-                }
-                aria-label={
-                  showPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
-                style={{
-                  position:
-                    "absolute",
-                  right: "15px",
-                  top: "50%",
-                  transform:
-                    "translateY(-50%)",
-                  border: "none",
-                  background:
-                    "transparent",
-                  cursor: "pointer",
-                  color: "#777777",
-                  display: "flex",
-                  alignItems:
-                    "center",
-                  justifyContent:
-                    "center",
-                }}
-              >
+              <div style={inputWrapperStyle}>
                 <Icon
-                  icon={
-                    showPassword
-                      ? "solar:eye-closed-linear"
-                      : "solar:eye-linear"
-                  }
+                  icon="solar:shield-keyhole-linear"
                   width="20"
                   height="20"
+                  style={iconStyle}
                 />
-              </button>
+
+                <input
+                  id="authenticator-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="Enter 6-digit code"
+                  value={authenticatorCode}
+                  onChange={(e) => {
+                    setAuthenticatorCode(
+                      e.target.value.replace(/\D/g, "").slice(0, 6)
+                    );
+                    setError("");
+                    setSuccess("");
+                  }}
+                  required
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  style={{
+                    ...inputStyle,
+                    paddingLeft: "46px",
+                    letterSpacing: "6px",
+                    fontSize: "17px",
+                  }}
+                />
+              </div>
+
+              <p
+                style={{
+                  marginTop: "12px",
+                  fontSize: "12px",
+                  color: "#777777",
+                  lineHeight: "1.6",
+                }}
+              >
+                Enter the code currently shown in your authenticator app.
+                The code changes approximately every 30 seconds.
+              </p>
             </div>
-          </div>
-
-          {/* REMEMBER ME */}
-
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginTop: "18px",
-              cursor: "pointer",
-              fontSize: "12px",
-              color: "#666666",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) =>
-                setRememberMe(
-                  e.target.checked
-                )
-              }
-              style={{
-                width: "15px",
-                height: "15px",
-                accentColor:
-                  "#111111",
-                cursor: "pointer",
-              }}
-            />
-
-            Remember me
-          </label>
-
-          {/* ERROR */}
+          )}
 
           {error && (
             <div
+              role="alert"
               style={{
                 marginTop: "18px",
-                padding:
-                  "12px 14px",
+                padding: "12px 14px",
                 borderRadius: "8px",
-                background:
-                  "#fff5f5",
-                border:
-                  "1px solid #f1caca",
+                background: "#fff5f5",
+                border: "1px solid #f1caca",
                 color: "#c53030",
                 fontSize: "12px",
                 lineHeight: "1.5",
@@ -531,19 +546,15 @@ function LoginPageContent() {
             </div>
           )}
 
-          {/* SUCCESS */}
-
           {success && (
             <div
+              role="status"
               style={{
                 marginTop: "18px",
-                padding:
-                  "12px 14px",
+                padding: "12px 14px",
                 borderRadius: "8px",
-                background:
-                  "#f0fff4",
-                border:
-                  "1px solid #c6f6d5",
+                background: "#f0fff4",
+                border: "1px solid #c6f6d5",
                 color: "#18794e",
                 fontSize: "12px",
                 lineHeight: "1.5",
@@ -553,37 +564,18 @@ function LoginPageContent() {
             </div>
           )}
 
-          {/* LOGIN BUTTON */}
-
           <button
             type="submit"
             disabled={loading}
-            style={{
-              width: "100%",
-              height: "52px",
-              marginTop: "25px",
-              border: "none",
-              borderRadius: "999px",
-              background: loading
-                ? "#555555"
-                : "#111111",
-              color: "#ffffff",
-              fontSize: "13px",
-              fontWeight: 600,
-              cursor: loading
-                ? "not-allowed"
-                : "pointer",
-              display: "flex",
-              alignItems:
-                "center",
-              justifyContent:
-                "center",
-              gap: "9px",
-            }}
+            style={buttonStyle}
           >
             {loading
-              ? "Logging in..."
-              : "Login"}
+              ? requiresTwoFactor
+                ? "Verifying..."
+                : "Logging in..."
+              : requiresTwoFactor
+                ? "Verify & Login"
+                : "Login"}
 
             {!loading && (
               <Icon
@@ -593,68 +585,76 @@ function LoginPageContent() {
               />
             )}
           </button>
+
+          {requiresTwoFactor && (
+            <button
+              type="button"
+              onClick={returnToPasswordLogin}
+              disabled={loading}
+              style={{
+                width: "100%",
+                marginTop: "14px",
+                padding: "10px",
+                border: "none",
+                background: "transparent",
+                color: "#777777",
+                fontSize: "12px",
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              ← Back to login
+            </button>
+          )}
         </form>
 
-        {/* REGISTER */}
+        {!requiresTwoFactor && (
+          <>
+            <div
+              style={{
+                marginTop: "28px",
+                paddingTop: "25px",
+                borderTop: "1px solid #eeeeee",
+                textAlign: "center",
+              }}
+            >
+              <span style={{ fontSize: "12px", color: "#777777" }}>
+                Don&apos;t have an account?{" "}
+              </span>
+              <Link
+                href="/register"
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#111111",
+                  textDecoration: "none",
+                }}
+              >
+                Create Account
+              </Link>
+            </div>
 
-        <div
-          style={{
-            marginTop: "28px",
-            paddingTop: "25px",
-            borderTop:
-              "1px solid #eeeeee",
-            textAlign: "center",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "12px",
-              color: "#777777",
-            }}
-          >
-            Don't have an
-            account?{" "}
-          </span>
-
-          <Link
-            href="/register"
-            style={{
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "#111111",
-              textDecoration:
-                "none",
-            }}
-          >
-            Create Account
-          </Link>
-        </div>
-
-        {/* BACK TO STORE */}
-
-        <Link
-          href="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent:
-              "center",
-            gap: "6px",
-            marginTop: "20px",
-            color: "#777777",
-            fontSize: "12px",
-            textDecoration:
-              "none",
-          }}
-        >
-          <Icon
-            icon="solar:arrow-left-linear"
-            width="15"
-            height="15"
-          />
-
-          Back to Store
-        </Link>
+            <Link
+              href="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                marginTop: "20px",
+                color: "#777777",
+                fontSize: "12px",
+                textDecoration: "none",
+              }}
+            >
+              <Icon
+                icon="solar:arrow-left-linear"
+                width="15"
+                height="15"
+              />
+              Back to Store
+            </Link>
+          </>
+        )}
       </div>
     </main>
   );

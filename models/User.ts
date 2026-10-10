@@ -1,3 +1,4 @@
+
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IUser extends Document {
@@ -7,13 +8,17 @@ export interface IUser extends Document {
   password: string;
 
   role: "customer" | "admin";
-
   accountStatus: "active" | "disabled";
 
   address?: string;
   city?: string;
   state?: string;
   pincode?: string;
+
+  // Admin two-factor authentication (TOTP)
+  totpEnabled?: boolean;
+  totpSecretEncrypted?: string;
+  totpPendingSecretEncrypted?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +49,7 @@ const UserSchema = new Schema<IUser>(
     password: {
       type: String,
       required: true,
+      select: false,
     },
 
     role: {
@@ -78,6 +84,22 @@ const UserSchema = new Schema<IUser>(
     pincode: {
       type: String,
       trim: true,
+    },
+
+    // Two-factor authentication settings
+    totpEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
+    totpSecretEncrypted: {
+      type: String,
+      select: false,
+    },
+
+    totpPendingSecretEncrypted: {
+      type: String,
+      select: false,
     },
   },
   {

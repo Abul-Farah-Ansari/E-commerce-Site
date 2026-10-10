@@ -132,7 +132,7 @@ export default function RegisterPage() {
             letterSpacing: "-0.03em",
           }}
         >
-          E-Commerce
+          House of Orive
         </Link>
 
         {/* Heading */}

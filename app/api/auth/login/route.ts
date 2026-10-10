@@ -1,93 +1,83 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import { decryptTotpSecret, verifyTotpCode } from "@/lib/totp";
 
 const AUTH_SECRET = process.env.AUTH_SECRET;
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   try {
-    // -----------------------------------------
-    // AUTH CONFIGURATION
-    // -----------------------------------------
     if (!AUTH_SECRET) {
       return NextResponse.json(
         {
           success: false,
           message: "Authentication configuration is missing.",
         },
-        {
-          status: 500,
-        }
+        { status: 500 }
       );
     }
 
-    // -----------------------------------------
-    // REQUEST BODY
-    // -----------------------------------------
-    const body = await request.json();
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Invalid request body." },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { success: false, message: "Invalid request body." },
+        { status: 400 }
+      );
+    }
+
+    const { email: rawEmail, password } = body as {
+      email?: unknown;
+      password?: unknown;
+    };
 
     const email =
-      typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
-        : "";
+      typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 
-    const password =
-      typeof body.password === "string"
-        ? body.password
-        : "";
-
-    // -----------------------------------------
-    // VALIDATION
-    // -----------------------------------------
-    if (!email || !password) {
+    if (
+      !email ||
+      typeof password !== "string" ||
+      !password
+    ) {
       return NextResponse.json(
         {
           success: false,
           message: "Email and password are required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    // -----------------------------------------
-    // DATABASE
-    // -----------------------------------------
     await connectDB();
 
-    const user = await User.findOne({
-      email,
-    });
+    // Explicitly select password because the User schema excludes it by default.
+    const user = await User.findOne({ email }).select(
+      "+password +totpSecretEncrypted"
+    );
 
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid email or password.",
-        },
-        {
-          status: 401,
-        }
+        { success: false, message: "Invalid email or password." },
+        { status: 401 }
       );
     }
 
-    // -----------------------------------------
-    // ACCOUNT STATUS
-    // -----------------------------------------
-    //
-    // Existing users created before accountStatus
-    // was added may not have the field.
-    //
-    // Treat an undefined status as ACTIVE so
-    // existing customers are not accidentally
-    // locked out.
-    //
-    const accountStatus =
-      user.accountStatus || "active";
+    const accountStatus = user.accountStatus || "active";
 
     if (accountStatus === "disabled") {
       return NextResponse.json(
@@ -96,15 +86,10 @@ export async function POST(request: NextRequest) {
           message:
             "Your account has been disabled. Please contact customer support.",
         },
-        {
-          status: 403,
-        }
+        { status: 403 }
       );
     }
 
-    // -----------------------------------------
-    // PASSWORD VERIFICATION
-    // -----------------------------------------
     const passwordMatches = await bcrypt.compare(
       password,
       user.password
@@ -112,19 +97,55 @@ export async function POST(request: NextRequest) {
 
     if (!passwordMatches) {
       return NextResponse.json(
+        { success: false, message: "Invalid email or password." },
+        { status: 401 }
+      );
+    }
+
+    // Admins with enabled TOTP must complete the second factor first.
+    if (user.role === "admin" && user.totpEnabled) {
+      if (!user.totpSecretEncrypted) {
+        console.error("Admin 2FA is enabled but its secret is missing.");
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Admin two-factor authentication needs to be repaired. Contact support.",
+          },
+          { status: 500 }
+        );
+      }
+
+      // This token is only a short-lived login challenge.
+      // It is NOT the authenticated auth_token cookie.
+      const challengeToken = jwt.sign(
         {
-          success: false,
-          message: "Invalid email or password.",
+          purpose: "admin-2fa",
+          userId: user._id.toString(),
+          role: "admin",
+        },
+        AUTH_SECRET,
+        {
+          expiresIn: "5m",
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+          requiresTwoFactor: true,
+          challengeToken,
+          message: "Enter the code from your authenticator app.",
         },
         {
-          status: 401,
+          status: 200,
+          headers: { "Cache-Control": "no-store" },
         }
       );
     }
 
-    // -----------------------------------------
-    // JWT
-    // -----------------------------------------
+    // Standard login for customers and admins who have not enrolled in TOTP yet.
     const token = jwt.sign(
       {
         userId: user._id.toString(),
@@ -137,14 +158,9 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // -----------------------------------------
-    // RESPONSE
-    // -----------------------------------------
     const response = NextResponse.json({
       success: true,
-
       message: "Login successful.",
-
       user: {
         id: user._id.toString(),
         name: user.name,
@@ -155,9 +171,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // -----------------------------------------
-    // AUTH COOKIE
-    // -----------------------------------------
     response.cookies.set({
       name: "auth_token",
       value: token,
@@ -177,9 +190,7 @@ export async function POST(request: NextRequest) {
         success: false,
         message: "Unable to login. Please try again.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
