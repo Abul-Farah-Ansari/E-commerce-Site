@@ -1,8 +1,9 @@
+
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Categories from "@/components/Categories";
 import ProductSection from "@/components/ProductSection";
-import PromoBanner from "@/components/PromoBanner";
+import HomeVideoSection from "@/components/HomeVideoSection";
 import Benefits from "@/components/Benefits";
 import Testimonials from "@/components/Testimonials";
 import BrandStory from "@/components/BrandStory";
@@ -15,7 +16,7 @@ export default function Home() {
       <Navbar />
 
       <main>
-        {/* Hero */}
+        {/* Hero Section */}
         <Hero />
 
         {/* Categories */}
@@ -44,7 +45,9 @@ export default function Home() {
           type="trending"
           limit={5}
         />
-        <PromoBanner />
+
+        {/* Home Page Videos - Managed from Admin Settings */}
+        <HomeVideoSection />
 
         {/* Best Sellers */}
         <ProductSection
@@ -53,9 +56,6 @@ export default function Home() {
           type="featured"
           limit={5}
         />
-
-        {/* Promotional Banner */}
-        
 
         {/* Benefits */}
         <Benefits />

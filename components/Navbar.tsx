@@ -461,7 +461,7 @@ export default function Navbar() {
             {/* Logo Container */}
             <div className="flex h-[52px] w-[px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
               <img
-                src="/logo.jpeg"
+                src="/ORIVE logo.jpg"
                 alt="House Of Orive Logo"
                 className="h-full w-full object-contain"
               />

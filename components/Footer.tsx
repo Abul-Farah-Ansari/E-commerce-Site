@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Icon } from "@iconify/react";
+import footerLogo from "@/public/Orive Boutique Fashion Logo.png";
 
 export default function Footer() {
   return (
@@ -15,10 +17,12 @@ export default function Footer() {
           <div className="footer-brand">
             {/* LOGO */}
             <Link href="/" className="footer-logo-space">
-              <img
-                src="/logo.jpeg"
+              <Image
+                src={footerLogo}
                 alt="House of Orive"
                 className="footer-logo"
+                priority
+                sizes="180px"
               />
             </Link>
 

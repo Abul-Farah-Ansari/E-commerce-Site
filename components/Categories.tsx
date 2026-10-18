@@ -153,12 +153,19 @@ export default function Categories() {
         {/* ================= CATEGORY CARDS ================= */}
 
         <div
-          className="categories-grid"
+          className={`categories-grid categories-count-${Math.min(categories.length, 4)}`}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gridTemplateColumns: `repeat(${Math.min(Math.max(categories.length, 1), 4)}, minmax(0, 1fr))`,
             gap: "20px",
             width: "100%",
+            maxWidth:
+              categories.length === 1
+                ? "850px"
+                : categories.length === 2
+                  ? "1100px"
+                  : "1280px",
+            marginInline: "auto",
           }}
         >
           {loading ? (
@@ -666,6 +673,105 @@ export default function Categories() {
 
           .category-card:hover .category-arrow {
             transform: translate(2px, -2px);
+          }
+        }
+
+        /* =========================================
+           ADAPTIVE CATEGORY COUNT
+           Keep the layout balanced for 1, 2, 3 or more categories.
+        ========================================= */
+        .categories-grid.categories-count-1 {
+          grid-template-columns: minmax(0, 1fr) !important;
+          max-width: 850px;
+          margin-inline: auto;
+        }
+
+        .categories-grid.categories-count-2 {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          max-width: 1100px;
+          margin-inline: auto;
+        }
+
+        .categories-grid.categories-count-3 {
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+
+        .categories-grid.categories-count-4 {
+          grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        .categories-grid.categories-count-1 .category-card {
+          height: 520px !important;
+        }
+
+        @media (max-width: 1024px) and (min-width: 769px) {
+          .categories-grid.categories-count-1,
+          .categories-grid.categories-count-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .categories-grid.categories-count-1 {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .categories-grid.categories-count-3,
+          .categories-grid.categories-count-4 {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .categories-grid,
+          .categories-grid.categories-count-1,
+          .categories-grid.categories-count-2,
+          .categories-grid.categories-count-3,
+          .categories-grid.categories-count-4 {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            gap: 12px !important;
+            padding: 0 20px !important;
+            flex-wrap: initial !important;
+            scroll-snap-type: none !important;
+          }
+
+          .categories-grid.categories-count-1 {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .categories-grid .category-card {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            height: auto !important;
+            aspect-ratio: 3 / 4 !important;
+            border-radius: 14px !important;
+            scroll-snap-align: unset !important;
+          }
+
+          .categories-grid.categories-count-1 .category-card {
+            aspect-ratio: 4 / 3 !important;
+            height: auto !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .categories-grid,
+          .categories-grid.categories-count-1,
+          .categories-grid.categories-count-2,
+          .categories-grid.categories-count-3,
+          .categories-grid.categories-count-4 {
+            gap: 10px !important;
+            padding: 0 15px !important;
+          }
+
+          .categories-grid.categories-count-1 .category-card {
+            aspect-ratio: 4 / 3 !important;
           }
         }
       `}</style>
