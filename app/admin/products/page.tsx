@@ -2192,20 +2192,33 @@ const handleDelete = async (
         }
 
         .products-table {
-
           width: 100%;
-
-          min-width: 1050px;
-
+          min-width: 0;
+          table-layout: fixed;
           border-collapse: collapse;
-
         }
+
+        /* Keep every column, including Delete, visible at normal desktop zoom. */
+        .products-table th:nth-child(1),
+        .products-table td:nth-child(1) { width: 23%; }
+        .products-table th:nth-child(2),
+        .products-table td:nth-child(2) { width: 12%; }
+        .products-table th:nth-child(3),
+        .products-table td:nth-child(3) { width: 10%; }
+        .products-table th:nth-child(4),
+        .products-table td:nth-child(4) { width: 18%; }
+        .products-table th:nth-child(5),
+        .products-table td:nth-child(5) { width: 12%; }
+        .products-table th:nth-child(6),
+        .products-table td:nth-child(6) { width: 12%; }
+        .products-table th:nth-child(7),
+        .products-table td:nth-child(7) { width: 13%; }
 
         .products-table th {
 
           height: 48px;
 
-          padding: 0 18px;
+          padding: 0 9px;
 
           border-bottom: 1px solid #eeeeee;
 
@@ -2229,7 +2242,7 @@ const handleDelete = async (
 
         .products-table td {
 
-          padding: 15px 18px;
+          padding: 12px 9px;
 
           border-bottom: 1px solid #eeeeee;
 
@@ -2254,24 +2267,19 @@ const handleDelete = async (
         }
 
         .product-cell {
-
-          min-width: 250px;
-
+          min-width: 0;
           display: flex;
-
           align-items: center;
-
-          gap: 12px;
-
+          gap: 8px;
         }
 
         .product-image {
 
-          width: 52px;
+          width: 42px;
 
-          height: 52px;
+          height: 42px;
 
-          min-width: 52px;
+          min-width: 42px;
 
           overflow: hidden;
 
@@ -2317,7 +2325,7 @@ const handleDelete = async (
 
         .product-info strong {
 
-          max-width: 230px;
+          max-width: 100%;
 
           overflow: hidden;
 
@@ -2672,22 +2680,18 @@ const handleDelete = async (
         }
 
         .action-buttons {
-
           display: flex;
-
           align-items: center;
-
           justify-content: flex-end;
-
-          gap: 7px;
-
+          gap: 4px;
+          white-space: nowrap;
         }
 
         .action-button {
 
           min-height: 34px;
 
-          padding: 0 10px;
+          padding: 0 6px;
 
           display: inline-flex;
 
@@ -2699,9 +2703,11 @@ const handleDelete = async (
 
           border-radius: 7px;
 
-          font-size: 10px;
+          font-size: 9px;
 
           font-weight: 600;
+
+          white-space: nowrap;
 
           text-decoration: none;
 

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 
@@ -19,31 +20,21 @@ interface OrderItem {
 
 interface Order {
   _id: string;
-
   items: OrderItem[];
-
   customer: {
     name: string;
     email: string;
     phone: string;
   };
-
   shippingAddress: {
     address: string;
     city: string;
     state: string;
     pincode: string;
   };
-
   deliveryMethod: string;
-
   paymentMethod: "cod" | "online";
-
-  paymentStatus:
-    | "pending"
-    | "paid"
-    | "failed";
-
+  paymentStatus: "pending" | "paid" | "failed";
   orderStatus:
     | "pending"
     | "confirmed"
@@ -51,116 +42,140 @@ interface Order {
     | "shipped"
     | "delivered"
     | "cancelled";
-
   subtotal: number;
   shipping: number;
   total: number;
-
   createdAt: string;
   updatedAt: string;
 }
 
+interface OrdersApiResponse {
+  success?: boolean;
+  message?: string;
+  orders?: Order[];
+}
+
 export default function OrdersPage() {
-  const [orders, setOrders] =
-    useState<Order[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   /* =========================================
      FETCH ORDERS
   ========================================= */
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        "/api/orders",
-        {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        }
-      );
+      const response = await fetch("/api/orders", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      });
 
-      const data =
-        await response.json();
+      // Read the body once, as text, so empty responses are handled safely.
+      const responseText = await response.text();
+
+      let data: OrdersApiResponse = {};
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText) as OrdersApiResponse;
+        } catch {
+          console.error("Invalid /api/orders response:", {
+            status: response.status,
+            body: responseText.slice(0, 500),
+          });
+
+          throw new Error(
+            `The server returned an invalid response (${response.status}). Please try again.`
+          );
+        }
+      }
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            data.message || "Your session has expired. Please log in again."
+          );
+        }
+
         throw new Error(
           data.message ||
-            "Unable to load orders."
+            `Unable to load orders. Server status: ${response.status}.`
         );
       }
 
-      setOrders(
-        Array.isArray(data.orders)
-          ? data.orders
-          : []
-      );
+      if (!responseText.trim()) {
+        console.error("The /api/orders endpoint returned an empty response.");
+
+        throw new Error(
+          "The server returned an empty response while loading your orders. Please try again."
+        );
+      }
+
+      if (!Array.isArray(data.orders)) {
+        console.error("Unexpected /api/orders response format:", data);
+
+        throw new Error(
+          data.message || "The server did not return a valid order list."
+        );
+      }
+
+      setOrders(data.orders);
     } catch (error) {
-      console.error(
-        "Fetch orders error:",
-        error
-      );
+      console.error("Fetch orders error:", error);
 
       setError(
         error instanceof Error
           ? error.message
-          : "Unable to load your orders."
+          : "Unable to load your orders. Please try again."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void fetchOrders();
+  }, [fetchOrders]);
 
   /* =========================================
      FORMAT DATE
   ========================================= */
 
-  const formatDate = (
-    date: string
-  ) => {
-    return new Date(
-      date
-    ).toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    );
+  const formatDate = (date: string) => {
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Date unavailable";
+    }
+
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   /* =========================================
      FORMAT CURRENCY
   ========================================= */
 
-  const formatPrice = (
-    price: number
-  ) => {
-    return Number(
-      price || 0
-    ).toLocaleString("en-IN");
+  const formatPrice = (price: number) => {
+    return Number(price || 0).toLocaleString("en-IN");
   };
 
   /* =========================================
      STATUS ICON
   ========================================= */
 
-  const getStatusIcon = (
-    status: Order["orderStatus"]
-  ) => {
+  const getStatusIcon = (status: Order["orderStatus"]) => {
     switch (status) {
       case "delivered":
         return "solar:check-circle-bold";
@@ -186,28 +201,20 @@ export default function OrdersPage() {
      STATUS LABEL
   ========================================= */
 
-  const getStatusLabel = (
-    status: Order["orderStatus"]
-  ) => {
+  const getStatusLabel = (status: Order["orderStatus"]) => {
     switch (status) {
       case "pending":
         return "Order Placed";
-
       case "confirmed":
         return "Confirmed";
-
       case "processing":
         return "Processing";
-
       case "shipped":
         return "Shipped";
-
       case "delivered":
         return "Delivered";
-
       case "cancelled":
         return "Cancelled";
-
       default:
         return status;
     }
@@ -217,23 +224,19 @@ export default function OrdersPage() {
      PAYMENT STATUS
   ========================================= */
 
-  const getPaymentLabel = (
-    status: Order["paymentStatus"]
-  ) => {
+  const getPaymentLabel = (status: Order["paymentStatus"]) => {
     switch (status) {
       case "paid":
         return "Paid";
-
       case "failed":
         return "Failed";
-
       default:
         return "Pending";
     }
   };
 
   /* =========================================
-     LOADING
+     LOADING STATE
   ========================================= */
 
   if (loading) {
@@ -247,25 +250,17 @@ export default function OrdersPage() {
             minHeight: "70vh",
             display: "flex",
             alignItems: "center",
-            justifyContent:
-              "center",
+            justifyContent: "center",
             background: "#f7f7f5",
             padding: "60px 20px",
           }}
         >
-          <div
-            style={{
-              textAlign: "center",
-            }}
-          >
+          <div style={{ textAlign: "center" }}>
             <Icon
               icon="solar:refresh-circle-bold"
               width="40"
               height="40"
-              style={{
-                animation:
-                  "spin 1s linear infinite",
-              }}
+              style={{ animation: "spin 1s linear infinite" }}
             />
 
             <p
@@ -284,7 +279,6 @@ export default function OrdersPage() {
               from {
                 transform: rotate(0deg);
               }
-
               to {
                 transform: rotate(360deg);
               }
@@ -298,7 +292,7 @@ export default function OrdersPage() {
   }
 
   /* =========================================
-     ERROR
+     ERROR STATE
   ========================================= */
 
   if (error) {
@@ -312,8 +306,7 @@ export default function OrdersPage() {
             background: "#f7f7f5",
             display: "flex",
             alignItems: "center",
-            justifyContent:
-              "center",
+            justifyContent: "center",
             padding: "60px 20px",
           }}
         >
@@ -322,12 +315,12 @@ export default function OrdersPage() {
             style={{
               width: "100%",
               maxWidth: "470px",
+              boxSizing: "border-box",
               background: "#ffffff",
               borderRadius: "20px",
               padding: "45px 30px",
               textAlign: "center",
-              boxShadow:
-                "0 10px 35px rgba(0,0,0,0.05)",
+              boxShadow: "0 10px 35px rgba(0,0,0,0.05)",
             }}
           >
             <div
@@ -335,18 +328,20 @@ export default function OrdersPage() {
                 width: "65px",
                 height: "65px",
                 margin: "0 auto",
-                borderRadius:
-                  "50%",
+                borderRadius: "50%",
                 background: "#f3f3f3",
                 display: "flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               <Icon
-                icon="solar:lock-keyhole-linear"
+                icon={
+                  error.toLowerCase().includes("session") ||
+                  error.toLowerCase().includes("login")
+                    ? "solar:lock-keyhole-linear"
+                    : "solar:danger-triangle-linear"
+                }
                 width="30"
                 height="30"
               />
@@ -354,14 +349,16 @@ export default function OrdersPage() {
 
             <h2
               style={{
-                margin:
-                  "20px 0 10px",
+                margin: "20px 0 10px",
                 fontSize: "25px",
                 fontWeight: 600,
                 color: "#111111",
               }}
             >
-              Please Login
+              {error.toLowerCase().includes("session") ||
+              error.toLowerCase().includes("login")
+                ? "Please Login"
+                : "Unable to Load Orders"}
             </h2>
 
             <p
@@ -370,43 +367,69 @@ export default function OrdersPage() {
                 color: "#777777",
                 fontSize: "13px",
                 lineHeight: "1.7",
+                overflowWrap: "anywhere",
               }}
             >
               {error}
             </p>
 
-            <Link
-              href="/login"
+            <div
               style={{
-                display:
-                  "inline-flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-                gap: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexWrap: "wrap",
+                gap: "10px",
                 marginTop: "25px",
-                height: "48px",
-                padding:
-                  "0 25px",
-                borderRadius:
-                  "999px",
-                background:
-                  "#111111",
-                color: "#ffffff",
-                textDecoration:
-                  "none",
-                fontSize: "12px",
-                fontWeight: 600,
               }}
             >
-              Go to Login
+              <button
+                type="button"
+                onClick={() => void fetchOrders()}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  height: "48px",
+                  padding: "0 25px",
+                  border: "1px solid #111111",
+                  borderRadius: "999px",
+                  background: "#111111",
+                  color: "#ffffff",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Try Again
+                <Icon icon="solar:refresh-linear" width="17" />
+              </button>
 
-              <Icon
-                icon="solar:arrow-right-linear"
-                width="17"
-              />
-            </Link>
+              {(error.toLowerCase().includes("session") ||
+                error.toLowerCase().includes("login")) && (
+                <Link
+                  href="/login"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    height: "48px",
+                    padding: "0 25px",
+                    borderRadius: "999px",
+                    background: "#eeeeee",
+                    color: "#111111",
+                    textDecoration: "none",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Go to Login
+                  <Icon icon="solar:arrow-right-linear" width="17" />
+                </Link>
+              )}
+            </div>
           </div>
         </main>
 
@@ -428,8 +451,7 @@ export default function OrdersPage() {
         style={{
           minHeight: "70vh",
           background: "#f7f7f5",
-          padding:
-            "70px 20px 100px",
+          padding: "70px 20px 100px",
         }}
       >
         <div
@@ -440,37 +462,22 @@ export default function OrdersPage() {
             margin: "0 auto",
           }}
         >
-          {/* =================================
-              HEADER
-          ================================= */}
+          {/* HEADER */}
 
-          <div
-            className="orders-header"
-            style={{
-              marginBottom: "40px",
-            }}
-          >
+          <div className="orders-header" style={{ marginBottom: "40px" }}>
             <Link
               href="/account"
               style={{
-                display:
-                  "inline-flex",
-                alignItems:
-                  "center",
+                display: "inline-flex",
+                alignItems: "center",
                 gap: "7px",
                 color: "#666666",
-                textDecoration:
-                  "none",
+                textDecoration: "none",
                 fontSize: "12px",
-                marginBottom:
-                  "20px",
+                marginBottom: "20px",
               }}
             >
-              <Icon
-                icon="solar:arrow-left-linear"
-                width="16"
-              />
-
+              <Icon icon="solar:arrow-left-linear" width="16" />
               Back to Account
             </Link>
 
@@ -479,10 +486,8 @@ export default function OrdersPage() {
                 display: "block",
                 fontSize: "10px",
                 fontWeight: 600,
-                letterSpacing:
-                  "0.2em",
-                textTransform:
-                  "uppercase",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
                 color: "#888888",
               }}
             >
@@ -492,14 +497,11 @@ export default function OrdersPage() {
             <h1
               className="orders-title"
               style={{
-                margin:
-                  "8px 0 0",
-                fontSize:
-                  "clamp(36px, 5vw, 50px)",
+                margin: "8px 0 0",
+                fontSize: "clamp(36px, 5vw, 50px)",
                 lineHeight: 1,
                 fontWeight: 600,
-                letterSpacing:
-                  "-0.045em",
+                letterSpacing: "-0.045em",
                 color: "#111111",
               }}
             >
@@ -508,71 +510,49 @@ export default function OrdersPage() {
 
             <p
               style={{
-                margin:
-                  "14px 0 0",
+                margin: "14px 0 0",
                 color: "#777777",
                 fontSize: "13px",
               }}
             >
-              View and track your
-              recent purchases.
+              View and track your recent purchases.
             </p>
           </div>
 
-          {/* =================================
-              EMPTY STATE
-          ================================= */}
+          {/* EMPTY STATE */}
 
           {orders.length === 0 ? (
             <div
               className="empty-orders"
               style={{
-                background:
-                  "#ffffff",
-                borderRadius:
-                  "20px",
-                padding:
-                  "75px 25px",
-                textAlign:
-                  "center",
-                boxShadow:
-                  "0 8px 30px rgba(0,0,0,0.04)",
+                background: "#ffffff",
+                borderRadius: "20px",
+                padding: "75px 25px",
+                textAlign: "center",
+                boxShadow: "0 8px 30px rgba(0,0,0,0.04)",
               }}
             >
               <div
                 style={{
                   width: "75px",
                   height: "75px",
-                  margin:
-                    "0 auto",
-                  borderRadius:
-                    "50%",
-                  background:
-                    "#f3f3f3",
-                  display:
-                    "flex",
-                  alignItems:
-                    "center",
-                  justifyContent:
-                    "center",
+                  margin: "0 auto",
+                  borderRadius: "50%",
+                  background: "#f3f3f3",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                <Icon
-                  icon="solar:bag-4-linear"
-                  width="35"
-                  height="35"
-                />
+                <Icon icon="solar:bag-4-linear" width="35" height="35" />
               </div>
 
               <h2
                 style={{
-                  margin:
-                    "22px 0 10px",
-                  fontSize:
-                    "25px",
+                  margin: "22px 0 10px",
+                  fontSize: "25px",
                   fontWeight: 600,
-                  color:
-                    "#111111",
+                  color: "#111111",
                 }}
               >
                 No Orders Yet
@@ -581,50 +561,33 @@ export default function OrdersPage() {
               <p
                 style={{
                   margin: 0,
-                  color:
-                    "#777777",
-                  fontSize:
-                    "13px",
+                  color: "#777777",
+                  fontSize: "13px",
                 }}
               >
-                You haven't placed
-                any orders yet.
+                You haven't placed any orders yet.
               </p>
 
               <Link
                 href="/products"
                 style={{
-                  display:
-                    "inline-flex",
-                  alignItems:
-                    "center",
-                  justifyContent:
-                    "center",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   gap: "8px",
-                  marginTop:
-                    "25px",
+                  marginTop: "25px",
                   height: "48px",
-                  padding:
-                    "0 25px",
-                  borderRadius:
-                    "999px",
-                  background:
-                    "#111111",
-                  color:
-                    "#ffffff",
-                  textDecoration:
-                    "none",
-                  fontSize:
-                    "12px",
+                  padding: "0 25px",
+                  borderRadius: "999px",
+                  background: "#111111",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  fontSize: "12px",
                   fontWeight: 600,
                 }}
               >
                 Start Shopping
-
-                <Icon
-                  icon="solar:arrow-right-linear"
-                  width="17"
-                />
+                <Icon icon="solar:arrow-right-linear" width="17" />
               </Link>
             </div>
           ) : (
@@ -635,630 +598,398 @@ export default function OrdersPage() {
                 gap: "20px",
               }}
             >
-              {orders.map(
-                (order) => (
+              {orders.map((order) => (
+                <div
+                  key={order._id}
+                  className="order-card"
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: "20px",
+                    padding: "28px",
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  {/* ORDER HEADER */}
+
                   <div
-                    key={order._id}
-                    className="order-card"
+                    className="order-header"
                     style={{
-                      background:
-                        "#ffffff",
-                      borderRadius:
-                        "20px",
-                      padding:
-                        "28px",
-                      boxShadow:
-                        "0 8px 30px rgba(0,0,0,0.04)",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: "20px",
+                      paddingBottom: "22px",
+                      borderBottom: "1px solid #eeeeee",
                     }}
                   >
-                    {/* =================================
-                        ORDER HEADER
-                    ================================= */}
+                    <div style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: "9px",
+                          fontWeight: 600,
+                          letterSpacing: "0.15em",
+                          textTransform: "uppercase",
+                          color: "#999999",
+                        }}
+                      >
+                        Order ID
+                      </span>
+
+                      <strong
+                        style={{
+                          display: "block",
+                          marginTop: "7px",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          color: "#111111",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        #{order._id}
+                      </strong>
+
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: "7px",
+                          fontSize: "11px",
+                          color: "#888888",
+                        }}
+                      >
+                        {formatDate(order.createdAt)}
+                      </span>
+                    </div>
 
                     <div
-                      className="order-header"
+                      className={`order-status status-${order.orderStatus}`}
                       style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "flex-start",
-                        justifyContent:
-                          "space-between",
-                        gap: "20px",
-                        paddingBottom:
-                          "22px",
-                        borderBottom:
-                          "1px solid #eeeeee",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "7px",
+                        padding: "9px 13px",
+                        borderRadius: "999px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Icon
+                        icon={getStatusIcon(order.orderStatus)}
+                        width="16"
+                        height="16"
+                      />
+                      {getStatusLabel(order.orderStatus)}
+                    </div>
+                  </div>
+
+                  {/* PRODUCTS */}
+
+                  <div
+                    className="order-products"
+                    style={{
+                      display: "grid",
+                      gap: "15px",
+                      padding: "22px 0",
+                    }}
+                  >
+                    {order.items.map((item, index) => (
+                      <div
+                        key={`${order._id}-${index}`}
+                        className="order-product"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "15px",
+                        }}
+                      >
+                        <div
+                          className="order-product-image"
+                          style={{
+                            width: "78px",
+                            height: "88px",
+                            flexShrink: 0,
+                            borderRadius: "10px",
+                            overflow: "hidden",
+                            background: "#f4f4f4",
+                          }}
+                        >
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Icon
+                                icon="solar:gallery-linear"
+                                width="25"
+                                color="#aaaaaa"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#111111",
+                            }}
+                          >
+                            {item.name}
+                          </h3>
+
+                          <p
+                            style={{
+                              margin: "7px 0 0",
+                              fontSize: "11px",
+                              color: "#777777",
+                              lineHeight: "1.6",
+                            }}
+                          >
+                            Qty: {item.quantity}
+                            {item.size && ` · Size: ${item.size}`}
+                            {item.color && ` · ${item.color}`}
+                          </p>
+
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: "11px",
+                              color: "#999999",
+                            }}
+                          >
+                            ₹{formatPrice(item.price)} / item
+                          </p>
+                        </div>
+
+                        <strong
+                          className="item-total"
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            color: "#111111",
+                          }}
+                        >
+                          ₹{formatPrice(item.price * item.quantity)}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* SHIPPING ADDRESS */}
+
+                  <div
+                    className="shipping-box"
+                    style={{
+                      padding: "18px",
+                      borderRadius: "12px",
+                      background: "#f7f7f5",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "#555555",
+                      }}
+                    >
+                      <Icon icon="solar:map-point-linear" width="17" />
+                      Delivery Address
+                    </div>
+
+                    <p
+                      style={{
+                        margin: "9px 0 0",
+                        fontSize: "12px",
+                        lineHeight: "1.6",
+                        color: "#777777",
+                      }}
+                    >
+                      {order.shippingAddress?.address},{" "}
+                      {order.shippingAddress?.city},{" "}
+                      {order.shippingAddress?.state} -{" "}
+                      {order.shippingAddress?.pincode}
+                    </p>
+                  </div>
+
+                  {/* ORDER FOOTER */}
+
+                  <div
+                    className="order-footer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "20px",
+                      flexWrap: "wrap",
+                      marginTop: "20px",
+                      paddingTop: "20px",
+                      borderTop: "1px solid #eeeeee",
+                    }}
+                  >
+                    {/* PAYMENT */}
+
+                    <div
+                      className="payment-info"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
                       }}
                     >
                       <div
                         style={{
-                          minWidth: 0,
+                          width: "38px",
+                          height: "38px",
+                          borderRadius: "10px",
+                          background: "#f5f5f5",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
-                        <span
+                        <Icon
+                          icon={
+                            order.paymentMethod === "cod"
+                              ? "solar:hand-money-linear"
+                              : "solar:card-linear"
+                          }
+                          width="19"
+                        />
+                      </div>
+
+                      <div>
+                        <p
                           style={{
-                            display:
-                              "block",
-                            fontSize:
-                              "9px",
-                            fontWeight:
-                              600,
-                            letterSpacing:
-                              "0.15em",
-                            textTransform:
-                              "uppercase",
-                            color:
-                              "#999999",
+                            margin: 0,
+                            fontSize: "9px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.1em",
+                            color: "#999999",
                           }}
                         >
-                          Order ID
-                        </span>
+                          Payment
+                        </p>
 
                         <strong
                           style={{
-                            display:
-                              "block",
-                            marginTop:
-                              "7px",
-                            fontSize:
-                              "13px",
-                            fontWeight:
-                              600,
-                            color:
-                              "#111111",
-                            wordBreak:
-                              "break-all",
+                            display: "block",
+                            marginTop: "4px",
+                            fontSize: "11px",
+                            color: "#333333",
                           }}
                         >
-                          #{order._id}
+                          {order.paymentMethod === "cod"
+                            ? "Cash on Delivery"
+                            : "Online Payment"}
                         </strong>
 
                         <span
                           style={{
-                            display:
-                              "block",
-                            marginTop:
-                              "7px",
-                            fontSize:
-                              "11px",
+                            display: "block",
+                            marginTop: "3px",
+                            fontSize: "10px",
                             color:
-                              "#888888",
+                              order.paymentStatus === "failed"
+                                ? "#b00020"
+                                : "#777777",
                           }}
                         >
-                          {formatDate(
-                            order.createdAt
-                          )}
+                          {getPaymentLabel(order.paymentStatus)}
                         </span>
                       </div>
-
-                      {/* STATUS */}
-
-                      <div
-                        className={`order-status status-${order.orderStatus}`}
-                        style={{
-                          display:
-                            "inline-flex",
-                          alignItems:
-                            "center",
-                          gap: "7px",
-                          padding:
-                            "9px 13px",
-                          borderRadius:
-                            "999px",
-                          fontSize:
-                            "11px",
-                          fontWeight:
-                            600,
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        <Icon
-                          icon={getStatusIcon(
-                            order.orderStatus
-                          )}
-                          width="16"
-                          height="16"
-                        />
-
-                        {getStatusLabel(
-                          order.orderStatus
-                        )}
-                      </div>
                     </div>
 
-                    {/* =================================
-                        PRODUCTS
-                    ================================= */}
+                    {/* TOTAL + VIEW ORDER */}
 
                     <div
-                      className="order-products"
+                      className="order-footer-right"
                       style={{
-                        display:
-                          "grid",
-                        gap: "15px",
-                        padding:
-                          "22px 0",
-                      }}
-                    >
-                      {order.items.map(
-                        (
-                          item,
-                          index
-                        ) => (
-                          <div
-                            key={`${order._id}-${index}`}
-                            className="order-product"
-                            style={{
-                              display:
-                                "flex",
-                              alignItems:
-                                "center",
-                              gap: "15px",
-                            }}
-                          >
-                            {/* IMAGE */}
-
-                            <div
-                              className="order-product-image"
-                              style={{
-                                width:
-                                  "78px",
-                                height:
-                                  "88px",
-                                flexShrink:
-                                  0,
-                                borderRadius:
-                                  "10px",
-                                overflow:
-                                  "hidden",
-                                background:
-                                  "#f4f4f4",
-                              }}
-                            >
-                              {item.image ? (
-                                <img
-                                  src={
-                                    item.image
-                                  }
-                                  alt={
-                                    item.name
-                                  }
-                                  style={{
-                                    width:
-                                      "100%",
-                                    height:
-                                      "100%",
-                                    objectFit:
-                                      "cover",
-                                    display:
-                                      "block",
-                                  }}
-                                />
-                              ) : (
-                                <div
-                                  style={{
-                                    width:
-                                      "100%",
-                                    height:
-                                      "100%",
-                                    display:
-                                      "flex",
-                                    alignItems:
-                                      "center",
-                                    justifyContent:
-                                      "center",
-                                  }}
-                                >
-                                  <Icon
-                                    icon="solar:gallery-linear"
-                                    width="25"
-                                    color="#aaaaaa"
-                                  />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* PRODUCT INFO */}
-
-                            <div
-                              style={{
-                                flex:
-                                  1,
-                                minWidth:
-                                  0,
-                              }}
-                            >
-                              <h3
-                                style={{
-                                  margin:
-                                    0,
-                                  fontSize:
-                                    "14px",
-                                  fontWeight:
-                                    600,
-                                  color:
-                                    "#111111",
-                                }}
-                              >
-                                {
-                                  item.name
-                                }
-                              </h3>
-
-                              <p
-                                style={{
-                                  margin:
-                                    "7px 0 0",
-                                  fontSize:
-                                    "11px",
-                                  color:
-                                    "#777777",
-                                  lineHeight:
-                                    "1.6",
-                                }}
-                              >
-                                Qty:{" "}
-                                {
-                                  item.quantity
-                                }
-
-                                {item.size &&
-                                  ` · Size: ${item.size}`}
-
-                                {item.color &&
-                                  ` · ${item.color}`}
-                              </p>
-
-                              <p
-                                style={{
-                                  margin:
-                                    "6px 0 0",
-                                  fontSize:
-                                    "11px",
-                                  color:
-                                    "#999999",
-                                }}
-                              >
-                                ₹
-                                {formatPrice(
-                                  item.price
-                                )}{" "}
-                                / item
-                              </p>
-                            </div>
-
-                            {/* ITEM TOTAL */}
-
-                            <strong
-                              className="item-total"
-                              style={{
-                                fontSize:
-                                  "13px",
-                                fontWeight:
-                                  600,
-                                whiteSpace:
-                                  "nowrap",
-                                color:
-                                  "#111111",
-                              }}
-                            >
-                              ₹
-                              {formatPrice(
-                                item.price *
-                                  item.quantity
-                              )}
-                            </strong>
-                          </div>
-                        )
-                      )}
-                    </div>
-
-                    {/* =================================
-                        SHIPPING ADDRESS
-                    ================================= */}
-
-                    <div
-                      className="shipping-box"
-                      style={{
-                        padding:
-                          "18px",
-                        borderRadius:
-                          "12px",
-                        background:
-                          "#f7f7f5",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display:
-                            "flex",
-                          alignItems:
-                            "center",
-                          gap: "8px",
-                          fontSize:
-                            "11px",
-                          fontWeight:
-                            600,
-                          textTransform:
-                            "uppercase",
-                          letterSpacing:
-                            "0.08em",
-                          color:
-                            "#555555",
-                        }}
-                      >
-                        <Icon
-                          icon="solar:map-point-linear"
-                          width="17"
-                        />
-
-                        Delivery Address
-                      </div>
-
-                      <p
-                        style={{
-                          margin:
-                            "9px 0 0",
-                          fontSize:
-                            "12px",
-                          lineHeight:
-                            "1.6",
-                          color:
-                            "#777777",
-                        }}
-                      >
-                        {
-                          order
-                            .shippingAddress
-                            .address
-                        }
-                        ,{" "}
-                        {
-                          order
-                            .shippingAddress
-                            .city
-                        }
-                        ,{" "}
-                        {
-                          order
-                            .shippingAddress
-                            .state
-                        }{" "}
-                        -{" "}
-                        {
-                          order
-                            .shippingAddress
-                            .pincode
-                        }
-                      </p>
-                    </div>
-
-                    {/* =================================
-                        ORDER FOOTER
-                    ================================= */}
-
-                    <div
-                      className="order-footer"
-                      style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        justifyContent:
-                          "space-between",
+                        display: "flex",
+                        alignItems: "center",
                         gap: "20px",
-                        flexWrap:
-                          "wrap",
-                        marginTop:
-                          "20px",
-                        paddingTop:
-                          "20px",
-                        borderTop:
-                          "1px solid #eeeeee",
                       }}
                     >
-                      {/* PAYMENT */}
-
                       <div
-                        className="payment-info"
-                        style={{
-                          display:
-                            "flex",
-                          alignItems:
-                            "center",
-                          gap: "10px",
-                        }}
+                        className="order-total"
+                        style={{ textAlign: "right" }}
                       >
-                        <div
+                        <span
                           style={{
-                            width:
-                              "38px",
-                            height:
-                              "38px",
-                            borderRadius:
-                              "10px",
-                            background:
-                              "#f5f5f5",
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            justifyContent:
-                              "center",
+                            display: "block",
+                            fontSize: "9px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.1em",
+                            color: "#999999",
                           }}
                         >
-                          <Icon
-                            icon={
-                              order.paymentMethod ===
-                              "cod"
-                                ? "solar:hand-money-linear"
-                                : "solar:card-linear"
-                            }
-                            width="19"
-                          />
-                        </div>
+                          Total
+                        </span>
 
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize:
-                                "9px",
-                              textTransform:
-                                "uppercase",
-                              letterSpacing:
-                                "0.1em",
-                              color:
-                                "#999999",
-                            }}
-                          >
-                            Payment
-                          </p>
-
-                          <strong
-                            style={{
-                              display:
-                                "block",
-                              marginTop:
-                                "4px",
-                              fontSize:
-                                "11px",
-                              color:
-                                "#333333",
-                            }}
-                          >
-                            {order.paymentMethod ===
-                            "cod"
-                              ? "Cash on Delivery"
-                              : "Online Payment"}
-                          </strong>
-
-                          <span
-                            style={{
-                              display:
-                                "block",
-                              marginTop:
-                                "3px",
-                              fontSize:
-                                "10px",
-                              color:
-                                order.paymentStatus ===
-                                "failed"
-                                  ? "#b00020"
-                                  : "#777777",
-                            }}
-                          >
-                            {getPaymentLabel(
-                              order.paymentStatus
-                            )}
-                          </span>
-                        </div>
+                        <strong
+                          style={{
+                            display: "block",
+                            marginTop: "4px",
+                            fontSize: "20px",
+                            fontWeight: 600,
+                            color: "#111111",
+                          }}
+                        >
+                          ₹{formatPrice(order.total)}
+                        </strong>
                       </div>
 
-                      {/* TOTAL + VIEW */}
-
-                      <div
-                        className="order-footer-right"
+                      <Link
+                        href={`/orders/${order._id}`}
+                        className="view-order-button"
                         style={{
-                          display:
-                            "flex",
-                          alignItems:
-                            "center",
-                          gap: "20px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "7px",
+                          minHeight: "42px",
+                          padding: "0 17px",
+                          borderRadius: "999px",
+                          background: "#111111",
+                          color: "#ffffff",
+                          textDecoration: "none",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                          boxSizing: "border-box",
                         }}
                       >
-                        <div
-                          className="order-total"
-                          style={{
-                            textAlign:
-                              "right",
-                          }}
-                        >
-                          <span
-                            style={{
-                              display:
-                                "block",
-                              fontSize:
-                                "9px",
-                              textTransform:
-                                "uppercase",
-                              letterSpacing:
-                                "0.1em",
-                              color:
-                                "#999999",
-                            }}
-                          >
-                            Total
-                          </span>
-
-                          <strong
-                            style={{
-                              display:
-                                "block",
-                              marginTop:
-                                "4px",
-                              fontSize:
-                                "20px",
-                              fontWeight:
-                                600,
-                              color:
-                                "#111111",
-                            }}
-                          >
-                            ₹
-                            {formatPrice(
-                              order.total
-                            )}
-                          </strong>
-                        </div>
-
-                        <Link
-                          href={`/orders/${order._id}`}
-                          className="view-order-button"
-                          style={{
-                            display:
-                              "inline-flex",
-                            alignItems:
-                              "center",
-                            justifyContent:
-                              "center",
-                            gap: "7px",
-                            minHeight:
-                              "42px",
-                            padding:
-                              "0 17px",
-                            borderRadius:
-                              "999px",
-                            background:
-                              "#111111",
-                            color:
-                              "#ffffff",
-                            textDecoration:
-                              "none",
-                            fontSize:
-                              "11px",
-                            fontWeight:
-                              600,
-                            whiteSpace:
-                              "nowrap",
-                            boxSizing:
-                              "border-box",
-                          }}
-                        >
-                          View Order
-
-                          <Icon
-                            icon="solar:arrow-right-linear"
-                            width="16"
-                          />
-                        </Link>
-                      </div>
+                        View Order
+                        <Icon icon="solar:arrow-right-linear" width="16" />
+                      </Link>
                     </div>
                   </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1266,9 +997,7 @@ export default function OrdersPage() {
 
       <Footer />
 
-      {/* =================================
-          RESPONSIVE
-      ================================= */}
+      {/* RESPONSIVE STYLES */}
 
       <style jsx>{`
         .status-pending {
@@ -1314,14 +1043,12 @@ export default function OrdersPage() {
 
         @media (max-width: 700px) {
           .orders-page {
-            padding:
-              50px 15px 70px !important;
+            padding: 50px 15px 70px !important;
           }
 
           .order-card {
             padding: 20px !important;
-            border-radius:
-              16px !important;
+            border-radius: 16px !important;
           }
 
           .order-header {
@@ -1334,26 +1061,22 @@ export default function OrdersPage() {
           }
 
           .order-footer {
-            align-items:
-              flex-start !important;
+            align-items: flex-start !important;
           }
 
           .order-footer-right {
             width: 100%;
-            justify-content:
-              space-between;
+            justify-content: space-between;
           }
         }
 
         @media (max-width: 480px) {
           .orders-header {
-            margin-bottom:
-              28px !important;
+            margin-bottom: 28px !important;
           }
 
           .order-product {
-            align-items:
-              flex-start !important;
+            align-items: flex-start !important;
           }
 
           .order-product-image {
@@ -1362,8 +1085,7 @@ export default function OrdersPage() {
           }
 
           .item-total {
-            font-size:
-              12px !important;
+            font-size: 12px !important;
           }
 
           .shipping-box {
@@ -1371,10 +1093,8 @@ export default function OrdersPage() {
           }
 
           .order-footer {
-            flex-direction:
-              column !important;
-            align-items:
-              stretch !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
           }
 
           .payment-info {
@@ -1384,28 +1104,23 @@ export default function OrdersPage() {
           .order-footer-right {
             width: 100%;
             display: grid !important;
-            grid-template-columns:
-              1fr auto;
-            align-items:
-              center !important;
+            grid-template-columns: 1fr auto;
+            align-items: center !important;
             gap: 12px !important;
           }
 
           .order-total {
-            text-align:
-              left !important;
+            text-align: left !important;
           }
 
           .view-order-button {
-            min-width:
-              125px;
+            min-width: 125px;
           }
         }
 
         @media (max-width: 359px) {
           .orders-page {
-            padding:
-              40px 12px 60px !important;
+            padding: 40px 12px 60px !important;
           }
 
           .order-card {
@@ -1418,18 +1133,15 @@ export default function OrdersPage() {
           }
 
           .order-product h3 {
-            font-size:
-              12px !important;
+            font-size: 12px !important;
           }
 
           .order-product p {
-            font-size:
-              10px !important;
+            font-size: 10px !important;
           }
 
           .order-footer-right {
-            grid-template-columns:
-              1fr !important;
+            grid-template-columns: 1fr !important;
           }
 
           .view-order-button {

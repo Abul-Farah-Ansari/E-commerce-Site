@@ -1,5 +1,6 @@
   import { NextResponse } from "next/server";
 import mongoose from "mongoose";
+import AdminNotification from "@/models/AdminNotification";
 
 import { connectDB } from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth";
@@ -19,6 +20,58 @@ type ShippingAddressRequest = {
   state?: unknown;
   pincode?: unknown;
 };
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/orders
+|--------------------------------------------------------------------------
+| Fetch orders belonging only to the authenticated customer.
+*/
+
+export async function GET() {
+  try {
+    const auth = await requireAuth();
+
+    if (!auth.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            auth.status === 401
+              ? "Please login to view your orders."
+              : auth.message,
+        },
+        { status: auth.status }
+      );
+    }
+
+    await connectDB();
+
+    const orders = await Order.find({
+      userId: auth.user.id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return NextResponse.json(
+      { success: true, orders },
+      {
+        status: 200,
+        headers: { "Cache-Control": "no-store" },
+      }
+    );
+  } catch (error) {
+    console.error("Fetch customer orders error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unable to fetch your orders. Please try again.",
+      },
+      { status: 500 }
+    );
+  }
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -816,7 +869,29 @@ export async function POST(request: Request) {
     |--------------------------------------------------------------------------
     */
 
-    await session.commitTransaction();
+    
+await session.commitTransaction();
+
+// Notify admin after the order is successfully committed.
+// Notification failure must not turn a successful order into a failed one.
+try {
+  await AdminNotification.create({
+    type: "new_order",
+    title: "New Order Received",
+    message: `${user.name} placed a new order #${order._id.toString()} for ₹${Number(order.total).toLocaleString("en-IN")}.`,
+    orderId: order._id,
+    isRead: false,
+  });
+} catch (notificationError) {
+  console.error("NEW ORDER NOTIFICATION ERROR:", notificationError);
+}
+
+/*
+|--------------------------------------------------------------------------
+| SUCCESS
+|--------------------------------------------------------------------------
+*/
+
 
     /*
     |--------------------------------------------------------------------------
