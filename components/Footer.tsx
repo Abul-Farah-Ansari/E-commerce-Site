@@ -78,21 +78,15 @@ export default function Footer() {
                 All Products
               </Link>
 
-              <Link href="/categories/men">
-                Men
-              </Link>
+             
 
               <Link href="/categories/women">
                 Women
               </Link>
 
-              <Link href="/categories/shoes">
-                Shoes
-              </Link>
+             
 
-              <Link href="/categories/accessories">
-                Accessories
-              </Link>
+          
             </div>
           </div>
 
