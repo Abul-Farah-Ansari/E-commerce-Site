@@ -47,13 +47,11 @@ export async function POST(request: NextRequest) {
     };
 
     const email =
-      typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+      typeof rawEmail === "string"
+        ? rawEmail.trim().toLowerCase()
+        : "";
 
-    if (
-      !email ||
-      typeof password !== "string" ||
-      !password
-    ) {
+    if (!email || typeof password !== "string" || !password) {
       return NextResponse.json(
         {
           success: false,
@@ -65,12 +63,11 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // Explicitly select password because the User schema excludes it by default.
     const user = await User.findOne({ email }).select(
       "+password +totpSecretEncrypted"
     );
 
-    if (!user) {
+    if (!user || !user.password) {
       return NextResponse.json(
         { success: false, message: "Invalid email or password." },
         { status: 401 }
@@ -102,10 +99,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Require verification for new customer accounts explicitly
+    // marked unverified. Do not change existing admin 2FA behavior.
+    if (
+      user.role === "customer" &&
+      user.emailVerified === false
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          requiresEmailVerification: true,
+          message:
+            "Please verify your email address before logging in. Check your inbox for the verification link.",
+        },
+        {
+          status: 403,
+          headers: { "Cache-Control": "no-store" },
+        }
+      );
+    }
+
     // Admins with enabled TOTP must complete the second factor first.
     if (user.role === "admin" && user.totpEnabled) {
       if (!user.totpSecretEncrypted) {
-        console.error("Admin 2FA is enabled but its secret is missing.");
+        console.error(
+          "Admin 2FA is enabled but its secret is missing."
+        );
 
         return NextResponse.json(
           {
@@ -117,8 +136,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // This token is only a short-lived login challenge.
-      // It is NOT the authenticated auth_token cookie.
       const challengeToken = jwt.sign(
         {
           purpose: "admin-2fa",
@@ -126,9 +143,7 @@ export async function POST(request: NextRequest) {
           role: "admin",
         },
         AUTH_SECRET,
-        {
-          expiresIn: "5m",
-        }
+        { expiresIn: "5m" }
       );
 
       return NextResponse.json(
@@ -145,7 +160,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Standard login for customers and admins who have not enrolled in TOTP yet.
+    // Standard login for customers and admins who have not
+    // enrolled in TOTP.
     const token = jwt.sign(
       {
         userId: user._id.toString(),
@@ -153,9 +169,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
       AUTH_SECRET,
-      {
-        expiresIn: "7d",
-      }
+      { expiresIn: "7d" }
     );
 
     const response = NextResponse.json({

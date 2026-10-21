@@ -5,10 +5,19 @@ export interface IUser extends Document {
   name: string;
   email: string;
   phone: string;
-  password: string;
+  password?: string;
 
   role: "customer" | "admin";
   accountStatus: "active" | "disabled";
+
+  // Email verification
+  emailVerified: boolean;
+  emailVerificationTokenHash?: string;
+  emailVerificationExpires?: Date;
+
+  // Google sign-in
+  googleId?: string;
+  authProvider: "local" | "google" | "both";
 
   address?: string;
   city?: string;
@@ -42,13 +51,15 @@ const UserSchema = new Schema<IUser>(
 
     phone: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
 
     password: {
       type: String,
-      required: true,
+      required: function (this: IUser) {
+        return this.authProvider !== "google";
+      },
       select: false,
     },
 
@@ -63,6 +74,34 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ["active", "disabled"],
       default: "active",
+      required: true,
+    },
+
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    emailVerificationTokenHash: {
+      type: String,
+      select: false,
+    },
+
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
+
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true,
+    },
+
+    authProvider: {
+      type: String,
+      enum: ["local", "google", "both"],
+      default: "local",
       required: true,
     },
 
@@ -86,7 +125,6 @@ const UserSchema = new Schema<IUser>(
       trim: true,
     },
 
-    // Two-factor authentication settings
     totpEnabled: {
       type: Boolean,
       default: false,
