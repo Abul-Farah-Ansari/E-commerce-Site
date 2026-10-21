@@ -18,6 +18,7 @@ export default function Home() {
       <main>
         {/* Hero Section */}
         <Hero />
+        <HomeVideoSection />
 
         {/* Categories */}
         <Categories />
@@ -47,7 +48,7 @@ export default function Home() {
         />
 
         {/* Home Page Videos - Managed from Admin Settings */}
-        <HomeVideoSection />
+        
 
         {/* Best Sellers */}
         <ProductSection

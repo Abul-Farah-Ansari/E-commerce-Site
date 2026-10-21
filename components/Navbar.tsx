@@ -416,23 +416,24 @@ export default function Navbar() {
   };
 
   return (
-    <header
-      className={`
-        fixed
-        top-0
-        left-0
-        right-0
-        z-[100]
-        transition-transform
-        duration-300
-        ease-out
-        ${
-          showNavbar
-            ? "translate-y-0"
-            : "-translate-y-full"
-        }
-      `}
-    >
+    
+<header
+  className={`
+    sticky
+    top-0
+    z-[100]
+    w-full
+    transition-transform
+    duration-300
+    ease-out
+    ${
+      showNavbar
+        ? "translate-y-0"
+        : "-translate-y-full"
+    }
+  `}
+>
+
       <div
         className={`
           border-b

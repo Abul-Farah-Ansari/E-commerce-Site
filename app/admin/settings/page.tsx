@@ -40,6 +40,15 @@ const securityItems = [
     href: "/admin/settings/videos",
     tag: "Store Content",
   },
+  {
+    icon: "mdi:image-edit-outline",
+    title: "Homepage Hero Image",
+    description:
+      "Upload, replace, preview, or delete the main banner image displayed on your homepage.",
+    detail: "Hero image management",
+    href: "/admin/settings/hero",
+    tag: "Store Content",
+  },
 ];
 
 const tabs = [
@@ -54,10 +63,7 @@ export default function AdminSettingsPage() {
 
   const visibleItems = securityItems.filter((item) => {
     if (activeTab === "All settings") return true;
-
-    if (activeTab === "Account") {
-      return item.tag === "Account";
-    }
+    if (activeTab === "Account") return item.tag === "Account";
 
     if (activeTab === "Security") {
       return (
@@ -76,7 +82,6 @@ export default function AdminSettingsPage() {
   return (
     <div className="min-h-screen bg-[#f7f7f8] px-4 py-6 text-[#202020] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        {/* PAGE HEADING */}
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
@@ -101,7 +106,6 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* SECURITY BANNER */}
         <div className="relative mb-8 overflow-hidden rounded-2xl bg-black p-6 text-white sm:p-8">
           <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full border border-white/10" />
           <div className="pointer-events-none absolute -right-2 -top-8 h-40 w-40 rounded-full border border-white/10" />
@@ -109,10 +113,7 @@ export default function AdminSettingsPage() {
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                <Icon
-                  icon="mdi:shield-check-outline"
-                  width={29}
-                />
+                <Icon icon="mdi:shield-check-outline" width={29} />
               </div>
 
               <div className="max-w-xl">
@@ -136,15 +137,11 @@ export default function AdminSettingsPage() {
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-gray-200"
             >
               Manage 2FA
-              <Icon
-                icon="mdi:arrow-top-right"
-                width={18}
-              />
+              <Icon icon="mdi:arrow-top-right" width={18} />
             </Link>
           </div>
         </div>
 
-        {/* TABS */}
         <div className="mb-6 flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -162,7 +159,6 @@ export default function AdminSettingsPage() {
           ))}
         </div>
 
-        {/* SECTION HEADING */}
         <div className="mb-4">
           <h2 className="text-lg font-semibold">
             {activeTab === "All settings"
@@ -177,7 +173,6 @@ export default function AdminSettingsPage() {
           </p>
         </div>
 
-        {/* SETTINGS CARDS */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {visibleItems.map((item) => (
             <div
@@ -186,10 +181,7 @@ export default function AdminSettingsPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-black transition group-hover:bg-gray-200">
-                  <Icon
-                    icon={item.icon}
-                    width={25}
-                  />
+                  <Icon icon={item.icon} width={25} />
                 </div>
 
                 <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
@@ -218,23 +210,16 @@ export default function AdminSettingsPage() {
                     ? "Configure"
                     : "Manage"}
 
-                  <Icon
-                    icon="mdi:chevron-right"
-                    width={17}
-                  />
+                  <Icon icon="mdi:chevron-right" width={17} />
                 </Link>
               </div>
             </div>
           ))}
         </div>
 
-        {/* SECURITY RECOMMENDATION */}
         <div className="mt-8 flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="mt-0.5 text-gray-600">
-            <Icon
-              icon="mdi:lock-outline"
-              width={21}
-            />
+            <Icon icon="mdi:lock-outline" width={21} />
           </div>
 
           <div>
