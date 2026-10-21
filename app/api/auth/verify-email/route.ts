@@ -11,8 +11,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
 
-  const appUrl =
-    process.env.APP_URL || "http://localhost:3000";
+const appUrl = (
+  process.env.APP_URL || "http://localhost:3000"
+).replace(/\/+$/, "");
 
   const redirect = (status: string) =>
     NextResponse.redirect(

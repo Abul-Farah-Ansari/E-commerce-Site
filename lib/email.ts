@@ -2,8 +2,9 @@
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 
-const APP_URL =
-  process.env.APP_URL || "http://localhost:3000";
+const APP_URL = (
+  process.env.APP_URL || "http://localhost:3000"
+).replace(/\/+$/, "");
 
 function getTransporter() {
   const host = process.env.BREVO_SMTP_HOST;
