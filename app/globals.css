@@ -941,3 +941,108 @@ main button {
     transform: none;
   }
 }
+/* Add these styles to the bottom of app/globals.css */
+.orive-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  background: #101010;
+  color: #f4eee5;
+  opacity: 1;
+  animation: orive-loader-appear 240ms ease-out both;
+}
+
+.orive-loader__content {
+  display: flex;
+  width: min(90vw, 360px);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.orive-loader__brand {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(27px, 6vw, 36px);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.1;
+}
+
+.orive-loader__tagline {
+  margin-top: 10px;
+  color: #c9b596;
+  font-family: var(--font-manrope), Arial, sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.28em;
+}
+
+.orive-loader__fashion-icon {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  margin-top: 38px;
+  color: #d5c0a0;
+  animation: orive-icon-float 1.3s ease-in-out infinite;
+}
+
+.orive-loader__fashion-icon svg {
+  filter: drop-shadow(0 0 15px rgb(213 192 160 / 12%));
+  animation: orive-icon-change 650ms ease-in-out both;
+}
+
+.orive-loader__loading-copy {
+  margin-top: 19px;
+  color: #d6d0c7;
+  font-family: var(--font-manrope), Arial, sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+}
+
+.orive-loader__track {
+  overflow: hidden;
+  width: 160px;
+  height: 2px;
+  margin-top: 22px;
+  background: #393632;
+}
+
+.orive-loader__progress {
+  display: block;
+  width: 42%;
+  height: 100%;
+  background: #d5c0a0;
+  transform: translateX(-110%);
+  animation: orive-progress 1.15s ease-in-out infinite;
+}
+
+@keyframes orive-loader-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes orive-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes orive-icon-change {
+  from { opacity: 0.35; transform: scale(0.88) rotate(-8deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes orive-progress {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(350%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orive-loader,
+  .orive-loader__fashion-icon,
+  .orive-loader__fashion-icon svg,
+  .orive-loader__progress {
+    animation-duration: 2.5s;
+  }
+}

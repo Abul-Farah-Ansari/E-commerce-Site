@@ -1,10 +1,9 @@
-
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/CartContext";
 import GlobalAnimations from "@/components/GlobalAnimations";
-
+import PageLoader from "@/components/PageLoader";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -39,15 +38,13 @@ export const metadata: Metadata = {
   applicationName: "House of Orive",
   openGraph: {
     title: "House of Orive",
-    description:
-      "Timeless fashion, refined essentials and modern elegance.",
+    description: "Timeless fashion, refined essentials and modern elegance.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "House of Orive",
-    description:
-      "Timeless fashion, refined essentials and modern elegance.",
+    description: "Timeless fashion, refined essentials and modern elegance.",
   },
 };
 
@@ -57,11 +54,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${cormorant.variable} ${manrope.variable}`}
-    >
+    <html lang="en" className={`${cormorant.variable} ${manrope.variable}`}>
       <body>
+        <PageLoader />
         <CartProvider>
           <GlobalAnimations />
           {children}

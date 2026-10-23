@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { usePageHeroSettings } from "@/hooks/usePageHeroSettings";
 
 type Product = {
   _id: string;
@@ -52,8 +53,7 @@ type Category = {
   status?: "active" | "inactive";
 };
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=85";
+const FALLBACK_IMAGE = "";
 
 export default function SalePage() {
   const [products, setProducts] = useState<Product[]>(
@@ -74,6 +74,17 @@ export default function SalePage() {
     useState("");
 
   const [sort, setSort] = useState("featured");
+
+  // Hero content and image are loaded from the admin-managed page hero settings.
+  const hero = usePageHeroSettings("sale", {
+    imageUrl: "",
+    altText: "House Of Orive Sale",
+    eyebrow: "HOUSE OF ORIVE",
+    heading: "Sale",
+    description: "Discover selected House Of Orive pieces at considered prices.",
+    buttonText: "",
+    buttonLink: "",
+  });
 
   // =========================================================
   // LOAD PRODUCTS + CATEGORIES
@@ -391,36 +402,53 @@ export default function SalePage() {
         {/* HERO */}
         {/* ================================================= */}
 
-        <section className="relative flex min-h-[560px] items-center overflow-hidden bg-neutral-900">
-          <img
-            src={FALLBACK_IMAGE}
-            alt="House Of Orive Sale"
-            className="absolute inset-0 h-full w-full object-cover opacity-50 grayscale"
-          />
+        <section className="relative flex min-h-[80vh] items-center overflow-hidden bg-neutral-100">
+          {hero.imageUrl ? (
+            <img
+              src={hero.imageUrl}
+              alt={hero.altText || "House Of Orive Sale"}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : null}
 
-          <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/40 to-black/20" />
+          {hero.imageUrl ? (
+            <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/40 to-black/20" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#f8f6f2] via-white to-[#eee9e2]" />
+          )}
 
-          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-28 sm:px-10 lg:px-16">
-            <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/65">
-              House Of Orive
+          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-10 lg:px-16">
+            <p className={`text-[10px] font-medium uppercase tracking-[0.32em] ${hero.imageUrl ? "text-white/65" : "text-black/45"}`}>
+              {hero.eyebrow || "HOUSE OF ORIVE"}
             </p>
 
-            <h1 className="mt-5 font-serif text-[72px] leading-[0.88] tracking-[-0.045em] text-white sm:text-[100px] lg:text-[140px]">
-              Sale
+            <h1 className={`mt-5 font-serif text-[56px] leading-[0.9] tracking-[-0.045em] sm:text-[76px] lg:text-[104px] ${hero.imageUrl ? "text-white" : "text-black"}`}>
+              {hero.heading || "Sale"}
             </h1>
 
-            <p className="mt-8 max-w-[580px] text-sm leading-7 text-white/70">
-              Discover selected House Of Orive
-              pieces at considered prices.
+            <p className={`mt-8 max-w-[580px] text-sm leading-7 ${hero.imageUrl ? "text-white/75" : "text-black/60"}`}>
+              {hero.description || "Discover selected House Of Orive pieces at considered prices."}
             </p>
+
+            {hero.buttonText && hero.buttonLink ? (
+              <Link
+                href={hero.buttonLink}
+                className={`mt-8 inline-flex items-center border px-6 py-3 text-xs uppercase tracking-[0.2em] transition ${
+                  hero.imageUrl
+                    ? "border-white/60 text-white hover:bg-white hover:text-black"
+                    : "border-black/40 text-black hover:bg-black hover:text-white"
+                }`}
+              >
+                {hero.buttonText}
+              </Link>
+            ) : null}
           </div>
 
           <div className="absolute bottom-8 right-8 hidden text-right lg:block">
-            <p className="text-[9px] uppercase tracking-[0.25em] text-white/55">
+            <p className={`text-[9px] uppercase tracking-[0.25em] ${hero.imageUrl ? "text-white/55" : "text-black/40"}`}>
               Special Edit
             </p>
-
-            <p className="mt-1 font-serif text-3xl text-white">
+            <p className={`mt-1 font-serif text-3xl ${hero.imageUrl ? "text-white" : "text-black"}`}>
               01
             </p>
           </div>
