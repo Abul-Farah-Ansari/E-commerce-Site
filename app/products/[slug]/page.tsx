@@ -53,6 +53,8 @@ export default function ProductDetailsPage() {
   const [selectedColor, setSelectedColor] = useState("");
 
   const [selectedImage, setSelectedImage] = useState(0);
+  const [zoomVisible, setZoomVisible] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
 
   const [added, setAdded] = useState(false);
 
@@ -546,7 +548,7 @@ export default function ProductDetailsPage() {
 
       <main
         style={{
-          background: "#fff",
+          background: "#FAF8F5",
           minHeight: "100vh",
         }}
       >
@@ -601,245 +603,200 @@ export default function ProductDetailsPage() {
               alignItems: "start",
             }}
           >
-            {/* ================= IMAGE ================= */}
-
-            <div
-              style={{
-                width: "100%",
-              }}
-            >
+            {/* ================= PREMIUM PRODUCT GALLERY ================= */}
+            <div style={{ width: "100%", minWidth: 0 }}>
               <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  aspectRatio: "1 / 1.08",
-                  overflow: "hidden",
-                  background: "#f5f5f5",
-                  borderRadius: "18px",
-                }}
-              >
-                {mainImage ? (
-                  <img
-                    src={mainImage}
-                    alt={product.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#999",
-                    }}
-                  >
-                    <Icon
-                      icon="solar:gallery-linear"
-                      width="50"
-                    />
-                  </div>
-                )}
-
-                {discountPercentage > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "20px",
-                      left: "20px",
-                      padding: "9px 13px",
-                      background: "#111",
-                      color: "#fff",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      letterSpacing: "0.4px",
-                    }}
-                  >
-                    {discountPercentage}% OFF
-                  </div>
-                )}
-
-                {isOutOfStock && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background:
-                        "rgba(255,255,255,0.55)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: "#111",
-                        color: "#fff",
-                        padding: "12px 20px",
-                        borderRadius: "8px",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      OUT OF STOCK
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* IMAGE THUMBNAILS */}
-
-              {product.images &&
-                product.images.length > 1 && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(4, 1fr)",
-                      gap: "12px",
-                      marginTop: "14px",
-                    }}
-                  >
-                    {product.images.map(
-                      (image, index) => {
-                        const active =
-                          selectedImage === index;
-
-                        return (
-                          <button
-                            key={`${image}-${index}`}
-                            type="button"
-                            onClick={() =>
-                              setSelectedImage(index)
-                            }
-                            style={{
-                              padding: 0,
-                              border: active
-                                ? "2px solid #111"
-                                : "1px solid #e5e5e5",
-                              borderRadius: "10px",
-                              overflow: "hidden",
-                              background: "#f5f5f5",
-                              cursor: "pointer",
-                              aspectRatio: "1 / 1",
-                            }}
-                          >
-                            <img
-                              src={image}
-                              alt={`${product.name} ${
-                                index + 1
-                              }`}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                            />
-                          </button>
-                        );
-                      }
-                    )}
-                  </div>
-                )}
-
-              {/* SERVICE CARDS */}
-
-              <div
+                className="product-gallery-layout"
                 style={{
                   display: "grid",
                   gridTemplateColumns:
-                    "repeat(3, 1fr)",
-                  gap: "12px",
-                  marginTop: "14px",
+                    product.images && product.images.length > 1
+                      ? "88px minmax(0, 1fr)"
+                      : "minmax(0, 1fr)",
+                  gap: "16px",
+                  alignItems: "start",
                 }}
               >
+                {/* Vertical thumbnails on the left */}
+                {product.images && product.images.length > 1 && (
+                  <div className="product-gallery-thumbnails">
+                    {product.images.map((image, index) => {
+                      const active = selectedImage === index;
+
+                      return (
+                        <button
+                          key={`${image}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedImage(index)}
+                          aria-label={`View ${product.name} image ${index + 1}`}
+                          aria-pressed={active}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            aspectRatio: "3 / 4",
+                            padding: "4px",
+                            border: active
+                              ? "1px solid #171717"
+                              : "1px solid #e5e0d9",
+                            borderRadius: "5px",
+                            overflow: "hidden",
+                            background: "#FAF8F5",
+                            cursor: "pointer",
+                            transition: "border-color 180ms ease",
+                          }}
+                        >
+                          <img
+                            src={image}
+                            alt={`${product.name} thumbnail ${index + 1}`}
+                            loading="lazy"
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                              objectPosition: "center",
+                            }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Large, uncropped main image */}
                 <div
+                  className="product-main-image"
+                  onMouseEnter={() => setZoomVisible(true)}
+                  onMouseLeave={() => setZoomVisible(false)}
+                  onMouseMove={(event) => {
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+                    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+                    setZoomPosition({
+                      x: Math.max(0, Math.min(100, x)),
+                      y: Math.max(0, Math.min(100, y)),
+                    });
+                  }}
                   style={{
-                    background: "#f7f7f7",
-                    borderRadius: "12px",
-                    padding: "14px",
-                    textAlign: "center",
+                    position: "relative",
+                    width: "100%",
+                    minWidth: 0,
+                    aspectRatio: "4 / 5",
+                    overflow: "hidden",
+                    background: "#FAF8F5",
+                    border: "1px solid #eee9e1",
+                    cursor: mainImage ? "crosshair" : "default",
                   }}
                 >
-                  <Icon
-                    icon="solar:shield-check-linear"
-                    width="21"
-                    style={{
-                      marginBottom: "6px",
-                    }}
-                  />
+                  {mainImage ? (
+                    <img
+                      src={mainImage}
+                      alt={product.name}
+                      fetchPriority="high"
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        objectPosition: "center",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#999",
+                      }}
+                    >
+                      <Icon icon="solar:gallery-linear" width="50" />
+                    </div>
+                  )}
 
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#555",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Quality
-                  </div>
+                  {mainImage && zoomVisible && (
+                    <div
+                      className="product-image-zoom-preview"
+                      aria-label="3x magnified product image preview"
+                      style={{
+                        backgroundImage: `url("${mainImage}")`,
+                        backgroundSize: "300% 300%",
+                        backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                      }}
+                    >
+                      <span className="product-image-zoom-label">3× ZOOM</span>
+                    </div>
+                  )}
+
+                  {discountPercentage > 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "16px",
+                        left: "16px",
+                        padding: "8px 11px",
+                        background: "#171717",
+                        color: "#fff",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      {discountPercentage}% OFF
+                    </div>
+                  )}
+
+                  {isOutOfStock && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: "rgba(250,248,245,0.58)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: "#171717",
+                          color: "#fff",
+                          padding: "12px 18px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        OUT OF STOCK
+                      </span>
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                <div
-                  style={{
-                    background: "#f7f7f7",
-                    borderRadius: "12px",
-                    padding: "14px",
-                    textAlign: "center",
-                  }}
-                >
-                  <Icon
-                    icon="solar:delivery-linear"
-                    width="21"
-                    style={{
-                      marginBottom: "6px",
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#555",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Fast Delivery
-                  </div>
+              {/* Service assurances */}
+              <div
+                className="product-service-cards"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: "10px",
+                  marginTop: "18px",
+                }}
+              >
+                <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
+                  <Icon icon="solar:shield-check-linear" width="21" />
+                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#555", fontWeight: 600 }}>Quality</div>
                 </div>
-
-                <div
-                  style={{
-                    background: "#f7f7f7",
-                    borderRadius: "12px",
-                    padding: "14px",
-                    textAlign: "center",
-                  }}
-                >
-                  <Icon
-                    icon="solar:refresh-linear"
-                    width="21"
-                    style={{
-                      marginBottom: "6px",
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#555",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Easy Returns
-                  </div>
+                <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
+                  <Icon icon="solar:delivery-linear" width="21" />
+                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#555", fontWeight: 600 }}>Fast Delivery</div>
+                </div>
+                <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
+                  <Icon icon="solar:refresh-linear" width="21" />
+                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#555", fontWeight: 600 }}>Easy Returns</div>
                 </div>
               </div>
             </div>
@@ -1568,8 +1525,8 @@ export default function ProductDetailsPage() {
 
         <section
           style={{
-            background: "#f8f8f8",
-            borderTop: "1px solid #eee",
+            background: "#FAF8F5",
+            borderTop: "1px solid #e9e3db",
             padding: "70px 24px",
           }}
         >
@@ -1758,7 +1715,60 @@ export default function ProductDetailsPage() {
       {/* RESPONSIVE */}
 
       <style jsx>{`
+        .product-gallery-thumbnails {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-height: 650px;
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: #c9c1b7 transparent;
+        }
+
+        .product-gallery-thumbnails button {
+          flex: 0 0 auto;
+        }
+
+        .product-main-image img {
+          transition: opacity 180ms ease;
+        }
+
+        .product-image-zoom-preview {
+          position: absolute;
+          z-index: 5;
+          top: 14px;
+          right: 14px;
+          width: min(58%, 300px);
+          aspect-ratio: 4 / 5;
+          border: 1px solid rgba(23, 23, 23, 0.22);
+          background-color: #FAF8F5;
+          background-repeat: no-repeat;
+          box-shadow: 0 12px 35px rgba(0, 0, 0, 0.16);
+          pointer-events: none;
+        }
+
+        .product-image-zoom-label {
+          position: absolute;
+          right: 8px;
+          bottom: 8px;
+          padding: 5px 7px;
+          color: #fff;
+          background: rgba(23, 23, 23, 0.82);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+        }
+
         @media (max-width: 900px) {
+          .product-gallery-layout {
+            grid-template-columns: 72px minmax(0, 1fr) !important;
+            gap: 12px !important;
+          }
+
+          .product-gallery-thumbnails {
+            max-height: 560px;
+          }
+
           .product-details-grid {
             grid-template-columns: 1fr !important;
             gap: 40px !important;
@@ -1770,6 +1780,34 @@ export default function ProductDetailsPage() {
         }
 
         @media (max-width: 600px) {
+          .product-image-zoom-preview {
+            display: none;
+          }
+
+          .product-gallery-layout {
+            display: flex !important;
+            flex-direction: column-reverse !important;
+            gap: 10px !important;
+          }
+
+          .product-gallery-thumbnails {
+            width: 100%;
+            max-height: none;
+            flex-direction: row;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 4px;
+          }
+
+          .product-gallery-thumbnails button {
+            width: 68px !important;
+            min-width: 68px;
+          }
+
+          .product-main-image {
+            aspect-ratio: 4 / 5 !important;
+          }
+
           .product-details-grid {
             gap: 30px !important;
           }

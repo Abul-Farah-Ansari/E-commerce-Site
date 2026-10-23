@@ -49,6 +49,15 @@ const securityItems = [
     href: "/admin/settings/hero",
     tag: "Store Content",
   },
+  {
+    icon: "mdi:image-multiple-outline",
+    title: "Page Hero Images",
+    description:
+      "Manage hero images, headings, descriptions, and buttons for Products, Sale, About, and Contact pages independently.",
+    detail: "Individual page hero management",
+    href: "/admin/settings/page-heroes",
+    tag: "Store Content",
+  },
 ];
 
 const tabs = [
@@ -63,7 +72,10 @@ export default function AdminSettingsPage() {
 
   const visibleItems = securityItems.filter((item) => {
     if (activeTab === "All settings") return true;
-    if (activeTab === "Account") return item.tag === "Account";
+
+    if (activeTab === "Account") {
+      return item.tag === "Account";
+    }
 
     if (activeTab === "Security") {
       return (
@@ -82,6 +94,8 @@ export default function AdminSettingsPage() {
   return (
     <div className="min-h-screen bg-[#f7f7f8] px-4 py-6 text-[#202020] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
+        {/* PAGE HEADER */}
+
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
@@ -106,8 +120,11 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* SECURITY BANNER */}
+
         <div className="relative mb-8 overflow-hidden rounded-2xl bg-black p-6 text-white sm:p-8">
           <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full border border-white/10" />
+
           <div className="pointer-events-none absolute -right-2 -top-8 h-40 w-40 rounded-full border border-white/10" />
 
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -142,6 +159,8 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* SETTINGS FILTER TABS */}
+
         <div className="mb-6 flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -159,6 +178,8 @@ export default function AdminSettingsPage() {
           ))}
         </div>
 
+        {/* SETTINGS SECTION HEADING */}
+
         <div className="mb-4">
           <h2 className="text-lg font-semibold">
             {activeTab === "All settings"
@@ -168,10 +189,12 @@ export default function AdminSettingsPage() {
 
           <p className="mt-1 text-sm text-gray-500">
             {activeTab === "Store Content"
-              ? "Manage content displayed on your ecommerce website."
+              ? "Manage homepage videos, the homepage hero image, and individual page hero sections."
               : "Essential controls for your administrator account and store."}
           </p>
         </div>
+
+        {/* SETTINGS CARDS */}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {visibleItems.map((item) => (
@@ -216,6 +239,8 @@ export default function AdminSettingsPage() {
             </div>
           ))}
         </div>
+
+        {/* SECURITY RECOMMENDATION */}
 
         <div className="mt-8 flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="mt-0.5 text-gray-600">

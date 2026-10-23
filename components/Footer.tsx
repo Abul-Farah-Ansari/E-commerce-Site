@@ -112,13 +112,15 @@ export default function Footer() {
                 Shipping
               </Link>
 
-              <Link href="/returns">
-                Returns
-              </Link>
+             <Link href="/shipping-policy">
+  Shipping Policy
+</Link>
 
-              <Link href="/faq">
-                FAQ
-              </Link>
+<Link href="/return-refund-policy">
+  Return & Refund Policy
+</Link>
+
+             
             </div>
           </div>
 
@@ -192,15 +194,15 @@ export default function Footer() {
             © 2026 House of Orive. All rights reserved.
           </p>
 
-          <div className="footer-bottom-links">
-            <Link href="/privacy-policy">
-              Privacy Policy
-            </Link>
-
-            <Link href="/terms">
-              Terms & Conditions
-            </Link>
-          </div>
+          <nav className="footer-bottom-links" aria-label="Legal and accessibility links">
+            <Link href="/privacy-policy">Privacy Policy</Link>
+            <span className="footer-bottom-separator" aria-hidden="true">|</span>
+            <Link href="/cookies-policy">Cookies Policy</Link>
+            <span className="footer-bottom-separator" aria-hidden="true">|</span>
+            <Link href="/terms-and-conditions">Terms and Conditions</Link>
+            <span className="footer-bottom-separator" aria-hidden="true">|</span>
+            <Link href="/accessibility">Website Accessibility</Link>
+          </nav>
         </div>
       </div>
 
@@ -211,7 +213,7 @@ export default function Footer() {
 
         .footer {
           width: 100%;
-          background: #111111;
+          background: #000000;
           color: #ffffff;
         }
 
@@ -509,22 +511,31 @@ export default function Footer() {
         .footer-bottom-links {
           display: flex;
           align-items: center;
-
-          gap: 22px;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          gap: 7px;
+          min-width: 0;
         }
 
         .footer-bottom-links a {
-          color: #777777;
-
-          font-size: 10px;
-
+          color: #6b9dff;
+          font-size: 12px;
+          line-height: 1.7;
           text-decoration: none;
-
-          transition: color 0.25s ease;
+          transition: color 0.25s ease, opacity 0.25s ease;
         }
 
         .footer-bottom-links a:hover {
-          color: #ffffff;
+          color: #a8c4ff;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+
+        .footer-bottom-separator {
+          color: #6b9dff;
+          font-size: 12px;
+          opacity: 0.8;
+          user-select: none;
         }
 
         /* =========================================
@@ -656,8 +667,14 @@ export default function Footer() {
           }
 
           .footer-bottom-links {
-            gap: 18px;
-            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 6px;
+            row-gap: 4px;
+          }
+
+          .footer-bottom-links a,
+          .footer-bottom-separator {
+            font-size: 10px;
           }
         }
 
@@ -740,10 +757,12 @@ export default function Footer() {
           }
 
           .footer-bottom-links {
-            gap: 14px;
+            gap: 5px;
+            row-gap: 3px;
           }
 
-          .footer-bottom-links a {
+          .footer-bottom-links a,
+          .footer-bottom-separator {
             font-size: 9px;
           }
         }
@@ -803,10 +822,12 @@ export default function Footer() {
           }
 
           .footer-bottom-links {
-            gap: 10px;
+            gap: 4px;
+            row-gap: 3px;
           }
 
-          .footer-bottom-links a {
+          .footer-bottom-links a,
+          .footer-bottom-separator {
             font-size: 8px;
           }
         }

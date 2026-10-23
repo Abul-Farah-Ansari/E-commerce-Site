@@ -127,7 +127,7 @@ export default function ProductSection({
   ============================================================
   */
 
-  const visibleProducts = products;
+  const visibleProducts = products.slice(0, Math.max(0, limit));
 
   /*
   ============================================================
@@ -246,12 +246,26 @@ export default function ProductSection({
 
                   <div className="product-image-wrap">
 
-                    <img
-                      src={getProductImage(
-                        product
+                    <div
+                      className={`product-image-stack ${
+                        product.images?.[1] ? "has-secondary" : ""
+                      }`}
+                    >
+                      <img
+                        src={getProductImage(product)}
+                        alt={product.name}
+                        className="product-image-primary"
+                      />
+
+                      {product.images && product.images.length > 1 && product.images[1] && (
+                        <img
+                          src={product.images[1]}
+                          alt={`${product.name} - alternate view`}
+                          className="product-image-secondary"
+                          loading="lazy"
+                        />
                       )}
-                      alt={product.name}
-                    />
+                    </div>
 
                     {/* WISHLIST */}
 
@@ -288,26 +302,24 @@ export default function ProductSection({
 
                     <div className="product-price">
 
-                      <span>
-                        ₹
-                        {Number(
-                          product.price
-                        ).toLocaleString("en-IN")}
+                      <span className="current-price">
+                        ₹{Number(product.price).toLocaleString("en-IN")}
                       </span>
 
                       {product.compareAtPrice &&
-                        product.compareAtPrice >
-                          product.price && (
-
-                          <del>
-                            ₹
-                            {Number(
-                              product.compareAtPrice
-                            ).toLocaleString(
-                              "en-IN"
-                            )}
-                          </del>
-
+                        product.compareAtPrice > product.price && (
+                          <div className="price-meta">
+                            <del>
+                              ₹{Number(product.compareAtPrice).toLocaleString("en-IN")}
+                            </del>
+                            <span className="discount-percent">
+                              {Math.round(
+                                ((product.compareAtPrice - product.price) /
+                                  product.compareAtPrice) *
+                                  100
+                              )}% OFF
+                            </span>
+                          </div>
                         )}
 
                     </div>
@@ -403,20 +415,17 @@ export default function ProductSection({
 
         .product-grid {
           display: grid;
-          grid-template-columns:
-            repeat(
-              5,
-              minmax(0, 1fr)
-            );
-          gap: 14px;
-          padding-top: 35px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
+          padding-top: 30px;
         }
 
         /* CARD */
 
         .product-card {
           display: block;
-          color: #111;
+          min-width: 0;
+          color: #171613;
           text-decoration: none;
         }
 
@@ -425,27 +434,62 @@ export default function ProductSection({
           width: 100%;
           aspect-ratio: 3 / 4;
           overflow: hidden;
-          background: #f2f1ee;
+          background: #f2f0eb;
+          isolation: isolate;
         }
 
-        .product-image-wrap img {
+        .product-image-stack {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #f2f0eb;
+        }
+
+        .product-image-stack img {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           display: block;
           object-fit: cover;
+          will-change: transform;
           transition:
-            transform .7s
-            cubic-bezier(
-              .22,
-              1,
-              .36,
-              1
-            );
+            transform .7s cubic-bezier(.22, 1, .36, 1),
+            opacity .35s ease;
         }
 
-        .product-card:hover
-        .product-image-wrap img {
-          transform: scale(1.05);
+        .product-image-primary {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+
+        .product-image-secondary {
+          opacity: 1;
+          transform: translateX(100%) scale(1);
+        }
+
+        /* Slide the alternate image in like a quiet editorial carousel. */
+        .product-card:hover .product-image-stack.has-secondary .product-image-primary {
+          transform: translateX(-100%) scale(1);
+        }
+
+        .product-card:hover .product-image-stack.has-secondary .product-image-secondary {
+          transform: translateX(0) scale(1);
+        }
+
+        /* When there is no alternate image, keep the main image visible. */
+        .product-card:hover .product-image-stack:not(.has-secondary) .product-image-primary {
+          transform: scale(1.045);
+        }
+
+        .product-card:focus-visible .product-image-stack.has-secondary .product-image-primary {
+          transform: translateX(-100%);
+        }
+
+        .product-card:focus-visible .product-image-stack.has-secondary .product-image-secondary {
+          transform: translateX(0);
         }
 
         /* ARROW */
@@ -486,25 +530,38 @@ export default function ProductSection({
         .product-info {
           display: flex;
           justify-content: space-between;
-          gap: 10px;
-          padding: 15px 1px 0;
+          align-items: flex-start;
+          gap: 14px;
+          padding: 17px 2px 0;
+        }
+
+        .product-info > div:first-child {
+          min-width: 0;
         }
 
         .product-info h3 {
           margin: 0;
+          color: #171613;
           font-family: var(--font-dm-sans);
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 500;
+          line-height: 1.4;
+          letter-spacing: -.02em;
+          transition: color .25s ease;
+        }
+
+        .product-card:hover .product-info h3 {
+          color: #777064;
         }
 
         .product-category {
           display: block;
-          margin-top: 6px;
+          margin-top: 7px;
           color: #99948c;
           font-family: var(--font-dm-sans);
-          font-size: 7px;
-          font-weight: 700;
-          letter-spacing: .14em;
+          font-size: 8px;
+          font-weight: 600;
+          letter-spacing: .16em;
         }
 
         .product-price {
@@ -512,14 +569,41 @@ export default function ProductSection({
           display: flex;
           flex-direction: column;
           align-items: flex-end;
-          gap: 3px;
+          gap: 5px;
+          padding: 1px 0 0;
+          color: #171613;
           font-family: var(--font-dm-sans);
-          font-size: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: -.025em;
+          white-space: nowrap;
+        }
+
+        .price-meta {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 7px;
         }
 
         .product-price del {
-          color: #aaa;
-          font-size: 10px;
+          color: #a7a197;
+          font-size: 11px;
+          font-weight: 400;
+          letter-spacing: 0;
+        }
+
+        .discount-percent {
+          color: #8a4b3c;
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: .06em;
+        }
+
+        .product-price .current-price {
+          display: inline-flex;
+          align-items: baseline;
+          gap: 2px;
         }
 
         /* VIEW ALL */
@@ -588,8 +672,8 @@ export default function ProductSection({
           }
 
           .product-grid {
-            grid-template-columns:
-              repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
           }
 
         }
@@ -616,8 +700,7 @@ export default function ProductSection({
           }
 
           .product-grid {
-            grid-template-columns:
-              repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
             padding-top: 25px;
           }
@@ -635,10 +718,30 @@ export default function ProductSection({
             font-size: 12px;
           }
 
-         
-.product-arrow {
-  display: none;
-}
+          .product-info {
+            gap: 8px;
+            padding-top: 11px;
+          }
+
+          .product-price {
+            font-size: 12px;
+          }
+
+          .product-price del {
+            font-size: 9px;
+          }
+
+          .price-meta {
+            justify-content: flex-start;
+          }
+
+          .discount-percent {
+            font-size: 8px;
+          }
+
+          .product-arrow {
+            display: none;
+          }
 
 
         }

@@ -13,6 +13,7 @@ import { Icon } from "@iconify/react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WishlistButton from "@/components/WishlistButton";
+import { usePageHeroSettings } from "@/hooks/usePageHeroSettings";
 
 type Category = {
   _id: string;
@@ -69,6 +70,16 @@ const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1000&q=85";
 
 function ProductsPageContent() {
+  const hero = usePageHeroSettings("products", {
+    imageUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2200&q=90",
+    altText: "House Of Orive collection",
+    eyebrow: "HOUSE OF ORIVE",
+    heading: "The Edit",
+    description: "Discover our considered collection of modern essentials.",
+    buttonText: "",
+    buttonLink: "",
+  });
+
   const searchParams = useSearchParams();
 
   const searchFromUrl =
@@ -519,8 +530,8 @@ function ProductsPageContent() {
           <section className="products-hero">
             <div className="hero-image">
               <img
-                src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85"
-                alt=""
+                src={hero.imageUrl}
+                alt={hero.altText || "House Of Orive collection"}
               />
             </div>
 
@@ -528,18 +539,23 @@ function ProductsPageContent() {
 
             <div className="hero-content">
               <span>
-                HOUSE OF ORIVE
+                {hero.eyebrow || "HOUSE OF ORIVE"}
               </span>
 
               <h1>
-                The Edit
+                {hero.heading || "The Edit"}
               </h1>
 
               <p>
-                Discover our considered
-                collection of modern
-                essentials.
+                {hero.description || "Discover our considered collection of modern essentials."}
               </p>
+
+              {hero.buttonText && hero.buttonLink && (
+                <Link href={hero.buttonLink} className="products-hero-button">
+                  {hero.buttonText}
+                  <Icon icon="solar:arrow-right-up-linear" width={17} height={17} />
+                </Link>
+              )}
             </div>
           </section>
 
@@ -650,8 +666,8 @@ function ProductsPageContent() {
 
           <div className="hero-image">
             <img
-              src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85"
-              alt="House of Orive collection"
+              src={hero.imageUrl}
+              alt={hero.altText || "House Of Orive collection"}
             />
           </div>
 
@@ -660,18 +676,23 @@ function ProductsPageContent() {
           <div className="hero-content">
 
             <span>
-              HOUSE OF ORIVE
+              {hero.eyebrow || "HOUSE OF ORIVE"}
             </span>
 
             <h1>
-              The Edit
+              {hero.heading || "The Edit"}
             </h1>
 
             <p>
-              A considered collection of
-              timeless silhouettes, modern
-              essentials and refined details.
+              {hero.description || "Discover our considered collection of modern essentials."}
             </p>
+
+            {hero.buttonText && hero.buttonLink && (
+              <Link href={hero.buttonLink} className="products-hero-button">
+                {hero.buttonText}
+                <Icon icon="solar:arrow-right-up-linear" width={17} height={17} />
+              </Link>
+            )}
 
           </div>
 
@@ -1239,10 +1260,10 @@ const productsStyles = `
 
   .products-hero {
     position: relative;
-    min-height: 570px;
+    min-height: 80vh;
     overflow: hidden;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     background: #111111;
   }
 
@@ -1256,27 +1277,22 @@ const productsStyles = `
     height: 100%;
     display: block;
     object-fit: cover;
-    filter: grayscale(100%);
+    filter: none;
   }
 
   .hero-overlay {
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(0,0,0,.05),
-        rgba(0,0,0,.84)
-      );
+    background: rgba(0, 0, 0, 0.10);
   }
 
   .hero-content {
     position: relative;
     z-index: 2;
     width: 100%;
-    max-width: 1440px;
+    max-width: 1600px;
     margin: auto;
-    padding: 70px 42px 55px;
+    padding: 128px 42px;
   }
 
   .hero-content > span {
@@ -1291,19 +1307,39 @@ const productsStyles = `
     margin: 18px 0 0;
     color: #ffffff;
     font-family: var(--font-bodoni);
-    font-size: clamp(80px, 11vw, 155px);
+    font-size: clamp(72px, 11vw, 140px);
     font-weight: 400;
-    line-height: .76;
-    letter-spacing: -.065em;
+    line-height: .88;
+    letter-spacing: -.045em;
   }
 
   .hero-content p {
-    max-width: 480px;
-    margin: 30px 0 0;
-    color: rgba(255,255,255,.74);
+    max-width: 580px;
+    margin: 32px 0 0;
+    color: rgba(255,255,255,.75);
     font-family: var(--font-dm-sans);
-    font-size: 11px;
-    line-height: 1.8;
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .products-hero-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 32px;
+    border: 1px solid rgba(255,255,255,.6);
+    padding: 13px 24px;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    transition: background .25s ease, color .25s ease;
+  }
+
+  .products-hero-button:hover {
+    background: #fff;
+    color: #111;
   }
 
   .hero-number {
@@ -2053,7 +2089,27 @@ const productsStyles = `
       font-size: 10px;
     }
 
-    .hero-number {
+    .products-hero-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 32px;
+    border: 1px solid rgba(255,255,255,.6);
+    padding: 13px 24px;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    transition: background .25s ease, color .25s ease;
+  }
+
+  .products-hero-button:hover {
+    background: #fff;
+    color: #111;
+  }
+
+  .hero-number {
       display: none;
     }
 
@@ -2221,6 +2277,22 @@ const productsStyles = `
       transition: none !important;
     }
   }
+
+  @media (max-width: 640px) {
+    .products-hero {
+      min-height: 80vh;
+    }
+
+    .hero-content {
+      padding: 100px 24px;
+    }
+
+    .hero-number {
+      right: 24px;
+      bottom: 28px;
+    }
+  }
+
 `;
 
 export default function ProductsPage() {

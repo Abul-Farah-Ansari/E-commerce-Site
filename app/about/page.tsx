@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -5,6 +6,7 @@ import { Icon } from "@iconify/react";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { usePageHeroSettings } from "@/hooks/usePageHeroSettings";
 
 const values = [
   {
@@ -39,6 +41,17 @@ const images = {
 };
 
 export default function AboutPage() {
+  const hero = usePageHeroSettings("about", {
+    imageUrl: images.hero,
+    altText: "",
+    eyebrow: "",
+    heading: "",
+    description:
+      "",
+    buttonText: "",
+    buttonLink: "",
+  });
+
   return (
     <>
       <Navbar />
@@ -48,29 +61,36 @@ export default function AboutPage() {
         {/* HERO */}
         {/* ================================================= */}
 
-        <section className="relative flex min-h-[620px] items-center overflow-hidden bg-black">
+        <section className="relative flex min-h-[80vh] items-center overflow-hidden bg-black">
           <img
-            src={images.hero}
-            alt="House Of Orive"
-            className="absolute inset-0 h-full w-full object-cover grayscale"
-          />
+  src={hero.imageUrl}
+  alt={hero.altText}
+  className="absolute inset-0 h-full w-full object-cover"
+/>
 
-          <div className="absolute inset-0 bg-black/45" />
+          <div className="absolute inset-0 bg-black/10" />
 
           <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-32 sm:px-10 lg:px-16">
             <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/65">
-              House Of Orive
+              {hero.eyebrow}
             </p>
 
             <h1 className="mt-6 max-w-[900px] font-serif text-[72px] leading-[0.88] tracking-[-0.045em] text-white sm:text-[100px] lg:text-[140px]">
-              Our Story
+              {hero.heading}
             </h1>
 
             <p className="mt-8 max-w-[580px] text-sm leading-7 text-white/75">
-              A considered approach to modern fashion,
-              shaped by timeless silhouettes and refined
-              details.
+              {hero.description}
             </p>
+
+            {hero.buttonText && hero.buttonLink && (
+              <Link
+                href={hero.buttonLink}
+                className="mt-8 inline-flex items-center border border-white/60 px-6 py-3 text-xs uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black"
+              >
+                {hero.buttonText}
+              </Link>
+            )}
           </div>
 
           <div className="absolute bottom-8 right-8 hidden text-right lg:block">

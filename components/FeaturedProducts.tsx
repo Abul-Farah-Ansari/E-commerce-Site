@@ -519,7 +519,7 @@ export default function FeaturedProducts() {
             style={{
               display: "grid",
               gridTemplateColumns:
-                "repeat(4, minmax(0, 1fr))",
+                "repeat(3, minmax(0, 1fr))",
               gap: "20px",
             }}
           >
@@ -584,7 +584,7 @@ export default function FeaturedProducts() {
               style={{
                 display: "grid",
                 gridTemplateColumns:
-                  "repeat(4, minmax(0, 1fr))",
+                  "repeat(3, minmax(0, 1fr))",
                 gap: "20px",
                 width: "100%",
               }}
@@ -653,23 +653,22 @@ export default function FeaturedProducts() {
                             "#e9e9e7",
                         }}
                       >
-                        <img
-                          src={getImage(
-                            product
+                        <div className={`featured-image-track ${product.images?.[1] ? "has-secondary" : ""}`}>
+                          <img
+                            src={getImage(product)}
+                            alt={product.name}
+                            className="featured-product-image featured-product-image-primary"
+                            loading="lazy"
+                          />
+                          {product.images?.[1] && (
+                            <img
+                              src={product.images[1]}
+                              alt={`${product.name} - alternate view`}
+                              className="featured-product-image featured-product-image-secondary"
+                              loading="lazy"
+                            />
                           )}
-                          alt={product.name}
-                          className="featured-product-image"
-                          loading="lazy"
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit:
-                              "cover",
-                            display: "block",
-                            transition:
-                              "transform 0.6s ease",
-                          }}
-                        />
+                        </div>
 
                         {/* Dark overlay */}
 
@@ -1009,6 +1008,49 @@ export default function FeaturedProducts() {
       ===================================================== */}
 
       <style jsx>{`
+        .featured-image-track {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #e9e5de;
+        }
+
+        .featured-image-track .featured-product-image {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+          transition: transform 700ms cubic-bezier(.22, 1, .36, 1);
+          will-change: transform;
+        }
+
+        .featured-product-image-primary { transform: translateX(0); }
+        .featured-product-image-secondary { transform: translateX(100%); }
+
+        @media (min-width: 769px) {
+          .featured-product-card:hover .featured-image-track.has-secondary .featured-product-image-primary {
+            transform: translateX(-100%);
+          }
+          .featured-product-card:hover .featured-image-track.has-secondary .featured-product-image-secondary {
+            transform: translateX(0);
+          }
+        }
+
+        .featured-product-info { transition: transform 300ms ease; }
+        .featured-product-name { letter-spacing: -0.015em; }
+        .featured-product-price { font-variant-numeric: tabular-nums; }
+        .featured-product-category {
+          display: block;
+          color: #8a8278 !important;
+          font-size: 9px !important;
+          letter-spacing: .16em !important;
+        }
+        .featured-product-name { font-weight: 500 !important; line-height: 1.35 !important; }
+        .featured-product-price > span:first-child { font-weight: 600; color: #171613; }
+        .featured-product-price > span:nth-child(2) { color: #9a9389 !important; }
+
         /* =====================================================
            TABLET
         ===================================================== */
@@ -1427,8 +1469,7 @@ export default function FeaturedProducts() {
         ===================================================== */
 
         @media (min-width: 769px) {
-          .featured-product-card:hover
-            .featured-product-image {
+          .featured-product-card:hover .featured-image-track:not(.has-secondary) .featured-product-image-primary {
             transform: scale(1.045);
           }
 

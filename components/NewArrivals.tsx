@@ -359,13 +359,23 @@ export default function NewArrivals() {
                         href={`/products/${product.slug}`}
                         className="new-arrivals-image"
                       >
-                        <img
-                          src={getImage(
-                            product
+                        <div className="new-arrivals-image-track">
+                          <img
+                            src={getImage(product)}
+                            alt={product.name}
+                            loading="lazy"
+                            className="new-arrivals-image-primary"
+                          />
+
+                          {product.images?.[1] && (
+                            <img
+                              src={product.images[1]}
+                              alt={`${product.name} alternate view`}
+                              loading="lazy"
+                              className="new-arrivals-image-secondary"
+                            />
                           )}
-                          alt={product.name}
-                          loading="lazy"
-                        />
+                        </div>
 
                         {/* IMAGE OVERLAY */}
 
@@ -598,8 +608,8 @@ export default function NewArrivals() {
         .new-arrivals-grid {
           display: grid;
           grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-          gap: 20px;
+            repeat(3, minmax(0, 1fr));
+          gap: 24px;
           width: 100%;
         }
 
@@ -610,9 +620,10 @@ export default function NewArrivals() {
         .new-arrivals-card {
           position: relative;
           min-width: 0;
-          background: #f5f5f3;
-          border-radius: 18px;
+          background: #FAF8F5;
+          border-radius: 16px;
           overflow: hidden;
+          border: 1px solid rgba(34, 29, 24, 0.055);
         }
 
         /* =====================================================
@@ -623,20 +634,54 @@ export default function NewArrivals() {
           position: relative;
           display: block;
           width: 100%;
-          height: 400px;
+          height: 460px;
           overflow: hidden;
           text-decoration: none;
           background: #e9e9e7;
         }
 
-        .new-arrivals-image img {
+        .new-arrivals-image-track {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #eee9e2;
+        }
+
+        .new-arrivals-image-track img {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
+          will-change: transform;
           transition:
-            transform 0.6s
-            cubic-bezier(0.2, 0.7, 0.2, 1);
+            transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 500ms ease;
+        }
+
+        .new-arrivals-image-primary {
+          transform: translateX(0) scale(1);
+          opacity: 1;
+          z-index: 1;
+        }
+
+        .new-arrivals-image-secondary {
+          transform: translateX(100%) scale(1.015);
+          opacity: 1;
+          z-index: 2;
+        }
+
+        .new-arrivals-image:hover .new-arrivals-image-primary {
+          transform: translateX(-100%) scale(1.015);
+        }
+
+        .new-arrivals-image:hover .new-arrivals-image-secondary {
+          transform: translateX(0) scale(1);
+        }
+
+        .new-arrivals-image:not(:has(.new-arrivals-image-secondary)) .new-arrivals-image-primary {
+          transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .new-arrivals-image-overlay {
@@ -654,9 +699,23 @@ export default function NewArrivals() {
           pointer-events: none;
         }
 
-        .new-arrivals-card:hover
-          .new-arrivals-image img {
-          transform: scale(1.045);
+        .new-arrivals-card:has(.new-arrivals-image-secondary):hover
+          .new-arrivals-image-primary {
+          transform: translateX(-100%) scale(1.015);
+        }
+
+        .new-arrivals-card:has(.new-arrivals-image-secondary):hover
+          .new-arrivals-image-secondary {
+          transform: translateX(0) scale(1);
+        }
+
+        .new-arrivals-card:hover {
+          box-shadow: 0 18px 38px rgba(38, 31, 24, 0.08);
+          transform: translateY(-3px);
+        }
+
+        .new-arrivals-card {
+          transition: box-shadow 350ms ease, transform 350ms ease;
         }
 
         .new-arrivals-card:hover
@@ -763,7 +822,7 @@ export default function NewArrivals() {
         ===================================================== */
 
         .new-arrivals-details {
-          padding: 19px 20px 20px;
+          padding: 18px 18px 20px;
           background: #FAF8F5;
         }
 
@@ -1253,7 +1312,8 @@ export default function NewArrivals() {
         ===================================================== */
 
         @media (prefers-reduced-motion: reduce) {
-          .new-arrivals-image img,
+          .new-arrivals-image-track img,
+          .new-arrivals-card,
           .new-arrivals-link,
           .new-arrivals-arrow,
           .new-arrivals-wishlist {

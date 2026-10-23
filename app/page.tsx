@@ -1,7 +1,6 @@
 
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import Categories from "@/components/Categories";
 import ProductSection from "@/components/ProductSection";
 import HomeVideoSection from "@/components/HomeVideoSection";
 import Benefits from "@/components/Benefits";
@@ -9,6 +8,8 @@ import Testimonials from "@/components/Testimonials";
 import BrandStory from "@/components/BrandStory";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
+
+import BehindTheCraft from "@/components/BehindTheCraft";
 
 export default function Home() {
   return (
@@ -19,9 +20,6 @@ export default function Home() {
         {/* Hero Section */}
         <Hero />
         <HomeVideoSection />
-
-        {/* Categories */}
-        <Categories />
 
         {/* New Arrivals */}
         <ProductSection
@@ -47,9 +45,6 @@ export default function Home() {
           limit={5}
         />
 
-        {/* Home Page Videos - Managed from Admin Settings */}
-        
-
         {/* Best Sellers */}
         <ProductSection
           title="Best Sellers"
@@ -66,6 +61,7 @@ export default function Home() {
 
         {/* Testimonials */}
         <Testimonials />
+        <BehindTheCraft/>
 
         {/* Contact */}
         <ContactSection />

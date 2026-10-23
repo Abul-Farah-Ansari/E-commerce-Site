@@ -38,15 +38,9 @@ interface Product {
   sale?: boolean;
 }
 
-interface Category {
-  _id: string;
-  name: string;
-  slug: string;
-  status?: "active" | "inactive";
-}
 
 interface SearchSuggestion {
-  type: "product" | "category" | "section";
+  type: "product";
   title: string;
   subtitle?: string;
   href: string;
@@ -54,41 +48,17 @@ interface SearchSuggestion {
   icon: string;
 }
 
-const searchSections = [
-  {
-    title: "New Arrivals",
-    subtitle: "Latest pieces",
-    href: "/products?sort=newest",
-    icon: "solar:stars-minimalistic-linear",
-  },
-  {
-    title: "Best Sellers",
-    subtitle: "Most wanted pieces",
-    href: "/products?sort=featured",
-    icon: "solar:medal-ribbons-star-linear",
-  },
-  {
-    title: "Trending",
-    subtitle: "What's popular",
-    href: "/products?search=trending",
-    icon: "solar:fire-linear",
-  },
-  {
-    title: "Sale",
-    subtitle: "Special prices",
-    href: "/products?search=sale",
-    icon: "solar:tag-price-linear",
-  },
-];
+// Keep auth state between client-side Navbar remounts during route navigation.
+let cachedNavbarUser: User | null = null;
+let hasResolvedNavbarAuth = false;
 
 export default function Navbar() {
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [user, setUser] = useState<User | null>(cachedNavbarUser);
+  const [loadingUser, setLoadingUser] = useState(!hasResolvedNavbarAuth);
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -96,7 +66,6 @@ export default function Navbar() {
   const [search, setSearch] = useState("");
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
 
   const [scrolled, setScrolled] = useState(false);
   const [showNavbar, setShowNavbar] = useState(true);
@@ -118,15 +87,25 @@ export default function Navbar() {
         });
 
         if (!response.ok) {
+          cachedNavbarUser = null;
+          hasResolvedNavbarAuth = true;
           setUser(null);
           return;
         }
 
         const data = await response.json();
+        const nextUser = data?.user || null;
 
-        setUser(data?.user || null);
+        cachedNavbarUser = nextUser;
+        hasResolvedNavbarAuth = true;
+        setUser(nextUser);
       } catch {
-        setUser(null);
+        // Keep a previously cached user during a transient request failure.
+        if (!hasResolvedNavbarAuth) {
+          cachedNavbarUser = null;
+          hasResolvedNavbarAuth = true;
+          setUser(null);
+        }
       } finally {
         setLoadingUser(false);
       }
@@ -136,51 +115,29 @@ export default function Navbar() {
   }, []);
 
   // --------------------------------------------------
-  // PRODUCTS + CATEGORIES
+  // PRODUCTS FOR SEARCH
   // --------------------------------------------------
 
   useEffect(() => {
-    const fetchSearchData = async () => {
+    const fetchProducts = async () => {
       try {
-        const [productsResponse, categoriesResponse] =
-          await Promise.all([
-            fetch("/api/products", {
-              cache: "no-store",
-            }),
-            fetch("/api/categories", {
-              cache: "no-store",
-            }),
-          ]);
+        const response = await fetch("/api/products", {
+          cache: "no-store",
+        });
 
-        if (productsResponse.ok) {
-          const productsData = await productsResponse.json();
+        if (response.ok) {
+          const data = await response.json();
 
           setProducts(
-            Array.isArray(productsData?.products)
-              ? productsData.products
-              : []
-          );
-        }
-
-        if (categoriesResponse.ok) {
-          const categoriesData =
-            await categoriesResponse.json();
-
-          setCategories(
-            Array.isArray(categoriesData?.categories)
-              ? categoriesData.categories
-              : []
+            Array.isArray(data?.products) ? data.products : []
           );
         }
       } catch (error) {
-        console.error(
-          "Failed to load search data:",
-          error
-        );
+        console.error("Failed to load products for search:", error);
       }
     };
 
-    fetchSearchData();
+    fetchProducts();
   }, []);
 
   // --------------------------------------------------
@@ -193,14 +150,8 @@ export default function Navbar() {
 
       setScrolled(currentScrollY > 10);
 
-      if (currentScrollY <= 20) {
-        setShowNavbar(true);
-      } else if (currentScrollY > lastScrollY.current) {
-        setShowNavbar(false);
-      } else {
-        setShowNavbar(true);
-      }
-
+      // Keep the header visible during navigation so account controls never vanish.
+      setShowNavbar(true);
       lastScrollY.current = currentScrollY;
     };
 
@@ -250,7 +201,7 @@ export default function Navbar() {
   }, []);
 
   // --------------------------------------------------
-  // SEARCH SUGGESTIONS
+  // PRODUCT SEARCH SUGGESTIONS
   // --------------------------------------------------
 
   const suggestions = useMemo<SearchSuggestion[]>(() => {
@@ -260,81 +211,22 @@ export default function Navbar() {
       return [];
     }
 
-    const result: SearchSuggestion[] = [];
-
-    // Sections
-    searchSections.forEach((section) => {
-      if (
-        section.title.toLowerCase().includes(query) ||
-        section.subtitle.toLowerCase().includes(query)
-      ) {
-        result.push({
-          type: "section",
-          title: section.title,
-          subtitle: section.subtitle,
-          href: section.href,
-          icon: section.icon,
-        });
-      }
-    });
-
-    // Categories
-    categories
+    return products
       .filter(
-        (category) =>
-          category.status !== "inactive" &&
-          category.name
-            .toLowerCase()
-            .includes(query)
+        (product) =>
+          product.name.toLowerCase().includes(query) ||
+          product.slug.toLowerCase().includes(query)
       )
-      .slice(0, 4)
-      .forEach((category) => {
-        result.push({
-          type: "category",
-          title: category.name,
-          subtitle: "Category",
-          href: `/categories/${category.slug}`,
-          icon: "solar:layers-minimalistic-linear",
-        });
-      });
-
-    // Products
-    products
-      .filter((product) => {
-        const categoryName =
-          typeof product.category === "object" &&
-          product.category
-            ? product.category.name || ""
-            : typeof product.category === "string"
-            ? product.category
-            : "";
-
-        return (
-          product.name
-            .toLowerCase()
-            .includes(query) ||
-          product.slug
-            .toLowerCase()
-            .includes(query) ||
-          categoryName
-            .toLowerCase()
-            .includes(query)
-        );
-      })
       .slice(0, 6)
-      .forEach((product) => {
-        result.push({
-          type: "product",
-          title: product.name,
-          subtitle: "Product",
-          href: `/products/${product.slug}`,
-          image: product.images?.[0],
-          icon: "solar:bag-4-linear",
-        });
-      });
-
-    return result.slice(0, 10);
-  }, [search, categories, products]);
+      .map((product) => ({
+        type: "product" as const,
+        title: product.name,
+        subtitle: "Product",
+        href: `/products/${product.slug}`,
+        image: product.images?.[0],
+        icon: "solar:bag-4-linear",
+      }));
+  }, [search, products]);
 
   // --------------------------------------------------
   // SEARCH
@@ -381,6 +273,8 @@ export default function Navbar() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
+      cachedNavbarUser = null;
+      hasResolvedNavbarAuth = true;
       setUser(null);
       setAccountOpen(false);
       router.push("/");
@@ -411,7 +305,6 @@ export default function Navbar() {
 
   const closeMobile = () => {
     setMobileOpen(false);
-    setCategoryOpen(false);
     setShopOpen(false);
   };
 
@@ -460,7 +353,7 @@ export default function Navbar() {
             className="flex shrink-0 items-center gap-3"
           >
             {/* Logo Container */}
-            <div className="flex h-[52px] w-[px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
+            <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
               <img
                 src="/ORIVE logo.jpg"
                 alt="House Of Orive Logo"
@@ -493,109 +386,6 @@ export default function Navbar() {
             >
               Home
             </Link>
-
-            {/* Categories */}
-            <div
-              className="relative"
-              onMouseEnter={() =>
-                setCategoryOpen(true)
-              }
-              onMouseLeave={() =>
-                setCategoryOpen(false)
-              }
-            >
-              <button
-                type="button"
-                className="flex items-center gap-1 text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"
-              >
-                Categories
-
-                <Icon
-                  icon="solar:alt-arrow-down-linear"
-                  width={15}
-                  height={15}
-                  className={`
-                    transition-transform
-                    duration-200
-                    ${
-                      categoryOpen
-                        ? "rotate-180"
-                        : ""
-                    }
-                  `}
-                />
-              </button>
-
-              <div
-                className={`
-                  absolute
-                  left-1/2
-                  top-full
-                  w-[240px]
-                  -translate-x-1/2
-                  pt-5
-                  transition-all
-                  duration-200
-                  ${
-                    categoryOpen
-                      ? "visible opacity-100"
-                      : "invisible opacity-0"
-                  }
-                `}
-              >
-                <div className="border border-black/10 bg-white p-3 shadow-[0_15px_50px_rgba(0,0,0,0.08)]">
-                  {categories.length > 0 ? (
-                    categories
-                      .filter(
-                        (category) =>
-                          category.status !==
-                          "inactive"
-                      )
-                      .map((category) => (
-                        <Link
-                          key={category._id}
-                          href={`/categories/${category.slug}`}
-                          className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-black/[0.04]"
-                        >
-                          <span>
-                            {category.name}
-                          </span>
-
-                          <Icon
-                            icon="solar:arrow-right-up-linear"
-                            width={15}
-                            height={15}
-                          />
-                        </Link>
-                      ))
-                  ) : (
-                    <Link
-                      href="/categories"
-                      className="block px-3 py-3 text-[12px] uppercase tracking-[0.14em]"
-                    >
-                      View Categories
-                    </Link>
-                  )}
-
-                  <div className="mt-2 border-t border-black/10 pt-2">
-                    <Link
-                      href="/categories"
-                      className="flex items-center justify-between px-3 py-3 text-[12px] font-medium uppercase tracking-[0.14em]"
-                    >
-                      <span>
-                        All Categories
-                      </span>
-
-                      <Icon
-                        icon="solar:arrow-right-linear"
-                        width={16}
-                        height={16}
-                      />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Shop */}
             <div
@@ -790,7 +580,7 @@ export default function Navbar() {
                             setSearchOpen(false);
                           }
                         }}
-                        placeholder="Search products, categories..."
+                        placeholder="Search products..."
                         className="h-14 w-full bg-transparent px-3 text-sm outline-none placeholder:text-black/35"
                       />
 
@@ -948,13 +738,17 @@ export default function Navbar() {
               />
             </Link>
 
-            {/* ACCOUNT */}
-            {!loadingUser && (
-              <div
-                ref={accountRef}
-                className="relative hidden sm:block"
-              >
-                {user ? (
+            {/* ACCOUNT: fixed-width wrapper prevents navbar items from shifting */}
+            <div
+              ref={accountRef}
+              className="relative hidden h-10 w-[100px] shrink-0 items-center justify-end sm:flex"
+            >
+              {loadingUser ? (
+                <div
+                  className="h-8 w-8 rounded-full bg-black/10"
+                  aria-hidden="true"
+                />
+              ) : user ? (
                   <>
                     <button
                       type="button"
@@ -1071,9 +865,8 @@ export default function Navbar() {
                   >
                     Login
                   </Link>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             {/* MOBILE MENU */}
             <button
@@ -1115,80 +908,6 @@ export default function Navbar() {
                 >
                   Home
                 </Link>
-
-                {/* Categories */}
-                <div className="border-b border-black/10">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCategoryOpen(
-                        (value) => !value
-                      )
-                    }
-                    className="flex w-full items-center justify-between py-4 text-[13px] font-medium uppercase tracking-[0.16em]"
-                  >
-                    <span>Categories</span>
-
-                    <Icon
-                      icon="solar:alt-arrow-down-linear"
-                      width={18}
-                      height={18}
-                      className={`
-                        transition-transform
-                        ${
-                          categoryOpen
-                            ? "rotate-180"
-                            : ""
-                        }
-                      `}
-                    />
-                  </button>
-
-                  {categoryOpen && (
-                    <div className="pb-3 pl-3">
-                      {categories
-                        .filter(
-                          (category) =>
-                            category.status !==
-                            "inactive"
-                        )
-                        .map((category) => (
-                          <Link
-                            key={category._id}
-                            href={`/categories/${category.slug}`}
-                            onClick={closeMobile}
-                            className="flex items-center justify-between py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
-                          >
-                            <span>
-                              {category.name}
-                            </span>
-
-                            <Icon
-                              icon="solar:arrow-right-linear"
-                              width={16}
-                              height={16}
-                            />
-                          </Link>
-                        ))}
-
-                      <Link
-                        href="/categories"
-                        onClick={closeMobile}
-                        className="mt-1 flex items-center justify-between border-t border-black/10 pt-3 text-[12px] font-medium uppercase tracking-[0.12em]"
-                      >
-                        <span>
-                          All Categories
-                        </span>
-
-                        <Icon
-                          icon="solar:arrow-right-linear"
-                          width={16}
-                          height={16}
-                        />
-                      </Link>
-                    </div>
-                  )}
-                </div>
 
                 {/* Shop */}
                 <div className="border-b border-black/10">

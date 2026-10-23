@@ -9,8 +9,9 @@ import { Icon } from "@iconify/react";
 import Navbar from "@/components/Navbar";
 
 import Footer from "@/components/Footer";
+import { usePageHeroSettings } from "@/hooks/usePageHeroSettings";
 
-const contactHero =
+const fallbackContactHero =
   "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=2200&q=90";
 
 const mapUrl =
@@ -18,6 +19,17 @@ const mapUrl =
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+
+  const hero = usePageHeroSettings("contact", {
+    imageUrl: fallbackContactHero,
+    altText: "Contact House Of Orive",
+    eyebrow: "House Of Orive",
+    heading: "Contact",
+    description:
+      "Questions, styling enquiries or simply want to say hello? We would love to hear from you.",
+    buttonText: "",
+    buttonLink: "",
+  });
 
   const handleSubmit = (
     event: FormEvent<HTMLFormElement>
@@ -36,33 +48,42 @@ export default function ContactPage() {
         {/* HERO */}
         {/* ================================================= */}
 
-        <section className="relative flex min-h-[560px] items-center overflow-hidden bg-black">
+        <section className="relative flex min-h-[80vh] items-center overflow-hidden bg-black">
           <img
-            src={contactHero}
-            alt="Contact House Of Orive"
-            className="absolute inset-0 h-full w-full object-cover grayscale"
+            src={hero.imageUrl}
+            alt={hero.altText || "Contact House Of Orive"}
+            className="absolute inset-0 h-full w-full object-cover"
           />
 
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-black/10" />
 
-          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-28 sm:px-10 lg:px-16">
+          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-32 sm:px-10 lg:px-16">
             <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/65">
-              House Of Orive
+              {hero.eyebrow || "House Of Orive"}
             </p>
 
-            <h1 className="mt-6 font-serif text-[72px] leading-[0.88] tracking-[-0.045em] text-white sm:text-[100px] lg:text-[140px]">
-              Contact
+            <h1 className="mt-6 max-w-[900px] font-serif text-[72px] leading-[0.88] tracking-[-0.045em] text-white sm:text-[100px] lg:text-[140px]">
+              {hero.heading || "Contact"}
             </h1>
 
-            <p className="mt-8 max-w-[520px] text-sm leading-7 text-white/70">
-              Questions, styling enquiries or simply want
-              to say hello? We would love to hear from you.
+            <p className="mt-8 max-w-[580px] text-sm leading-7 text-white/75">
+              {hero.description ||
+                "Questions, styling enquiries or simply want to say hello? We would love to hear from you."}
             </p>
+
+            {hero.buttonText && hero.buttonLink && (
+              <Link
+                href={hero.buttonLink}
+                className="mt-8 inline-flex items-center border border-white/60 px-6 py-3 text-xs uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black"
+              >
+                {hero.buttonText}
+              </Link>
+            )}
           </div>
 
           <div className="absolute bottom-8 right-8 hidden text-right lg:block">
             <p className="text-[9px] uppercase tracking-[0.25em] text-white/55">
-              Contact
+              {hero.eyebrow || "Contact"}
             </p>
 
             <p className="mt-1 font-serif text-3xl text-white">
