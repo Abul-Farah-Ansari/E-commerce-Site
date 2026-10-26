@@ -9,7 +9,7 @@ import BrandStory from "@/components/BrandStory";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
 
-import BehindTheCraft from "@/components/BehindTheCraft";
+;
 
 export default function Home() {
   return (
@@ -61,7 +61,7 @@ export default function Home() {
 
         {/* Testimonials */}
         <Testimonials />
-        <BehindTheCraft/>
+        
 
         {/* Contact */}
         <ContactSection />

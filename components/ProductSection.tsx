@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import WishlistButton from "@/components/WishlistButton";
@@ -41,6 +41,9 @@ export default function ProductSection({
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [sectionVisible, setSectionVisible] = useState(false);
+
 
   /*
   ============================================================
@@ -122,6 +125,39 @@ export default function ProductSection({
   }, [type, limit]);
 
   /*
+  SECTION REVEAL — starts when the viewport reaches about 60% down
+  (i.e. when the section enters the lower 40% of the screen).
+  Repeats when scrolling away and back.
+  */
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setSectionVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setSectionVisible(entry.isIntersecting);
+      },
+      {
+        threshold: 0.01,
+        // Treat the middle/lower viewport band as the trigger zone.
+        rootMargin: "-60% 0px -10% 0px",
+      }
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+
+
+
+
+  /*
   ============================================================
   PRODUCTS TO SHOW
   ============================================================
@@ -163,7 +199,7 @@ export default function ProductSection({
   */
 
   return (
-    <section className="product-section">
+    <section ref={sectionRef} className={`product-section section-reveal ${sectionVisible ? "section-visible" : ""}`}>
 
       {/* HEADER */}
 
@@ -236,12 +272,13 @@ export default function ProductSection({
           <div className="product-grid">
 
             {visibleProducts.map(
-              (product) => (
+              (product, index) => (
 
                 <Link
                   key={product._id}
                   href={`/products/${product.slug}`}
-                  className="product-card"
+                  className="product-card product-reveal"
+                  style={{ "--reveal-delay": `${index * 110}ms` } as React.CSSProperties}
                 >
 
                   <div className="product-image-wrap">
@@ -422,7 +459,87 @@ export default function ProductSection({
 
         /* CARD */
 
-        .product-card {
+        /* CLEAR SCROLL REVEAL */
+         .product-reveal {
+           opacity: 0;
+           filter: blur(5px);
+           transform: translate3d(0, 52px, 0) scale(0.975);
+           transition:
+             opacity 850ms cubic-bezier(.16, 1, .3, 1),
+             transform 850ms cubic-bezier(.16, 1, .3, 1),
+             filter 850ms cubic-bezier(.16, 1, .3, 1);
+           transition-delay: var(--reveal-delay, 0ms);
+           will-change: opacity, transform, filter;
+         }
+
+         .product-reveal.is-visible {
+           opacity: 1;
+           filter: blur(0);
+           transform: translate3d(0, 0, 0) scale(1);
+         }
+
+         .product-reveal.is-visible .product-image-wrap {
+           animation: orive-image-reveal 900ms cubic-bezier(.16, 1, .3, 1) both;
+           animation-delay: var(--reveal-delay, 0ms);
+         }
+
+         @keyframes orive-image-reveal {
+           from {
+             clip-path: inset(8% 0 8% 0);
+           }
+           to {
+             clip-path: inset(0 0 0 0);
+           }
+         }
+
+         /* SECTION + PRODUCT REVEAL */
+         .section-reveal {
+           opacity: 0;
+           transform: translate3d(0, 48px, 0);
+           transition:
+             opacity 800ms cubic-bezier(.16, 1, .3, 1),
+             transform 800ms cubic-bezier(.16, 1, .3, 1);
+           will-change: opacity, transform;
+         }
+
+         .section-reveal.section-visible {
+           opacity: 1;
+           transform: translate3d(0, 0, 0);
+         }
+
+         .product-reveal {
+           opacity: 0;
+           filter: blur(5px);
+           transform: translate3d(0, 38px, 0) scale(.98);
+           transition:
+             opacity 750ms cubic-bezier(.16, 1, .3, 1),
+             transform 750ms cubic-bezier(.16, 1, .3, 1),
+             filter 750ms cubic-bezier(.16, 1, .3, 1);
+           transition-delay: var(--reveal-delay, 0ms);
+           will-change: opacity, transform, filter;
+         }
+
+         .section-visible .product-reveal {
+           opacity: 1;
+           filter: blur(0);
+           transform: translate3d(0, 0, 0) scale(1);
+         }
+
+         @media (prefers-reduced-motion: reduce) {
+           .section-reveal,
+           .section-reveal.section-visible,
+           .product-reveal,
+           .section-visible .product-reveal {
+             opacity: 1;
+             filter: none;
+             transform: none;
+             transition: none;
+             transition-delay: 0ms;
+             will-change: auto;
+           }
+         }
+
+         .product-card {
           display: block;
           min-width: 0;
           color: #171613;
@@ -664,7 +781,24 @@ export default function ProductSection({
 
         /* TABLET */
 
-        @media (max-width: 1100px) {
+        @media (prefers-reduced-motion: reduce) {
+           .product-reveal,
+           .product-reveal.is-visible {
+             opacity: 1;
+             filter: none;
+             transform: none;
+             transition: none;
+             transition-delay: 0ms;
+             animation: none;
+             will-change: auto;
+           }
+
+           .product-reveal.is-visible .product-image-wrap {
+             animation: none;
+           }
+         }
+
+         @media (max-width: 1100px) {
 
           .product-section {
             padding:

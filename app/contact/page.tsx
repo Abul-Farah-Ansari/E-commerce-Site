@@ -1,41 +1,26 @@
+
 "use client";
 
 import { FormEvent, useState } from "react";
-
 import Link from "next/link";
-
 import { Icon } from "@iconify/react";
-
 import Navbar from "@/components/Navbar";
-
 import Footer from "@/components/Footer";
-import { usePageHeroSettings } from "@/hooks/usePageHeroSettings";
 
-const fallbackContactHero =
-  "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=2200&q=90";
+const ADDRESS =
+  "161/62 Ghafoor Nagar, Batla House Chowk, Okhla, New Delhi, Delhi 110025";
 
-const mapUrl =
-  "https://www.google.com/maps?q=Delhi%2C%20India&output=embed";
+const MAP_QUERY = encodeURIComponent(ADDRESS);
+
+const mapUrl = `https://www.google.com/maps?q=${MAP_QUERY}&output=embed`;
+
+const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${MAP_QUERY}`;
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
 
-  const hero = usePageHeroSettings("contact", {
-    imageUrl: fallbackContactHero,
-    altText: "Contact House Of Orive",
-    eyebrow: "House Of Orive",
-    heading: "Contact",
-    description:
-      "Questions, styling enquiries or simply want to say hello? We would love to hear from you.",
-    buttonText: "",
-    buttonLink: "",
-  });
-
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     setSubmitted(true);
   };
 
@@ -43,425 +28,403 @@ export default function ContactPage() {
     <>
       <Navbar />
 
-      <main className="bg-white">
-        {/* ================================================= */}
-        {/* HERO */}
-        {/* ================================================= */}
-
-        <section className="relative flex min-h-[80vh] items-center overflow-hidden bg-black">
-          <img
-            src={hero.imageUrl}
-            alt={hero.altText || "Contact House Of Orive"}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-
-          <div className="absolute inset-0 bg-black/10" />
-
-          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-32 sm:px-10 lg:px-16">
-            <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/65">
-              {hero.eyebrow || "House Of Orive"}
-            </p>
-
-            <h1 className="mt-6 max-w-[900px] font-serif text-[72px] leading-[0.88] tracking-[-0.045em] text-white sm:text-[100px] lg:text-[140px]">
-              {hero.heading || "Contact"}
-            </h1>
-
-            <p className="mt-8 max-w-[580px] text-sm leading-7 text-white/75">
-              {hero.description ||
-                "Questions, styling enquiries or simply want to say hello? We would love to hear from you."}
-            </p>
-
-            {hero.buttonText && hero.buttonLink && (
-              <Link
-                href={hero.buttonLink}
-                className="mt-8 inline-flex items-center border border-white/60 px-6 py-3 text-xs uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black"
-              >
-                {hero.buttonText}
-              </Link>
-            )}
-          </div>
-
-          <div className="absolute bottom-8 right-8 hidden text-right lg:block">
-            <p className="text-[9px] uppercase tracking-[0.25em] text-white/55">
-              {hero.eyebrow || "Contact"}
-            </p>
-
-            <p className="mt-1 font-serif text-3xl text-white">
-              01
-            </p>
-          </div>
-        </section>
-
-        {/* ================================================= */}
-        {/* CONTACT CONTENT */}
-        {/* ================================================= */}
-
-        <section className="mx-auto max-w-[1400px] px-6 py-24 sm:px-10 lg:px-16 lg:py-32">
-          <div className="grid gap-20 lg:grid-cols-[0.75fr_1.25fr] lg:gap-28">
-            {/* ================================================= */}
-            {/* LEFT INFORMATION */}
-            {/* ================================================= */}
-
+      <main className="overflow-hidden bg-white text-black">
+        {/* CONTACT DETAILS + MESSAGE FORM */}
+        <section className="mx-auto max-w-[1440px] px-6 py-12 sm:px-10 sm:py-16 lg:px-16 lg:py-20">
+          <div className="grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-24">
+            {/* CONTACT INFORMATION */}
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-black/40">
-                Get In Touch
+              <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-black/40">
+                Contact Information
               </p>
 
-              <h2 className="mt-5 max-w-[450px] font-serif text-4xl leading-[1] tracking-[-0.035em] sm:text-5xl">
-                We are here to help.
-              </h2>
+              <h1 className="mt-4 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] sm:text-4xl">
+                Let us help you find the answer.
+              </h1>
 
-              <p className="mt-7 max-w-[430px] text-sm leading-7 text-black/50">
-                Whether you have a question about a product,
-                an order or anything else, send us a message
-                and our team will get back to you.
+              <p className="mt-5 max-w-md text-sm leading-7 text-black/55">
+                Reach out to us using the details below. Whether it is an order
+                enquiry or a question about our collection, we will be happy to
+                assist.
               </p>
 
-              {/* EMAIL */}
-
-              <div className="mt-12 border-t border-black/10 pt-7">
-                <div className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#f4f4f2]">
+              <div className="mt-9 border-t border-black/10">
+                {/* EMAIL */}
+                <a
+                  href="mailto:Houseoforive@gmail.com"
+                  className="group flex gap-5 border-b border-black/10 py-6 transition-colors hover:bg-[#faf9f6]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-black/10 bg-[#faf9f6] transition-colors group-hover:bg-white">
                     <Icon
                       icon="solar:letter-linear"
-                      width={20}
-                      height={20}
+                      width={21}
+                      height={21}
                     />
                   </div>
 
-                  <div>
-                    <p className="text-[9px] uppercase tracking-[0.2em] text-black/40">
-                      Email
+                  <div className="min-w-0 flex-1 py-0.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-black/45">
+                      Email Us
                     </p>
-
-                    <a
-                      href="mailto:Houseoforive@gmail.com"
-                      className="mt-2 block text-sm transition-opacity hover:opacity-50"
-                    >
+                    <p className="mt-2 break-all text-sm font-medium">
                       Houseoforive@gmail.com
-                    </a>
+                    </p>
                   </div>
-                </div>
-              </div>
 
-              {/* PHONE */}
+                  <Icon
+                    icon="solar:arrow-up-right-linear"
+                    width={18}
+                    height={18}
+                    className="mt-1 shrink-0 text-black/40 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  />
+                </a>
 
-              <div className="mt-8">
-                <div className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#f4f4f2]">
+                {/* PHONE */}
+                <a
+                  href="tel:+918448658341"
+                  className="group flex gap-5 border-b border-black/10 py-6 transition-colors hover:bg-[#faf9f6]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-black/10 bg-[#faf9f6] transition-colors group-hover:bg-white">
                     <Icon
                       icon="solar:phone-linear"
-                      width={20}
-                      height={20}
+                      width={21}
+                      height={21}
                     />
                   </div>
 
-                  <div>
-                    <p className="text-[9px] uppercase tracking-[0.2em] text-black/40">
-                      Phone
+                  <div className="flex-1 py-0.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-black/45">
+                      Call Us
                     </p>
-
-                    <p className="mt-2 text-sm">
+                    <p className="mt-2 text-sm font-medium">
                       +91 84486 58341
                     </p>
                   </div>
-                </div>
-              </div>
 
-              {/* LOCATION */}
+                  <Icon
+                    icon="solar:arrow-up-right-linear"
+                    width={18}
+                    height={18}
+                    className="mt-1 shrink-0 text-black/40 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  />
+                </a>
 
-              <div className="mt-8">
-                <div className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#f4f4f2]">
+                {/* ADDRESS */}
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex gap-5 border-b border-black/10 py-6 transition-colors hover:bg-[#faf9f6]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-black/10 bg-[#faf9f6] transition-colors group-hover:bg-white">
                     <Icon
                       icon="solar:map-point-linear"
-                      width={20}
-                      height={20}
+                      width={21}
+                      height={21}
                     />
                   </div>
 
-                  <div>
-                    <p className="text-[9px] uppercase tracking-[0.2em] text-black/40">
-                      Location
+                  <div className="flex-1 py-0.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-black/45">
+                      Visit Us
                     </p>
 
-                    <p className="mt-2 text-sm">
-                      Delhi, India
+                    <p className="mt-2 max-w-sm text-sm leading-7">
+                      {ADDRESS}
+                    </p>
+
+                    <p className="mt-3 inline-flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.15em]">
+                      Get Directions
+                      <Icon
+                        icon="solar:arrow-up-right-linear"
+                        width={15}
+                        height={15}
+                      />
                     </p>
                   </div>
-                </div>
+                </a>
               </div>
 
-              {/* SOCIAL */}
+              {/* SOCIAL LINKS */}
+              <div className="mt-9">
+                <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-black/45">
+                  Follow Our World
+                </p>
 
-              <div className="mt-10 flex items-center gap-4">
-                <a
-                  href="https://www.instagram.com/houseoforive"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Instagram"
-                  className="flex h-10 w-10 items-center justify-center border border-black/10 transition-colors hover:bg-black hover:text-white"
-                >
-                  <Icon
-                    icon="mdi:instagram"
-                    width={19}
-                    height={19}
-                  />
-                </a>
+                <div className="mt-4 flex gap-3">
+                  <a
+                    href="https://www.instagram.com/houseoforive"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="House Of Orive on Instagram"
+                    className="flex h-11 w-11 items-center justify-center border border-black/15 transition-colors duration-300 hover:bg-black hover:text-white"
+                  >
+                    <Icon icon="mdi:instagram" width={20} height={20} />
+                  </a>
 
-                <a
-                  href="https://www.facebook.com/people/Houseoforive/61592099355373/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Facebook"
-                  className="flex h-10 w-10 items-center justify-center border border-black/10 transition-colors hover:bg-black hover:text-white"
-                >
-                  <Icon
-                    icon="mdi:facebook"
-                    width={19}
-                    height={19}
-                  />
-                </a>
-
-                <a
-                  href="#"
-                  aria-label="Pinterest"
-                  className="flex h-10 w-10 items-center justify-center border border-black/10 transition-colors hover:bg-black hover:text-white"
-                >
-                  <Icon
-                    icon="mdi:pinterest"
-                    width={19}
-                    height={19}
-                  />
-                </a>
+                  <a
+                    href="https://www.facebook.com/people/Houseoforive/61592099355373/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="House Of Orive on Facebook"
+                    className="flex h-11 w-11 items-center justify-center border border-black/15 transition-colors duration-300 hover:bg-black hover:text-white"
+                  >
+                    <Icon icon="mdi:facebook" width={20} height={20} />
+                  </a>
+                </div>
               </div>
             </div>
 
-            {/* ================================================= */}
-            {/* FORM */}
-            {/* ================================================= */}
-
+            {/* CONTACT FORM */}
             <div>
+              <div className="mb-7 flex items-end justify-between gap-5">
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-black/40">
+                    Write To Us
+                  </p>
+
+                  <h2 className="mt-3 font-serif text-3xl tracking-[-0.03em] sm:text-4xl">
+                    Send a message.
+                  </h2>
+                </div>
+
+                <Icon
+                  icon="solar:letter-opened-linear"
+                  width={29}
+                  height={29}
+                  className="mb-1 shrink-0 text-black/35"
+                />
+              </div>
+
               {submitted ? (
-                <div className="flex min-h-[500px] items-center justify-center rounded-2xl border border-black/10 bg-[#fafaf8] px-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.06)]">
-                  <div>
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-black text-white">
+                <div className="flex min-h-[480px] items-center justify-center border border-black/10 bg-[#faf9f6] px-6 py-12 text-center sm:px-10">
+                  <div className="max-w-sm">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-black text-white">
                       <Icon
                         icon="solar:check-linear"
-                        width={28}
-                        height={28}
+                        width={27}
+                        height={27}
                       />
                     </div>
 
                     <h3 className="mt-7 font-serif text-3xl">
-                      Thank you.
+                      Thank You.
                     </h3>
 
-                    <p className="mx-auto mt-4 max-w-[400px] text-sm leading-7 text-black/50">
-                      Your message has been received.
-                      We will get back to you shortly.
+                    <p className="mt-4 text-sm leading-7 text-black/55">
+                      Your form has been submitted. Our team will be happy to
+                      assist you.
                     </p>
 
                     <button
                       type="button"
-                      onClick={() =>
-                        setSubmitted(false)
-                      }
-                      className="mt-8 border-b border-black pb-2 text-[10px] font-medium uppercase tracking-[0.2em]"
+                      onClick={() => setSubmitted(false)}
+                      className="mt-8 border-b border-black pb-2 text-[10px] font-medium uppercase tracking-[0.18em]"
                     >
-                      Send another message
+                      Send Another Message
                     </button>
                   </div>
                 </div>
               ) : (
                 <form
                   onSubmit={handleSubmit}
-                  className="rounded-2xl border border-black/15 bg-[#fafaf8] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.06)] sm:p-8 lg:p-10"
+                  className="border border-black/10 bg-[#faf9f6] p-6 sm:p-9 lg:p-10"
                 >
-                  {/* NAME */}
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="contact-name"
+                        className="mb-2.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-black/65"
+                      >
+                        Your Name *
+                      </label>
 
-                  <div className="border-b border-black/15 py-6">
-                    <label className="mb-3 block text-[9px] font-medium uppercase tracking-[0.2em] text-black/65">
-                      Your Name
-                    </label>
+                      <input
+                        id="contact-name"
+                        type="text"
+                        name="name"
+                        autoComplete="name"
+                        required
+                        placeholder="Enter your name"
+                        className="w-full border border-black/15 bg-white px-4 py-3.5 text-sm outline-none transition-colors placeholder:text-black/35 focus:border-black"
+                      />
+                    </div>
 
-                    <input
-                      type="text"
-                      name="name"
-                      required
-                      placeholder="Enter your name"
-                      className="w-full rounded-lg border border-black/15 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-black/35 focus:border-black/50"
-                    />
+                    <div>
+                      <label
+                        htmlFor="contact-phone"
+                        className="mb-2.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-black/65"
+                      >
+                        Phone Number
+                      </label>
+
+                      <input
+                        id="contact-phone"
+                        type="tel"
+                        name="phone"
+                        autoComplete="tel"
+                        placeholder="Enter your phone number"
+                        className="w-full border border-black/15 bg-white px-4 py-3.5 text-sm outline-none transition-colors placeholder:text-black/35 focus:border-black"
+                      />
+                    </div>
                   </div>
 
-                  {/* EMAIL */}
-
-                  <div className="border-b border-black/15 py-6">
-                    <label className="mb-3 block text-[9px] font-medium uppercase tracking-[0.2em] text-black/65">
-                      Email Address
+                  <div className="mt-6">
+                    <label
+                      htmlFor="contact-email"
+                      className="mb-2.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-black/65"
+                    >
+                      Email Address *
                     </label>
 
                     <input
+                      id="contact-email"
                       type="email"
                       name="email"
+                      autoComplete="email"
                       required
-                      placeholder="Enter your email"
-                      className="w-full rounded-lg border border-black/15 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-black/35 focus:border-black/50"
+                      placeholder="Enter your email address"
+                      className="w-full border border-black/15 bg-white px-4 py-3.5 text-sm outline-none transition-colors placeholder:text-black/35 focus:border-black"
                     />
                   </div>
 
-                  {/* PHONE */}
-
-                  <div className="border-b border-black/15 py-6">
-                    <label className="mb-3 block text-[9px] font-medium uppercase tracking-[0.2em] text-black/65">
-                      Phone
-                    </label>
-
-                    <input
-                      type="tel"
-                      name="phone"
-                      placeholder="Enter your phone number"
-                      className="w-full rounded-lg border border-black/15 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-black/35 focus:border-black/50"
-                    />
-                  </div>
-
-                  {/* SUBJECT */}
-
-                  <div className="border-b border-black/15 py-6">
-                    <label className="mb-3 block text-[9px] font-medium uppercase tracking-[0.2em] text-black/65">
-                      Subject
+                  <div className="mt-6">
+                    <label
+                      htmlFor="contact-subject"
+                      className="mb-2.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-black/65"
+                    >
+                      How Can We Help? *
                     </label>
 
                     <select
+                      id="contact-subject"
                       name="subject"
                       required
                       defaultValue=""
-                      className="w-full rounded-lg border border-black/15 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-black/50"
+                      className="w-full border border-black/15 bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-black"
                     >
                       <option value="" disabled>
-                        Select a subject
+                        Select an enquiry
                       </option>
-
-                      <option value="order">
-                        Order Enquiry
-                      </option>
-
-                      <option value="product">
-                        Product Enquiry
-                      </option>
-
-                      <option value="return">
-                        Return / Exchange
-                      </option>
-
-                      <option value="general">
-                        General Enquiry
-                      </option>
+                      <option value="order">Order Enquiry</option>
+                      <option value="product">Product Enquiry</option>
+                      <option value="return">Return / Exchange</option>
+                      <option value="delivery">Shipping / Delivery</option>
+                      <option value="general">General Enquiry</option>
                     </select>
                   </div>
 
-                  {/* MESSAGE */}
-
-                  <div className="border-b border-black/15 py-6">
-                    <label className="mb-3 block text-[9px] font-medium uppercase tracking-[0.2em] text-black/65">
-                      Message
+                  <div className="mt-6">
+                    <label
+                      htmlFor="contact-message"
+                      className="mb-2.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-black/65"
+                    >
+                      Your Message *
                     </label>
 
                     <textarea
+                      id="contact-message"
                       name="message"
                       required
                       rows={5}
-                      placeholder="How can we help?"
-                      className="w-full resize-none rounded-lg border border-black/15 bg-white px-4 py-3 text-sm leading-7 outline-none transition-colors placeholder:text-black/35 focus:border-black/50"
+                      placeholder="Tell us how we can help..."
+                      className="w-full resize-y border border-black/15 bg-white px-4 py-3.5 text-sm leading-7 outline-none transition-colors placeholder:text-black/35 focus:border-black"
                     />
                   </div>
 
-                  {/* SUBMIT */}
+                  <button
+                    type="submit"
+                    className="group mt-7 flex min-h-14 w-full items-center justify-center gap-3 bg-black px-6 py-4 text-[10px] font-medium uppercase tracking-[0.2em] text-white transition-colors duration-300 hover:bg-black/80"
+                  >
+                    Send Your Message
 
-                  <div className="pt-7">
-                    <button
-                      type="submit"
-                      className="group flex w-full items-center justify-center gap-4 bg-black px-8 py-5 text-[10px] font-medium uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-85"
-                    >
-                      Send Message
+                    <Icon
+                      icon="solar:arrow-right-up-linear"
+                      width={18}
+                      height={18}
+                      className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    />
+                  </button>
 
-                      <Icon
-                        icon="solar:arrow-right-up-linear"
-                        width={18}
-                        height={18}
-                        className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"
-                      />
-                    </button>
-                  </div>
+                  <p className="mt-4 text-center text-[10px] leading-5 text-black/40">
+                    We appreciate you reaching out to House Of Orive.
+                  </p>
                 </form>
               )}
             </div>
           </div>
         </section>
 
-        {/* ================================================= */}
         {/* LOCATION MAP */}
-        {/* ================================================= */}
-
-        <section className="mx-auto max-w-[1600px] px-5 pb-24 sm:px-8 lg:px-12 lg:pb-32">
-          <div className="border-t border-black/10 pt-10">
-            {/* MAP HEADER */}
-
-            <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <section className="bg-[#faf9f6]">
+          <div className="mx-auto max-w-[1440px] px-6 py-16 sm:px-10 sm:py-20 lg:px-16 lg:py-24">
+            <div className="mb-9 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-black/40">
-                  Find Us
-                </p>
+                <div className="flex items-center gap-3">
+                  <span className="h-px w-8 bg-black/40" />
 
-                <h2 className="mt-4 font-serif text-4xl tracking-[-0.035em] sm:text-5xl">
-                  Delhi, India
+                  <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-black/45">
+                    Find Our Location
+                  </p>
+                </div>
+
+                <h2 className="mt-5 max-w-2xl font-serif text-4xl leading-tight tracking-[-0.035em] sm:text-5xl">
+                  Visit House Of Orive.
                 </h2>
+
+                <p className="mt-4 max-w-xl text-sm leading-7 text-black/55">
+                  <Icon
+                    icon="solar:map-point-linear"
+                    width={17}
+                    height={17}
+                    className="mr-2 inline-block align-[-3px]"
+                  />
+                  {ADDRESS}
+                </p>
               </div>
 
               <a
-                href="https://www.google.com/maps/search/?api=1&query=Delhi%2C%20India"
+                href={directionsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-fit items-center gap-3 border-b border-black pb-2 text-[10px] font-medium uppercase tracking-[0.18em]"
+                className="inline-flex w-fit items-center gap-3 border-b border-black pb-2 text-[10px] font-medium uppercase tracking-[0.16em] transition-opacity hover:opacity-55"
               >
-                Open In Google Maps
+                Open Google Maps
 
                 <Icon
-                  icon="solar:arrow-right-up-linear"
+                  icon="solar:arrow-up-right-linear"
                   width={17}
                   height={17}
                 />
               </a>
             </div>
 
-            {/* MAP */}
-
-            <div className="relative h-[300px] w-full overflow-hidden bg-[#eeeeec] sm:h-[340px] lg:h-[400px]">
+            <div className="relative h-[300px] overflow-hidden border border-black/10 bg-[#e9e7e1] sm:h-[380px] lg:h-[460px]">
               <iframe
                 src={mapUrl}
-                title="House Of Orive location in Delhi, India"
-                className="h-full w-full border-0 grayscale"
+                title={`House Of Orive location: ${ADDRESS}`}
+                className="h-full w-full border-0"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
               />
 
-              {/* MAP LABEL */}
-
-              <div className="pointer-events-none absolute bottom-5 left-5 bg-white/95 px-5 py-4 shadow-[0_10px_35px_rgba(0,0,0,0.08)]">
-                <div className="flex items-center gap-3">
+              <div className="pointer-events-none absolute bottom-4 left-4 max-w-[calc(100%-2rem)] border border-black/5 bg-white/95 p-4 shadow-sm sm:bottom-6 sm:left-6 sm:p-5">
+                <div className="flex items-start gap-3">
                   <Icon
                     icon="solar:map-point-bold"
-                    width={19}
-                    height={19}
+                    width={20}
+                    height={20}
+                    className="mt-0.5 shrink-0"
                   />
 
                   <div>
-                    <p className="text-[10px] font-medium uppercase tracking-[0.15em]">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.16em]">
                       House Of Orive
                     </p>
 
-                    <p className="mt-1 text-[11px] text-black/45">
-                      Delhi, India
+                    <p className="mt-1 max-w-xs text-xs leading-5 text-black/55">
+                      {ADDRESS}
                     </p>
                   </div>
                 </div>
@@ -470,68 +433,36 @@ export default function ContactPage() {
           </div>
         </section>
 
-        {/* ================================================= */}
-        {/* QUICK HELP */}
-        {/* ================================================= */}
+        {/* FINAL COLLECTION SECTION */}
+        <section className="border-t border-black/10 bg-white">
+          <div className="mx-auto flex max-w-[1440px] flex-col items-start justify-between gap-7 px-6 py-14 sm:px-10 md:flex-row md:items-center lg:px-16 lg:py-16">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-black/40">
+                The House Of Orive Experience
+              </p>
 
-        <section className="bg-[#f5f5f3]">
-          <div className="mx-auto max-w-[1400px] px-6 py-20 sm:px-10 lg:px-16">
-            <div className="grid gap-10 md:grid-cols-3">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-black/40">
-                  Orders
-                </p>
+              <h2 className="mt-3 font-serif text-3xl tracking-[-0.03em] sm:text-4xl">
+                Discover your next favourite.
+              </h2>
 
-                <h3 className="mt-4 font-serif text-2xl">
-                  Need help with an order?
-                </h3>
-
-                <p className="mt-3 text-sm leading-7 text-black/50">
-                  Have a question about your order,
-                  delivery or status? Send us the
-                  details and we will assist you.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-black/40">
-                  Products
-                </p>
-
-                <h3 className="mt-4 font-serif text-2xl">
-                  Looking for something?
-                </h3>
-
-                <p className="mt-3 text-sm leading-7 text-black/50">
-                  If you need help finding a size,
-                  colour or particular style, our team
-                  is happy to help.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-black/40">
-                  Collection
-                </p>
-
-                <h3 className="mt-4 font-serif text-2xl">
-                  Explore House Of Orive
-                </h3>
-
-                <Link
-                  href="/products"
-                  className="mt-5 inline-flex items-center gap-3 border-b border-black pb-2 text-[10px] font-medium uppercase tracking-[0.18em]"
-                >
-                  Shop Collection
-
-                  <Icon
-                    icon="solar:arrow-right-up-linear"
-                    width={16}
-                    height={16}
-                  />
-                </Link>
-              </div>
+              <p className="mt-3 text-sm leading-6 text-black/55">
+                Explore pieces chosen to make everyday dressing feel special.
+              </p>
             </div>
+
+            <Link
+              href="/products"
+              className="group inline-flex min-h-12 items-center justify-center gap-4 border border-black px-6 py-4 text-[10px] font-medium uppercase tracking-[0.17em] transition-colors duration-300 hover:bg-black hover:text-white"
+            >
+              Explore Collection
+
+              <Icon
+                icon="solar:arrow-right-up-linear"
+                width={17}
+                height={17}
+                className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              />
+            </Link>
           </div>
         </section>
       </main>

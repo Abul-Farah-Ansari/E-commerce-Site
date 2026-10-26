@@ -382,7 +382,7 @@ export default function Navbar() {
 
             <Link
               href="/"
-              className="text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"
+              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
             >
               Home
             </Link>
@@ -399,7 +399,7 @@ export default function Navbar() {
             >
               <button
                 type="button"
-                className="flex items-center gap-1 text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"
+                className="flex items-center gap-1 text-[13px] font-medium uppercase tracking-[0.13em] leading-normal text-black transition-colors duration-200 hover:text-black/55"
               >
                 Shop
 
@@ -490,21 +490,21 @@ export default function Navbar() {
 
             <Link
               href="/products?sort=newest"
-              className="text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"
+              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
             >
               New Arrivals
             </Link>
 
             <Link
               href="/about"
-              className="text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"
+              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
             >
               About
             </Link>
 
             <Link
               href="/contact"
-              className="text-[13px] font-medium uppercase tracking-[0.16em] text-black transition-colors hover:text-black/50"
+              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
             >
               Contact
             </Link>
@@ -536,7 +536,7 @@ export default function Navbar() {
                       ?.focus();
                   }, 50);
                 }}
-                className="flex h-10 w-10 items-center justify-center text-black transition-colors hover:text-black/50"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-black transition-all duration-200 hover:bg-black/[0.045] hover:text-black/65"
                 aria-label="Search"
               >
                 <Icon
@@ -715,7 +715,7 @@ export default function Navbar() {
             {/* WISHLIST */}
             <Link
               href="/wishlist"
-              className="hidden h-10 w-10 items-center justify-center text-black transition-colors hover:text-black/50 sm:flex"
+              className="hidden h-10 w-10 items-center justify-center rounded-full text-black transition-all duration-200 hover:bg-black/[0.045] hover:text-black/65 sm:flex"
               aria-label="Wishlist"
             >
               <Icon
@@ -725,17 +725,26 @@ export default function Navbar() {
               />
             </Link>
 
-            {/* CART */}
+            {/* CART — minimal line icon with quantity badge */}
             <Link
               href="/cart"
-              className="flex h-10 w-10 items-center justify-center text-black transition-colors hover:text-black/50"
-              aria-label="Cart"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-black transition-colors duration-200 hover:bg-black/[0.045]"
+              aria-label="Shopping cart"
+              title="Shopping cart"
             >
-              <Icon
-                icon="solar:bag-4-linear"
-                width={21}
-                height={21}
-              />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 32 32"
+                className="h-[27px] w-[27px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.35"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3.5 5.5h3l3.1 16.1a2 2 0 0 0 2 1.6h12.1a2 2 0 0 0 1.9-1.5l2.1-10.3H8" />
+                <path d="M12 27.2h.01M24 27.2h.01" strokeWidth="2.5" />
+              </svg>
             </Link>
 
             {/* ACCOUNT: fixed-width wrapper prevents navbar items from shifting */}
@@ -904,7 +913,7 @@ export default function Navbar() {
                 <Link
                   href="/"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.16em]"
+                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
                 >
                   Home
                 </Link>
@@ -918,7 +927,7 @@ export default function Navbar() {
                         (value) => !value
                       )
                     }
-                    className="flex w-full items-center justify-between py-4 text-[13px] font-medium uppercase tracking-[0.16em]"
+                    className="flex w-full items-center justify-between py-4 text-[13px] font-medium uppercase tracking-[0.13em] leading-normal text-black transition-colors duration-200 hover:text-black/55"
                   >
                     <span>Shop</span>
 
@@ -977,7 +986,7 @@ export default function Navbar() {
                 <Link
                   href="/products?sort=newest"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.16em]"
+                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
                 >
                   New Arrivals
                 </Link>
@@ -985,7 +994,7 @@ export default function Navbar() {
                 <Link
                   href="/about"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.16em]"
+                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
                 >
                   About
                 </Link>
@@ -993,7 +1002,7 @@ export default function Navbar() {
                 <Link
                   href="/contact"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.16em]"
+                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
                 >
                   Contact
                 </Link>

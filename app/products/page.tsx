@@ -5,6 +5,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -73,7 +74,7 @@ function ProductsPageContent() {
   const hero = usePageHeroSettings("products", {
     imageUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2200&q=90",
     altText: "House Of Orive collection",
-    eyebrow: "HOUSE OF ORIVE",
+    eyebrow: "",
     heading: "The Edit",
     description: "Discover our considered collection of modern essentials.",
     buttonText: "",
@@ -90,6 +91,9 @@ function ProductsPageContent() {
 
   const sortFromUrl =
     searchParams.get("sort") || "";
+
+  const filterFromUrl =
+    searchParams.get("filter") || "all";
 
   const [products, setProducts] =
     useState<Product[]>([]);
@@ -112,8 +116,18 @@ function ProductsPageContent() {
   const [sort, setSort] =
     useState(sortFromUrl || "featured");
 
+  const [productFilter, setProductFilter] =
+    useState<"all" | "new-arrivals" | "best-sellers">(
+      filterFromUrl === "new-arrivals" ||
+      filterFromUrl === "best-sellers"
+        ? filterFromUrl
+        : "all"
+    );
+
   const [mobileFiltersOpen, setMobileFiltersOpen] =
     useState(false);
+
+  const productAreaRef = useRef<HTMLDivElement | null>(null);
 
   /*
    * =====================================================
@@ -132,6 +146,30 @@ function ProductsPageContent() {
   useEffect(() => {
     setSort(sortFromUrl || "featured");
   }, [sortFromUrl]);
+
+  useEffect(() => {
+    setProductFilter(
+      filterFromUrl === "new-arrivals" ||
+      filterFromUrl === "best-sellers"
+        ? filterFromUrl
+        : "all"
+    );
+  }, [filterFromUrl]);
+
+  // After navigating from the navbar, wait until products are loaded,
+  // then bring the product grid into view so the active filter is obvious.
+  useEffect(() => {
+    if (loading) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      productAreaRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, filterFromUrl]);
 
   /*
    * =====================================================
@@ -342,6 +380,15 @@ function ProductsPageContent() {
       });
     }
 
+    // Dedicated navbar filters. These are independent of sorting.
+    if (productFilter === "new-arrivals") {
+      result = result.filter((product) => Boolean(product.newArrival));
+    } else if (productFilter === "best-sellers") {
+      // The current product model has no bestSeller field, so use
+      // the existing trending flag as the Best Sellers signal.
+      result = result.filter((product) => Boolean(product.trending));
+    }
+
     if (selectedCategory) {
       result = result.filter(
         (product) => {
@@ -421,6 +468,7 @@ function ProductsPageContent() {
     search,
     selectedCategory,
     sort,
+    productFilter,
   ]);
 
   /*
@@ -433,6 +481,7 @@ function ProductsPageContent() {
     setSearch("");
     setSelectedCategory("");
     setSort("featured");
+    setProductFilter("all");
 
     window.history.replaceState(
       null,
@@ -515,6 +564,36 @@ function ProductsPageContent() {
     );
   };
 
+  const handleProductFilterChange = (
+    value: "all" | "new-arrivals" | "best-sellers"
+  ) => {
+    setProductFilter(value);
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (value === "all") {
+      params.delete("filter");
+    } else {
+      params.set("filter", value);
+    }
+
+    const query = params.toString();
+
+    // replaceState updates the URL without a navigation or scroll-to-top.
+    window.history.replaceState(
+      null,
+      "",
+      query ? `/products?${query}` : "/products"
+    );
+
+    window.requestAnimationFrame(() => {
+      productAreaRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
   /*
    * =====================================================
    * LOADING
@@ -539,16 +618,12 @@ function ProductsPageContent() {
 
             <div className="hero-content">
               <span>
-                {hero.eyebrow || "HOUSE OF ORIVE"}
+                {hero.eyebrow || ""}
               </span>
 
-              <h1>
-                {hero.heading || "The Edit"}
-              </h1>
+             
 
-              <p>
-                {hero.description || "Discover our considered collection of modern essentials."}
-              </p>
+              
 
               {hero.buttonText && hero.buttonLink && (
                 <Link href={hero.buttonLink} className="products-hero-button">
@@ -614,9 +689,7 @@ function ProductsPageContent() {
         <main className="products-state">
           <span>!</span>
 
-          <small>
-            HOUSE OF ORIVE
-          </small>
+          
 
           <h1>
             Something went wrong.
@@ -676,16 +749,12 @@ function ProductsPageContent() {
           <div className="hero-content">
 
             <span>
-              {hero.eyebrow || "HOUSE OF ORIVE"}
+              {hero.eyebrow || ""}
             </span>
 
-            <h1>
-              {hero.heading || "The Edit"}
-            </h1>
+          
 
-            <p>
-              {hero.description || "Discover our considered collection of modern essentials."}
-            </p>
+            
 
             {hero.buttonText && hero.buttonLink && (
               <Link href={hero.buttonLink} className="products-hero-button">
@@ -697,13 +766,7 @@ function ProductsPageContent() {
           </div>
 
           <div className="hero-number">
-            <span>
-              COLLECTION
-            </span>
-
-            <strong>
-              01
-            </strong>
+           
           </div>
 
         </section>
@@ -738,6 +801,33 @@ function ProductsPageContent() {
               </span>
             </div>
 
+          </div>
+
+          <div className="product-filter-tabs" aria-label="Product collection">
+            <button
+              type="button"
+              className={productFilter === "all" ? "active" : ""}
+              aria-pressed={productFilter === "all"}
+              onClick={() => handleProductFilterChange("all")}
+            >
+              All Products
+            </button>
+            <button
+              type="button"
+              className={productFilter === "new-arrivals" ? "active" : ""}
+              aria-pressed={productFilter === "new-arrivals"}
+              onClick={() => handleProductFilterChange("new-arrivals")}
+            >
+              New Arrivals
+            </button>
+            <button
+              type="button"
+              className={productFilter === "best-sellers" ? "active" : ""}
+              aria-pressed={productFilter === "best-sellers"}
+              onClick={() => handleProductFilterChange("best-sellers")}
+            >
+              Best Sellers
+            </button>
           </div>
 
           {/* =================================================
@@ -960,7 +1050,22 @@ function ProductsPageContent() {
                 PRODUCT AREA
             ================================================= */}
 
-            <div className="product-area">
+            <div className="product-area" ref={productAreaRef}>
+              <div className="active-filter-heading" aria-live="polite">
+                <div>
+                  <span>NOW VIEWING</span>
+                  <h3>
+                    {productFilter === "new-arrivals"
+                      ? "New Arrivals"
+                      : productFilter === "best-sellers"
+                      ? "Best Sellers"
+                      : "All Products"}
+                  </h3>
+                </div>
+                <span className="active-filter-count">
+                  {filteredProducts.length} {filteredProducts.length === 1 ? "PIECE" : "PIECES"}
+                </span>
+              </div>
 
               <div className="product-toolbar">
 
@@ -1179,56 +1284,7 @@ function ProductsPageContent() {
 
         </section>
 
-        {/* =================================================
-            EDITORIAL CLOSING
-        ================================================= */}
-
-        <section className="products-closing">
-
-          <div className="closing-copy">
-
-            <span>
-              HOUSE OF ORIVE
-            </span>
-
-            <h2>
-              Considered
-              <br />
-              in every detail.
-            </h2>
-
-            <p>
-              We believe the most enduring
-              wardrobe is built around pieces
-              that feel effortless today and
-              remain relevant tomorrow.
-            </p>
-
-            <Link href="/categories">
-
-              Explore Collections
-
-              <Icon
-                icon="solar:arrow-right-linear"
-                width={17}
-                height={17}
-              />
-
-            </Link>
-
-          </div>
-
-          <div className="closing-image">
-
-            <img
-              src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1400&q=85"
-              alt="House of Orive collection"
-            />
-
-          </div>
-
-        </section>
-
+       
       </main>
 
       <Footer />
@@ -1590,6 +1646,35 @@ const productsStyles = `
   font-size: 11px;
   cursor: pointer;
 }
+  .product-filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: -12px 0 30px;
+  }
+
+  .product-filter-tabs button {
+    min-height: 38px;
+    padding: 0 17px;
+    border: 1px solid #dededb;
+    background: transparent;
+    color: #666666;
+    font-family: var(--font-dm-sans);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+
+  .product-filter-tabs button:hover,
+  .product-filter-tabs button.active {
+    border-color: #111111;
+    background: #111111;
+    color: #ffffff;
+  }
+
   /* =====================================================
      MOBILE FILTER BUTTON
   ===================================================== */
@@ -1604,6 +1689,43 @@ const productsStyles = `
 
   .product-area {
     min-width: 0;
+    scroll-margin-top: 105px;
+  }
+
+  .active-filter-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 0 0 22px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #dededb;
+  }
+
+  .active-filter-heading > div > span {
+    color: #999999;
+    font-family: var(--font-dm-sans);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .16em;
+  }
+
+  .active-filter-heading h3 {
+    margin: 8px 0 0;
+    color: #111111;
+    font-family: var(--font-bodoni);
+    font-size: clamp(30px, 4vw, 46px);
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .active-filter-count {
+    color: #777777;
+    font-family: var(--font-dm-sans);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    white-space: nowrap;
   }
 
   .product-toolbar {

@@ -78,10 +78,10 @@ export default function SalePage() {
   // Hero content and image are loaded from the admin-managed page hero settings.
   const hero = usePageHeroSettings("sale", {
     imageUrl: "",
-    altText: "House Of Orive Sale",
-    eyebrow: "HOUSE OF ORIVE",
-    heading: "Sale",
-    description: "Discover selected House Of Orive pieces at considered prices.",
+    altText: "e",
+    eyebrow: "",
+    heading: "",
+    description: "",
     buttonText: "",
     buttonLink: "",
   });
@@ -412,22 +412,22 @@ export default function SalePage() {
           ) : null}
 
           {hero.imageUrl ? (
-            <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/40 to-black/20" />
+            <div className="absolute inset-0"/>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[#f8f6f2] via-white to-[#eee9e2]" />
           )}
 
           <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-10 lg:px-16">
             <p className={`text-[10px] font-medium uppercase tracking-[0.32em] ${hero.imageUrl ? "text-white/65" : "text-black/45"}`}>
-              {hero.eyebrow || "HOUSE OF ORIVE"}
+              {hero.eyebrow || ""}
             </p>
 
             <h1 className={`mt-5 font-serif text-[56px] leading-[0.9] tracking-[-0.045em] sm:text-[76px] lg:text-[104px] ${hero.imageUrl ? "text-white" : "text-black"}`}>
-              {hero.heading || "Sale"}
+              {hero.heading || ""}
             </h1>
 
             <p className={`mt-8 max-w-[580px] text-sm leading-7 ${hero.imageUrl ? "text-white/75" : "text-black/60"}`}>
-              {hero.description || "Discover selected House Of Orive pieces at considered prices."}
+              {hero.description || ""}
             </p>
 
             {hero.buttonText && hero.buttonLink ? (
