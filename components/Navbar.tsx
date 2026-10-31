@@ -52,6 +52,8 @@ interface SearchSuggestion {
 let cachedNavbarUser: User | null = null;
 let hasResolvedNavbarAuth = false;
 
+const SHOP_SUBMENU_SCROLL_KEY = "house-of-orive:shop-submenu-scroll";
+
 export default function Navbar() {
   const router = useRouter();
 
@@ -308,6 +310,41 @@ export default function Navbar() {
     setShopOpen(false);
   };
 
+  // Navigate from the Shop submenu and move the viewport to 50vh.
+  // Products page waits until its product data has loaded before scrolling.
+  const navigateFromShopMenu = (href: string) => {
+    closeMobile();
+
+    const destination = new URL(href, window.location.origin);
+    const destinationRoute = `${destination.pathname}${destination.search}`;
+    const currentRoute = `${window.location.pathname}${window.location.search}`;
+    const isProductsDestination = destination.pathname === "/products";
+
+    try {
+      if (isProductsDestination && currentRoute !== destinationRoute) {
+        sessionStorage.setItem(SHOP_SUBMENU_SCROLL_KEY, "1");
+      } else {
+        sessionStorage.removeItem(SHOP_SUBMENU_SCROLL_KEY);
+      }
+    } catch {
+      // The page will still navigate if browser storage is unavailable.
+    }
+
+    // Keep the current scroll position; the destination handles its own 50vh scroll.
+    router.push(href, { scroll: false });
+
+    // Sale has no product-loading scroll effect, so handle it here.
+    // Also handle clicking the exact Products URL while already on that route.
+    if (!isProductsDestination || currentRoute === destinationRoute) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({
+          top: Math.round(window.innerHeight * 0.5),
+          behavior: "smooth",
+        });
+      });
+    }
+  };
+
   return (
     
 <header
@@ -439,6 +476,10 @@ export default function Navbar() {
                 <div className="border border-black/10 bg-white p-3 shadow-[0_15px_50px_rgba(0,0,0,0.08)]">
                   <Link
                     href="/products"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateFromShopMenu("/products");
+                    }}
                     className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
                   >
                     <span>All Products</span>
@@ -450,7 +491,11 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/products?sort=newest"
+                    href="/products?sort=newest&filter=new-arrivals"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateFromShopMenu("/products?sort=newest&filter=new-arrivals");
+                    }}
                     className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
                   >
                     <span>New Arrivals</span>
@@ -462,7 +507,11 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/products?sort=featured"
+                    href="/products?sort=featured&filter=best-sellers"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateFromShopMenu("/products?sort=featured&filter=best-sellers");
+                    }}
                     className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
                   >
                     <span>Best Sellers</span>
@@ -475,6 +524,10 @@ export default function Navbar() {
 
                   <Link
                     href="/sale"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateFromShopMenu("/sale");
+                    }}
                     className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
                   >
                     <span>Sale</span>
@@ -489,7 +542,7 @@ export default function Navbar() {
             </div>
 
             <Link
-              href="/products?sort=newest"
+              href="/products?sort=newest&filter=new-arrivals"
               className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
             >
               New Arrivals
@@ -950,41 +1003,53 @@ export default function Navbar() {
                     <div className="pb-3 pl-3">
                       <Link
                         href="/products"
-                        onClick={closeMobile}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          navigateFromShopMenu("/products");
+                        }}
                         className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
                       >
                         All Products
                       </Link>
 
                       <Link
-                        href="/products?sort=newest"
-                        onClick={closeMobile}
+                        href="/products?sort=newest&filter=new-arrivals"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          navigateFromShopMenu("/products?sort=newest&filter=new-arrivals");
+                        }}
                         className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
                       >
                         New Arrivals
                       </Link>
 
                       <Link
-                        href="/products?sort=featured"
-                        onClick={closeMobile}
+                        href="/products?sort=featured&filter=best-sellers"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          navigateFromShopMenu("/products?sort=featured&filter=best-sellers");
+                        }}
                         className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
                       >
                         Best Sellers
                       </Link>
 
-                  <Link
-  href="/sale"
-  onClick={closeMobile}
-  className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
->
-  Sale
-</Link>
+                      <Link
+                        href="/sale"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          navigateFromShopMenu("/sale");
+                        }}
+                        className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
+                      >
+                        Sale
+                      </Link>
                     </div>
                   )}
                 </div>
 
                 <Link
-                  href="/products?sort=newest"
+                  href="/products?sort=newest&filter=new-arrivals"
                   onClick={closeMobile}
                   className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
                 >
