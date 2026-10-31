@@ -72,7 +72,9 @@ const FALLBACK_IMAGE =
 
 function ProductsPageContent() {
   const hero = usePageHeroSettings("products", {
-    imageUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2200&q=90",
+    desktopImageUrl: "",
+    mobileImageUrl: "",
+    imageUrl: "",
     altText: "House Of Orive collection",
     eyebrow: "",
     heading: "The Edit",
@@ -80,6 +82,14 @@ function ProductsPageContent() {
     buttonText: "",
     buttonLink: "",
   });
+
+  // Use the page-specific mobile asset on small screens.
+  // Retain safe fallbacks for older records and one-image configurations.
+  const desktopHeroImage =
+    hero.desktopImageUrl || hero.imageUrl || hero.mobileImageUrl || "";
+  const mobileHeroImage =
+    hero.mobileImageUrl || desktopHeroImage;
+  const hasHeroImage = Boolean(desktopHeroImage || mobileHeroImage);
 
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
@@ -628,14 +638,31 @@ function ProductsPageContent() {
 
         <main className="products-page">
           <section className="products-hero">
-            <div className="hero-image">
-              <img
-                src={hero.imageUrl}
-                alt={hero.altText || "House Of Orive collection"}
-              />
-            </div>
+            {hasHeroImage && (
+              <>
+                <div className="hero-image block md:hidden">
+                  <img
+                    src={mobileHeroImage}
+                    alt={hero.altText || "House Of Orive collection"}
+                    fetchPriority="high"
+                    loading="eager"
+                    draggable={false}
+                  />
+                </div>
 
-            <div className="hero-overlay" />
+                <div className="hero-image hidden md:block">
+                  <img
+                    src={desktopHeroImage}
+                    alt={hero.altText || "House Of Orive collection"}
+                    fetchPriority="high"
+                    loading="eager"
+                    draggable={false}
+                  />
+                </div>
+              </>
+            )}
+
+            {hasHeroImage && <div className="hero-overlay" />}
 
             <div className="hero-content">
               <span>
@@ -758,14 +785,33 @@ function ProductsPageContent() {
 
         <section className="products-hero">
 
-          <div className="hero-image">
-            <img
-              src={hero.imageUrl}
-              alt={hero.altText || "House Of Orive collection"}
-            />
-          </div>
+          {hasHeroImage && (
+            <>
+              {/* MOBILE HERO IMAGE */}
+              <div className="hero-image block md:hidden">
+                <img
+                  src={mobileHeroImage}
+                  alt={hero.altText || "House Of Orive collection"}
+                  fetchPriority="high"
+                  loading="eager"
+                  draggable={false}
+                />
+              </div>
 
-          <div className="hero-overlay" />
+              {/* DESKTOP HERO IMAGE */}
+              <div className="hero-image hidden md:block">
+                <img
+                  src={desktopHeroImage}
+                  alt={hero.altText || "House Of Orive collection"}
+                  fetchPriority="high"
+                  loading="eager"
+                  draggable={false}
+                />
+              </div>
+            </>
+          )}
+
+          {hasHeroImage && <div className="hero-overlay" />}
 
           <div className="hero-content">
 
@@ -1337,11 +1383,21 @@ const productsStyles = `
 
   .products-hero {
     position: relative;
-    min-height: 80vh;
+    height: 60svh;
+    min-height: 300px;
+    max-height: 480px;
     overflow: hidden;
     display: flex;
     align-items: center;
     background: #111111;
+  }
+
+  @media (min-width: 768px) {
+    .products-hero {
+      height: calc(100svh - 76px);
+      min-height: 320px;
+      max-height: none;
+    }
   }
 
   .hero-image {
@@ -2215,7 +2271,9 @@ const productsStyles = `
   @media (max-width: 700px) {
 
     .products-hero {
-      min-height: 480px;
+      height: 60svh;
+      min-height: 300px;
+      max-height: 480px;
     }
 
     .hero-content {
@@ -2423,7 +2481,9 @@ const productsStyles = `
 
   @media (max-width: 640px) {
     .products-hero {
-      min-height: 80vh;
+      height: 60svh;
+      min-height: 300px;
+      max-height: 480px;
     }
 
     .hero-content {
