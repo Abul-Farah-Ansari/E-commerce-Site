@@ -56,29 +56,25 @@ type Category = {
 const FALLBACK_IMAGE = "";
 
 export default function SalePage() {
-  const [products, setProducts] = useState<Product[]>(
-    []
-  );
-
-  const [categories, setCategories] = useState<
-    Category[]
-  >([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-
-  const [selectedCategory, setSelectedCategory] =
-    useState("");
-
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [sort, setSort] = useState("featured");
 
-  // Hero content and image are loaded from the admin-managed page hero settings.
+  // =========================================================
+  // RESPONSIVE HERO SETTINGS
+  // =========================================================
+
   const hero = usePageHeroSettings("sale", {
+    desktopImageUrl: "",
+    mobileImageUrl: "",
     imageUrl: "",
-    altText: "e",
+    altText: "House Of Orive Sale",
     eyebrow: "",
     heading: "",
     description: "",
@@ -86,11 +82,21 @@ export default function SalePage() {
     buttonLink: "",
   });
 
+  const desktopImage =
+    hero.desktopImageUrl || hero.imageUrl || "";
+
+  const mobileImage =
+    hero.mobileImageUrl || "";
+
+  const hasHeroImage = Boolean(desktopImage);
+
   // =========================================================
   // LOAD PRODUCTS + CATEGORIES
   // =========================================================
 
   useEffect(() => {
+    let mounted = true;
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -134,8 +140,9 @@ export default function SalePage() {
           ? categoriesData.categories
           : [];
 
-        setProducts(productList);
+        if (!mounted) return;
 
+        setProducts(productList);
         setCategories(categoryList);
       } catch (requestError) {
         console.error(
@@ -143,17 +150,25 @@ export default function SalePage() {
           requestError
         );
 
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to load sale products."
-        );
+        if (mounted) {
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : "Unable to load sale products."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-    loadData();
+    void loadData();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // =========================================================
@@ -207,9 +222,7 @@ export default function SalePage() {
         product.status === "active"
     );
 
-    // =======================================================
     // SEARCH
-    // =======================================================
 
     if (search.trim()) {
       const searchValue =
@@ -233,9 +246,7 @@ export default function SalePage() {
       });
     }
 
-    // =======================================================
     // CATEGORY
-    // =======================================================
 
     if (selectedCategory) {
       result = result.filter((product) => {
@@ -249,9 +260,7 @@ export default function SalePage() {
       });
     }
 
-    // =======================================================
     // SORT
-    // =======================================================
 
     if (sort === "featured") {
       result.sort((a, b) => {
@@ -398,69 +407,189 @@ export default function SalePage() {
       <Navbar />
 
       <main className="bg-white">
+
         {/* ================================================= */}
-        {/* HERO */}
+        {/* RESPONSIVE HERO */}
+        {/* MOBILE HEIGHT MATCHES HOME HERO */}
         {/* ================================================= */}
 
-        <section className="relative flex min-h-[80vh] items-center overflow-hidden bg-neutral-100">
-          {hero.imageUrl ? (
-            <img
-              src={hero.imageUrl}
-              alt={hero.altText || "House Of Orive Sale"}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : null}
+        <section
+          className="
+            relative
+            flex
+            h-[60svh]
+            min-h-[300px]
+            max-h-[480px]
+            w-full
+            items-center
+            overflow-hidden
+            bg-neutral-100
 
-          {hero.imageUrl ? (
-            <div className="absolute inset-0"/>
+            md:h-[calc(100svh-76px)]
+            md:min-h-[320px]
+            md:max-h-none
+          "
+        >
+
+          {/* MOBILE IMAGE */}
+
+          {hasHeroImage && (
+            <>
+              <img
+                src={mobileImage || desktopImage}
+                alt={hero.altText || "House Of Orive Sale"}
+                fetchPriority="high"
+                loading="eager"
+                draggable={false}
+                className="
+                  absolute
+                  inset-0
+                  z-0
+                  block
+                  h-full
+                  w-full
+                  object-cover
+                  object-center
+                  md:hidden
+                "
+              />
+
+              {/* DESKTOP IMAGE */}
+
+              <img
+                src={desktopImage}
+                alt={hero.altText || "House Of Orive Sale"}
+                fetchPriority="high"
+                loading="eager"
+                draggable={false}
+                className="
+                  absolute
+                  inset-0
+                  z-0
+                  hidden
+                  h-full
+                  w-full
+                  object-cover
+                  object-center
+                  md:block
+                "
+              />
+            </>
+          )}
+
+          {/* OVERLAY */}
+
+          {hasHeroImage ? (
+            <div className="absolute inset-0 z-[1] bg-black/10" />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[#f8f6f2] via-white to-[#eee9e2]" />
           )}
 
-          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-10 lg:px-16">
-            <p className={`text-[10px] font-medium uppercase tracking-[0.32em] ${hero.imageUrl ? "text-white/65" : "text-black/45"}`}>
+          {/* HERO CONTENT */}
+
+          <div
+            className="
+              relative
+              z-10
+              mx-auto
+              w-full
+              max-w-[1600px]
+              px-6
+              py-10
+              sm:px-10
+              sm:py-20
+              lg:px-16
+            "
+          >
+
+            <p
+              className={`text-[10px] font-medium uppercase tracking-[0.32em] ${
+                hasHeroImage
+                  ? "text-white/65"
+                  : "text-black/45"
+              }`}
+            >
               {hero.eyebrow || ""}
             </p>
 
-            <h1 className={`mt-5 font-serif text-[56px] leading-[0.9] tracking-[-0.045em] sm:text-[76px] lg:text-[104px] ${hero.imageUrl ? "text-white" : "text-black"}`}>
+            <h1
+              className={`mt-4 font-serif text-[48px] leading-[0.9] tracking-[-0.045em] sm:mt-5 sm:text-[76px] lg:text-[104px] ${
+                hasHeroImage
+                  ? "text-white"
+                  : "text-black"
+              }`}
+            >
               {hero.heading || ""}
             </h1>
 
-            <p className={`mt-8 max-w-[580px] text-sm leading-7 ${hero.imageUrl ? "text-white/75" : "text-black/60"}`}>
+            <p
+              className={`mt-5 max-w-[580px] text-xs leading-6 sm:mt-8 sm:text-sm sm:leading-7 ${
+                hasHeroImage
+                  ? "text-white/75"
+                  : "text-black/60"
+              }`}
+            >
               {hero.description || ""}
             </p>
 
             {hero.buttonText && hero.buttonLink ? (
               <Link
                 href={hero.buttonLink}
-                className={`mt-8 inline-flex items-center border px-6 py-3 text-xs uppercase tracking-[0.2em] transition ${
-                  hero.imageUrl
+                className={`mt-6 inline-flex items-center border px-5 py-3 text-[10px] uppercase tracking-[0.2em] transition sm:mt-8 sm:px-6 sm:text-xs ${
+                  hasHeroImage
                     ? "border-white/60 text-white hover:bg-white hover:text-black"
                     : "border-black/40 text-black hover:bg-black hover:text-white"
                 }`}
               >
                 {hero.buttonText}
+
+                <Icon
+                  icon="solar:arrow-right-up-linear"
+                  width={16}
+                  height={16}
+                  className="ml-2"
+                />
               </Link>
             ) : null}
+
           </div>
 
-          <div className="absolute bottom-8 right-8 hidden text-right lg:block">
-            <p className={`text-[9px] uppercase tracking-[0.25em] ${hero.imageUrl ? "text-white/55" : "text-black/40"}`}>
+          {/* BOTTOM LABEL */}
+
+          <div className="absolute bottom-5 right-5 z-10 hidden text-right lg:block">
+            <p
+              className={`text-[9px] uppercase tracking-[0.25em] ${
+                hasHeroImage
+                  ? "text-white/55"
+                  : "text-black/40"
+              }`}
+            >
               Special Edit
             </p>
-            <p className={`mt-1 font-serif text-3xl ${hero.imageUrl ? "text-white" : "text-black"}`}>
+
+            <p
+              className={`mt-1 font-serif text-3xl ${
+                hasHeroImage
+                  ? "text-white"
+                  : "text-black"
+              }`}
+            >
               01
             </p>
           </div>
+
         </section>
 
         {/* ================================================= */}
-        {/* COLLECTION */}
+        {/* SALE COLLECTION */}
         {/* ================================================= */}
 
         <section className="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 lg:px-12">
+
           {/* HEADER */}
+
           <div className="mb-10 flex flex-col gap-6 border-b border-black/10 pb-7 md:flex-row md:items-end md:justify-between">
+
             <div>
               <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-black/40">
                 Special Edit
@@ -479,6 +608,7 @@ export default function SalePage() {
             </div>
 
             {/* SORT */}
+
             <div className="flex items-center gap-3">
               <span className="text-[10px] uppercase tracking-[0.18em] text-black/40">
                 Sort
@@ -508,6 +638,7 @@ export default function SalePage() {
                 </option>
               </select>
             </div>
+
           </div>
 
           {/* ================================================= */}
@@ -515,7 +646,9 @@ export default function SalePage() {
           {/* ================================================= */}
 
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+
             {/* SEARCH */}
+
             <div className="relative w-full md:max-w-[360px]">
               <Icon
                 icon="solar:magnifer-linear"
@@ -536,6 +669,7 @@ export default function SalePage() {
             </div>
 
             {/* CATEGORY */}
+
             <div className="flex items-center gap-3">
               <span className="text-[10px] uppercase tracking-[0.18em] text-black/40">
                 Category
@@ -544,9 +678,7 @@ export default function SalePage() {
               <select
                 value={selectedCategory}
                 onChange={(event) =>
-                  setSelectedCategory(
-                    event.target.value
-                  )
+                  setSelectedCategory(event.target.value)
                 }
                 className="border-0 border-b border-black/20 bg-transparent px-1 pb-2 text-[11px] uppercase tracking-[0.12em] outline-none"
               >
@@ -557,8 +689,7 @@ export default function SalePage() {
                 {categories
                   .filter(
                     (category) =>
-                      category.status !==
-                      "inactive"
+                      category.status !== "inactive"
                   )
                   .map((category) => (
                     <option
@@ -570,6 +701,7 @@ export default function SalePage() {
                   ))}
               </select>
             </div>
+
           </div>
 
           {/* ================================================= */}
@@ -578,6 +710,7 @@ export default function SalePage() {
 
           {saleProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-x-4 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+
               {saleProducts.map((product) => {
                 const image =
                   product.images?.[0] ||
@@ -595,20 +728,27 @@ export default function SalePage() {
                     href={`/products/${product.slug}`}
                     className="group"
                   >
-                    {/* IMAGE */}
-                    <div className="relative aspect-[3/4] overflow-hidden bg-[#f4f4f4]">
-                      <img
-                        src={image}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-                      />
 
-                      {/* SALE */}
+                    {/* IMAGE */}
+
+                    <div className="relative aspect-[3/4] overflow-hidden bg-[#f4f4f4]">
+
+                      {image && (
+                        <img
+                          src={image}
+                          alt={product.name}
+                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                        />
+                      )}
+
+                      {/* SALE BADGE */}
+
                       <span className="absolute left-3 top-3 bg-black px-3 py-1.5 text-[9px] font-medium uppercase tracking-[0.15em] text-white">
                         Sale
                       </span>
 
                       {/* DISCOUNT */}
+
                       {discount && (
                         <span className="absolute right-3 top-3 bg-white px-2.5 py-1.5 text-[9px] font-medium tracking-[0.08em] text-black">
                           {discount}% OFF
@@ -616,6 +756,7 @@ export default function SalePage() {
                       )}
 
                       {/* WISHLIST */}
+
                       <button
                         type="button"
                         onClick={(event) => {
@@ -631,14 +772,14 @@ export default function SalePage() {
                           height={18}
                         />
                       </button>
+
                     </div>
 
-                    {/* INFO */}
+                    {/* PRODUCT INFO */}
+
                     <div className="pt-4">
                       <p className="text-[9px] uppercase tracking-[0.15em] text-black/40">
-                        {getCategoryName(
-                          product.category
-                        )}
+                        {getCategoryName(product.category)}
                       </p>
 
                       <h3 className="mt-1.5 line-clamp-1 text-[13px] font-medium text-black">
@@ -648,32 +789,28 @@ export default function SalePage() {
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-sm font-medium text-black">
                           ₹
-                          {Number(
-                            product.price
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
+                          {Number(product.price).toLocaleString("en-IN")}
                         </span>
 
                         {product.compareAtPrice &&
-                          product.compareAtPrice >
-                            product.price && (
+                          product.compareAtPrice > product.price && (
                             <span className="text-xs text-black/35 line-through">
                               ₹
                               {Number(
                                 product.compareAtPrice
-                              ).toLocaleString(
-                                "en-IN"
-                              )}
+                              ).toLocaleString("en-IN")}
                             </span>
                           )}
                       </div>
                     </div>
+
                   </Link>
                 );
               })}
+
             </div>
           ) : (
+
             /* ================================================= */
             /* NO SALE PRODUCTS */
             /* ================================================= */
@@ -704,7 +841,9 @@ export default function SalePage() {
                 </Link>
               </div>
             </div>
+
           )}
+
         </section>
       </main>
 

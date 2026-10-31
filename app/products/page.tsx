@@ -67,12 +67,13 @@ type Product = {
   updatedAt?: string;
 };
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1000&q=85";
+const FALLBACK_IMAGE = "";
 
 function ProductsPageContent() {
   const hero = usePageHeroSettings("products", {
-    imageUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2200&q=90",
+    desktopImageUrl: "",
+    mobileImageUrl: "",
+    imageUrl: "",
     altText: "House Of Orive collection",
     eyebrow: "",
     heading: "The Edit",
@@ -80,6 +81,15 @@ function ProductsPageContent() {
     buttonText: "",
     buttonLink: "",
   });
+
+  // Desktop image remains the fallback when no mobile image is configured.
+  const desktopHeroImage =
+    hero.desktopImageUrl || hero.imageUrl || "";
+
+  const mobileHeroImage =
+    hero.mobileImageUrl || desktopHeroImage;
+
+  const hasHeroImage = Boolean(desktopHeroImage);
 
   const searchParams = useSearchParams();
 
@@ -129,6 +139,8 @@ function ProductsPageContent() {
 
   const productAreaRef = useRef<HTMLDivElement | null>(null);
 
+  const hasHandledInitialFilterScroll = useRef(false);
+
   /*
    * =====================================================
    * SYNC URL SEARCH
@@ -156,10 +168,24 @@ function ProductsPageContent() {
     );
   }, [filterFromUrl]);
 
-  // After navigating from the navbar, wait until products are loaded,
-  // then bring the product grid into view so the active filter is obvious.
+  // Only scroll on initial load when a filtered collection
+  // was opened directly from the navbar.
+  // Switching tabs in-page will not move the viewport.
   useEffect(() => {
-    if (loading) return;
+    if (
+      loading ||
+      hasHandledInitialFilterScroll.current
+    ) {
+      return;
+    }
+
+    const hasNavbarFilter =
+      filterFromUrl === "new-arrivals" ||
+      filterFromUrl === "best-sellers";
+
+    if (!hasNavbarFilter) return;
+
+    hasHandledInitialFilterScroll.current = true;
 
     const frame = window.requestAnimationFrame(() => {
       productAreaRef.current?.scrollIntoView({
@@ -168,7 +194,9 @@ function ProductsPageContent() {
       });
     });
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [loading, filterFromUrl]);
 
   /*
@@ -382,11 +410,15 @@ function ProductsPageContent() {
 
     // Dedicated navbar filters. These are independent of sorting.
     if (productFilter === "new-arrivals") {
-      result = result.filter((product) => Boolean(product.newArrival));
+      result = result.filter(
+        (product) => Boolean(product.newArrival)
+      );
     } else if (productFilter === "best-sellers") {
-      // The current product model has no bestSeller field, so use
-      // the existing trending flag as the Best Sellers signal.
-      result = result.filter((product) => Boolean(product.trending));
+      // The current product model has no bestSeller field,
+      // so use the existing trending flag as the signal.
+      result = result.filter(
+        (product) => Boolean(product.trending)
+      );
     }
 
     if (selectedCategory) {
@@ -416,8 +448,7 @@ function ProductsPageContent() {
       (product) =>
         !product.status ||
         product.status === "active" ||
-        product.status ===
-          "out_of_stock"
+        product.status === "out_of_stock"
     );
 
     /*
@@ -569,7 +600,10 @@ function ProductsPageContent() {
   ) => {
     setProductFilter(value);
 
-    const params = new URLSearchParams(window.location.search);
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
 
     if (value === "all") {
       params.delete("filter");
@@ -577,21 +611,17 @@ function ProductsPageContent() {
       params.set("filter", value);
     }
 
-    const query = params.toString();
+    const query =
+      params.toString();
 
-    // replaceState updates the URL without a navigation or scroll-to-top.
+    // Update the URL without navigating or scrolling.
     window.history.replaceState(
       null,
       "",
-      query ? `/products?${query}` : "/products"
+      query
+        ? `/products?${query}`
+        : "/products"
     );
-
-    window.requestAnimationFrame(() => {
-      productAreaRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
   };
 
   /*
@@ -607,28 +637,54 @@ function ProductsPageContent() {
 
         <main className="products-page">
           <section className="products-hero">
-            <div className="hero-image">
-              <img
-                src={hero.imageUrl}
-                alt={hero.altText || "House Of Orive collection"}
-              />
-            </div>
 
-            <div className="hero-overlay" />
+            {hasHeroImage && (
+              <>
+                {/* MOBILE HERO IMAGE */}
+
+                <div className="hero-image block md:hidden">
+                  <img
+                    src={mobileHeroImage}
+                    alt={hero.altText || "House Of Orive collection"}
+                    fetchPriority="high"
+                    loading="eager"
+                  />
+                </div>
+
+                {/* DESKTOP HERO IMAGE */}
+
+                <div className="hero-image hidden md:block">
+                  <img
+                    src={desktopHeroImage}
+                    alt={hero.altText || "House Of Orive collection"}
+                    fetchPriority="high"
+                    loading="eager"
+                  />
+                </div>
+              </>
+            )}
+
+            {hasHeroImage && (
+              <div className="hero-overlay" />
+            )}
 
             <div className="hero-content">
               <span>
                 {hero.eyebrow || ""}
               </span>
 
-             
-
-              
-
               {hero.buttonText && hero.buttonLink && (
-                <Link href={hero.buttonLink} className="products-hero-button">
+                <Link
+                  href={hero.buttonLink}
+                  className="products-hero-button"
+                >
                   {hero.buttonText}
-                  <Icon icon="solar:arrow-right-up-linear" width={17} height={17} />
+
+                  <Icon
+                    icon="solar:arrow-right-up-linear"
+                    width={17}
+                    height={17}
+                  />
                 </Link>
               )}
             </div>
@@ -689,8 +745,6 @@ function ProductsPageContent() {
         <main className="products-state">
           <span>!</span>
 
-          
-
           <h1>
             Something went wrong.
           </h1>
@@ -724,8 +778,7 @@ function ProductsPageContent() {
       </>
     );
   }
-
-  return (
+    return (
     <>
       <Navbar />
 
@@ -737,14 +790,37 @@ function ProductsPageContent() {
 
         <section className="products-hero">
 
-          <div className="hero-image">
-            <img
-              src={hero.imageUrl}
-              alt={hero.altText || "House Of Orive collection"}
-            />
-          </div>
+          {hasHeroImage && (
+            <>
+              {/* MOBILE HERO IMAGE */}
 
-          <div className="hero-overlay" />
+              <div className="hero-image block md:hidden">
+                <img
+                  src={mobileHeroImage}
+                  alt={hero.altText || "House Of Orive collection"}
+                  fetchPriority="high"
+                  loading="eager"
+                  draggable={false}
+                />
+              </div>
+
+              {/* DESKTOP HERO IMAGE */}
+
+              <div className="hero-image hidden md:block">
+                <img
+                  src={desktopHeroImage}
+                  alt={hero.altText || "House Of Orive collection"}
+                  fetchPriority="high"
+                  loading="eager"
+                  draggable={false}
+                />
+              </div>
+            </>
+          )}
+
+          {hasHeroImage && (
+            <div className="hero-overlay" />
+          )}
 
           <div className="hero-content">
 
@@ -752,21 +828,24 @@ function ProductsPageContent() {
               {hero.eyebrow || ""}
             </span>
 
-          
-
-            
-
             {hero.buttonText && hero.buttonLink && (
-              <Link href={hero.buttonLink} className="products-hero-button">
+              <Link
+                href={hero.buttonLink}
+                className="products-hero-button"
+              >
                 {hero.buttonText}
-                <Icon icon="solar:arrow-right-up-linear" width={17} height={17} />
+
+                <Icon
+                  icon="solar:arrow-right-up-linear"
+                  width={17}
+                  height={17}
+                />
               </Link>
             )}
 
           </div>
 
           <div className="hero-number">
-           
           </div>
 
         </section>
@@ -803,28 +882,59 @@ function ProductsPageContent() {
 
           </div>
 
-          <div className="product-filter-tabs" aria-label="Product collection">
+          {/* PRODUCT COLLECTION TABS */}
+
+          <div
+            className="product-filter-tabs"
+            aria-label="Product collection"
+          >
             <button
               type="button"
-              className={productFilter === "all" ? "active" : ""}
-              aria-pressed={productFilter === "all"}
-              onClick={() => handleProductFilterChange("all")}
+              className={
+                productFilter === "all"
+                  ? "active"
+                  : ""
+              }
+              aria-pressed={
+                productFilter === "all"
+              }
+              onClick={() =>
+                handleProductFilterChange("all")
+              }
             >
               All Products
             </button>
+
             <button
               type="button"
-              className={productFilter === "new-arrivals" ? "active" : ""}
-              aria-pressed={productFilter === "new-arrivals"}
-              onClick={() => handleProductFilterChange("new-arrivals")}
+              className={
+                productFilter === "new-arrivals"
+                  ? "active"
+                  : ""
+              }
+              aria-pressed={
+                productFilter === "new-arrivals"
+              }
+              onClick={() =>
+                handleProductFilterChange("new-arrivals")
+              }
             >
               New Arrivals
             </button>
+
             <button
               type="button"
-              className={productFilter === "best-sellers" ? "active" : ""}
-              aria-pressed={productFilter === "best-sellers"}
-              onClick={() => handleProductFilterChange("best-sellers")}
+              className={
+                productFilter === "best-sellers"
+                  ? "active"
+                  : ""
+              }
+              aria-pressed={
+                productFilter === "best-sellers"
+              }
+              onClick={() =>
+                handleProductFilterChange("best-sellers")
+              }
             >
               Best Sellers
             </button>
@@ -852,8 +962,7 @@ function ProductsPageContent() {
             Filters
 
             <span>
-              {selectedCategory ||
-              search
+              {selectedCategory || search
                 ? "Active"
                 : ""}
             </span>
@@ -881,9 +990,7 @@ function ProductsPageContent() {
 
                 <button
                   type="button"
-                  onClick={
-                    clearFilters
-                  }
+                  onClick={clearFilters}
                 >
                   Clear
                 </button>
@@ -922,9 +1029,7 @@ function ProductsPageContent() {
                       type="button"
                       aria-label="Clear search"
                       onClick={() =>
-                        handleSearchChange(
-                          ""
-                        )
+                        handleSearchChange("")
                       }
                     >
                       <Icon
@@ -957,9 +1062,7 @@ function ProductsPageContent() {
                         : ""
                     }
                     onClick={() =>
-                      handleCategoryChange(
-                        ""
-                      )
+                      handleCategoryChange("")
                     }
                   >
                     <span>
@@ -971,39 +1074,32 @@ function ProductsPageContent() {
                     </small>
                   </button>
 
-                  {categories.map(
-                    (category) => (
-                      <button
-                        key={
-                          category._id
-                        }
-                        type="button"
-                        className={
-                          selectedCategory ===
+                  {categories.map((category) => (
+                    <button
+                      key={category._id}
+                      type="button"
+                      className={
+                        selectedCategory === category.slug
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        handleCategoryChange(
                           category.slug
-                            ? "active"
-                            : ""
-                        }
-                        onClick={() =>
-                          handleCategoryChange(
-                            category.slug
-                          )
-                        }
-                      >
-                        <span>
-                          {
-                            category.name
-                          }
-                        </span>
+                        )
+                      }
+                    >
+                      <span>
+                        {category.name}
+                      </span>
 
-                        <Icon
-                          icon="solar:arrow-right-linear"
-                          width={14}
-                          height={14}
-                        />
-                      </button>
-                    )
-                  )}
+                      <Icon
+                        icon="solar:arrow-right-linear"
+                        width={14}
+                        height={14}
+                      />
+                    </button>
+                  ))}
 
                 </div>
 
@@ -1020,9 +1116,7 @@ function ProductsPageContent() {
                 <select
                   value={sort}
                   onChange={(event) =>
-                    setSort(
-                      event.target.value
-                    )
+                    setSort(event.target.value)
                   }
                 >
                   <option value="featured">
@@ -1050,20 +1144,33 @@ function ProductsPageContent() {
                 PRODUCT AREA
             ================================================= */}
 
-            <div className="product-area" ref={productAreaRef}>
-              <div className="active-filter-heading" aria-live="polite">
+            <div
+              className="product-area"
+              ref={productAreaRef}
+            >
+              <div
+                className="active-filter-heading"
+                aria-live="polite"
+              >
                 <div>
-                  <span>NOW VIEWING</span>
+                  <span>
+                    NOW VIEWING
+                  </span>
+
                   <h3>
                     {productFilter === "new-arrivals"
                       ? "New Arrivals"
                       : productFilter === "best-sellers"
-                      ? "Best Sellers"
-                      : "All Products"}
+                        ? "Best Sellers"
+                        : "All Products"}
                   </h3>
                 </div>
+
                 <span className="active-filter-count">
-                  {filteredProducts.length} {filteredProducts.length === 1 ? "PIECE" : "PIECES"}
+                  {filteredProducts.length}{" "}
+                  {filteredProducts.length === 1
+                    ? "PIECE"
+                    : "PIECES"}
                 </span>
               </div>
 
@@ -1071,19 +1178,15 @@ function ProductsPageContent() {
 
                 <span>
                   {filteredProducts.length}{" "}
-                  {filteredProducts.length ===
-                  1
+                  {filteredProducts.length === 1
                     ? "piece"
                     : "pieces"}
                 </span>
 
-                {(search ||
-                  selectedCategory) && (
+                {(search || selectedCategory) && (
                   <button
                     type="button"
-                    onClick={
-                      clearFilters
-                    }
+                    onClick={clearFilters}
                   >
                     Clear filters
                   </button>
@@ -1095,151 +1198,136 @@ function ProductsPageContent() {
 
                 <div className="products-grid">
 
-                  {filteredProducts.map(
-                    (product) => {
+                  {filteredProducts.map((product) => {
+                    const image =
+                      product.images?.[0] ||
+                      FALLBACK_IMAGE;
 
-                      const image =
-                        product.images?.[0] ||
-                        FALLBACK_IMAGE;
+                    const discount =
+                      getDiscount(
+                        product.price,
+                        product.compareAtPrice
+                      );
 
-                      const discount =
-                        getDiscount(
-                          product.price,
-                          product.compareAtPrice
-                        );
+                    const outOfStock =
+                      product.stock === 0 ||
+                      product.status === "out_of_stock";
 
-                      const outOfStock =
-                        product.stock === 0 ||
-                        product.status ===
-                          "out_of_stock";
+                    return (
+                      <article
+                        className="product-card"
+                        key={product._id}
+                      >
 
-                      return (
-                        <article
-                          className="product-card"
-                          key={
-                            product._id
-                          }
+                        <Link
+                          href={`/products/${product.slug}`}
+                          className="product-image-wrap"
                         >
 
-                          <Link
-                            href={`/products/${product.slug}`}
-                            className="product-image-wrap"
-                          >
-
+                          {image && (
                             <img
                               src={image}
-                              alt={
-                                product.name
-                              }
+                              alt={product.name}
                               className="product-image"
                               loading="lazy"
-                              onError={(
-                                event
-                              ) => {
-                                event.currentTarget.src =
-                                  FALLBACK_IMAGE;
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
                               }}
                             />
+                          )}
 
-                            {/* WISHLIST */}
+                          {/* WISHLIST */}
 
-                            <WishlistButton
-                              productId={
-                                product._id
-                              }
-                            />
+                          <WishlistButton
+                            productId={product._id}
+                          />
 
-                            {/* BADGES */}
+                          {/* BADGES */}
 
-                            <div className="product-badges">
+                          <div className="product-badges">
 
-                              {product.newArrival && (
-                                <span>
-                                  New
-                                </span>
-                              )}
-
-                              {discount > 0 && (
-                                <span className="sale">
-                                  -{discount}%
-                                </span>
-                              )}
-
-                            </div>
-
-                            {/* STOCK */}
-
-                            {outOfStock && (
-                              <div className="stock-overlay">
-                                <span>
-                                  Out of Stock
-                                </span>
-                              </div>
+                            {product.newArrival && (
+                              <span>
+                                New
+                              </span>
                             )}
 
-                            {/* VIEW */}
-
-                            <div className="view-product">
-
-                              <span>
-                                View Piece
+                            {discount > 0 && (
+                              <span className="sale">
+                                -{discount}%
                               </span>
-
-                              <Icon
-                                icon="solar:arrow-up-right-linear"
-                                width={17}
-                                height={17}
-                              />
-
-                            </div>
-
-                          </Link>
-
-                          {/* PRODUCT INFO */}
-
-                          <div className="product-info">
-
-                            <span className="product-category">
-                              {getCategoryName(
-                                product.category
-                              )}
-                            </span>
-
-                            <Link
-                              href={`/products/${product.slug}`}
-                              className="product-name"
-                            >
-                              {
-                                product.name
-                              }
-                            </Link>
-
-                            <div className="price-row">
-
-                              <strong>
-                                {formatPrice(
-                                  product.price
-                                )}
-                              </strong>
-
-                              {product.compareAtPrice &&
-                                product.compareAtPrice >
-                                  product.price && (
-                                  <span>
-                                    {formatPrice(
-                                      product.compareAtPrice
-                                    )}
-                                  </span>
-                                )}
-
-                            </div>
+                            )}
 
                           </div>
 
-                        </article>
-                      );
-                    }
-                  )}
+                          {/* STOCK */}
+
+                          {outOfStock && (
+                            <div className="stock-overlay">
+                              <span>
+                                Out of Stock
+                              </span>
+                            </div>
+                          )}
+
+                          {/* VIEW */}
+
+                          <div className="view-product">
+
+                            <span>
+                              View Piece
+                            </span>
+
+                            <Icon
+                              icon="solar:arrow-up-right-linear"
+                              width={17}
+                              height={17}
+                            />
+
+                          </div>
+
+                        </Link>
+
+                        {/* PRODUCT INFO */}
+
+                        <div className="product-info">
+
+                          <span className="product-category">
+                            {getCategoryName(
+                              product.category
+                            )}
+                          </span>
+
+                          <Link
+                            href={`/products/${product.slug}`}
+                            className="product-name"
+                          >
+                            {product.name}
+                          </Link>
+
+                          <div className="price-row">
+
+                            <strong>
+                              {formatPrice(product.price)}
+                            </strong>
+
+                            {product.compareAtPrice &&
+                              product.compareAtPrice >
+                                product.price && (
+                                <span>
+                                  {formatPrice(
+                                    product.compareAtPrice
+                                  )}
+                                </span>
+                              )}
+
+                          </div>
+
+                        </div>
+
+                      </article>
+                    );
+                  })}
 
                 </div>
 
@@ -1267,9 +1355,7 @@ function ProductsPageContent() {
 
                   <button
                     type="button"
-                    onClick={
-                      clearFilters
-                    }
+                    onClick={clearFilters}
                   >
                     View All Pieces
                   </button>
@@ -1284,7 +1370,6 @@ function ProductsPageContent() {
 
         </section>
 
-       
       </main>
 
       <Footer />
@@ -1296,13 +1381,6 @@ function ProductsPageContent() {
     </>
   );
 }
-
-/*
-=========================================================
-STYLES
-=========================================================
-*/
-
 const productsStyles = `
   .products-page {
     width: 100%;
@@ -1316,11 +1394,21 @@ const productsStyles = `
 
   .products-hero {
     position: relative;
-    min-height: 80vh;
+    height: 60svh;
+    min-height: 300px;
+    max-height: 480px;
     overflow: hidden;
     display: flex;
     align-items: center;
     background: #111111;
+  }
+
+  @media (min-width: 768px) {
+    .products-hero {
+      height: calc(100svh - 76px);
+      min-height: 320px;
+      max-height: none;
+    }
   }
 
   .hero-image {
@@ -1494,158 +1582,163 @@ const productsStyles = `
   }
 
   /* =====================================================
-   FILTER SIDEBAR — UPDATED FONT SIZES
-===================================================== */
+     FILTER SIDEBAR
+  ===================================================== */
 
-.filter-header {
-  padding-bottom: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #dededb;
-}
+  .filter-header {
+    padding-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #dededb;
+  }
 
-.filter-header > span {
-  font-family: var(--font-dm-sans);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .14em;
-}
+  .filter-header > span {
+    font-family: var(--font-dm-sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+  }
 
-.filter-header button {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #777777;
-  font-family: var(--font-dm-sans);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .06em;
-  cursor: pointer;
-  text-transform: uppercase;
-}
+  .filter-header button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #777777;
+    font-family: var(--font-dm-sans);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
 
-.filter-block {
-  padding: 27px 0;
-  border-bottom: 1px solid #e8e8e5;
-}
+  .filter-block {
+    padding: 27px 0;
+    border-bottom: 1px solid #e8e8e5;
+  }
 
-.filter-block > label {
-  display: block;
-  margin-bottom: 15px;
-  color: #999999;
-  font-family: var(--font-dm-sans);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .15em;
-}
+  .filter-block > label {
+    display: block;
+    margin-bottom: 15px;
+    color: #999999;
+    font-family: var(--font-dm-sans);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .15em;
+  }
 
-/* SEARCH */
+  /* SEARCH */
 
-.filter-search {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 13px;
-  border: 1px solid #dededb;
-}
+  .filter-search {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 13px;
+    border: 1px solid #dededb;
+  }
 
-.filter-search svg {
-  flex-shrink: 0;
-  color: #777777;
-}
+  .filter-search svg {
+    flex-shrink: 0;
+    color: #777777;
+  }
 
-.filter-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #111111;
-  font-family: var(--font-dm-sans);
-  font-size: 12px;
-}
+  .filter-search input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #111111;
+    font-family: var(--font-dm-sans);
+    font-size: 12px;
+  }
 
-.filter-search input::placeholder {
-  color: #999999;
-  opacity: 1;
-}
+  .filter-search input::placeholder {
+    color: #999999;
+    opacity: 1;
+  }
 
-.filter-search button {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #777777;
-  cursor: pointer;
-}
+  .filter-search button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #777777;
+    cursor: pointer;
+  }
 
-/* CATEGORY */
+  /* CATEGORY */
 
-.category-filter {
-  display: flex;
-  flex-direction: column;
-}
+  .category-filter {
+    display: flex;
+    flex-direction: column;
+  }
 
-.category-filter button {
-  min-height: 52px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border: 0;
-  border-bottom: 1px solid #eeeeec;
-  background: transparent;
-  color: #666666;
-  font-family: var(--font-dm-sans);
-  font-size: 11px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    color .2s ease,
-    padding .2s ease;
-}
+  .category-filter button {
+    min-height: 52px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    border-bottom: 1px solid #eeeeec;
+    background: transparent;
+    color: #666666;
+    font-family: var(--font-dm-sans);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      color .2s ease,
+      padding .2s ease;
+  }
 
-.category-filter button:hover,
-.category-filter button.active {
-  color: #111111;
-}
+  .category-filter button:hover,
+  .category-filter button.active {
+    color: #111111;
+  }
 
-.category-filter button.active span {
-  font-weight: 700;
-}
+  .category-filter button.active span {
+    font-weight: 700;
+  }
 
-.category-filter button small {
-  color: #999999;
-  font-family: var(--font-dm-sans);
-  font-size: 10px;
-}
+  .category-filter button small {
+    color: #999999;
+    font-family: var(--font-dm-sans);
+    font-size: 10px;
+  }
 
-.category-filter button svg {
-  opacity: 0;
-  transition: opacity .2s ease;
-}
+  .category-filter button svg {
+    opacity: 0;
+    transition: opacity .2s ease;
+  }
 
-.category-filter button:hover svg,
-.category-filter button.active svg {
-  opacity: 1;
-}
+  .category-filter button:hover svg,
+  .category-filter button.active svg {
+    opacity: 1;
+  }
 
-/* SORT */
+  /* SORT */
 
-.filter-block select {
-  width: 100%;
-  height: 46px;
-  padding: 0 12px;
-  border: 1px solid #dededb;
-  outline: 0;
-  background: #FAF8F5;
-  color: #333333;
-  font-family: var(--font-dm-sans);
-  font-size: 11px;
-  cursor: pointer;
-}
+  .filter-block select {
+    width: 100%;
+    height: 46px;
+    padding: 0 12px;
+    border: 1px solid #dededb;
+    outline: 0;
+    background: #FAF8F5;
+    color: #333333;
+    font-family: var(--font-dm-sans);
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  /* =====================================================
+     COLLECTION FILTER TABS
+  ===================================================== */
+
   .product-filter-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -1916,7 +2009,8 @@ const productsStyles = `
     font-size: 8px;
     text-decoration: line-through;
   }
-
+`;
+const productsResponsiveStyles = `
   /* =====================================================
      EMPTY
   ===================================================== */
@@ -2193,13 +2287,8 @@ const productsStyles = `
 
   @media (max-width: 700px) {
 
-    .products-hero {
-      min-height: 480px;
-    }
-
     .hero-content {
-      padding:
-        55px 20px 40px;
+      padding: 55px 20px 40px;
     }
 
     .hero-content h1 {
@@ -2211,33 +2300,12 @@ const productsStyles = `
       font-size: 10px;
     }
 
-    .products-hero-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 32px;
-    border: 1px solid rgba(255,255,255,.6);
-    padding: 13px 24px;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    transition: background .25s ease, color .25s ease;
-  }
-
-  .products-hero-button:hover {
-    background: #fff;
-    color: #111;
-  }
-
-  .hero-number {
+    .hero-number {
       display: none;
     }
 
     .products-content {
-      padding:
-        65px 16px 80px;
+      padding: 65px 16px 80px;
     }
 
     .products-heading {
@@ -2355,8 +2423,7 @@ const productsStyles = `
     }
 
     .products-closing {
-      padding:
-        0 16px 80px;
+      padding: 0 16px 80px;
       display: flex;
       flex-direction: column-reverse;
     }
@@ -2401,12 +2468,9 @@ const productsStyles = `
   }
 
   @media (max-width: 640px) {
-    .products-hero {
-      min-height: 80vh;
-    }
 
     .hero-content {
-      padding: 100px 24px;
+      padding: 40px 24px;
     }
 
     .hero-number {
@@ -2414,7 +2478,6 @@ const productsStyles = `
       bottom: 28px;
     }
   }
-
 `;
 
 export default function ProductsPage() {

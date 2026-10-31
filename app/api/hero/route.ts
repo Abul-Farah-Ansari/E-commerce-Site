@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import HeroSettings from "@/models/HeroSettings";
@@ -7,11 +6,21 @@ export const runtime = "nodejs";
 
 const DEFAULT_ALT = "House of Orive fashion collection";
 
-type HeroImage = {
-  imageUrl: string;
-  publicId?: string;
+type HeroImageRecord = {
+  desktopImageUrl?: string;
+  mobileImageUrl?: string;
+
+  // Legacy fields
+  imageUrl?: string;
+
   altText?: string;
   sortOrder?: number;
+};
+
+type HeroSettingsRecord = {
+  images?: HeroImageRecord[];
+  imageUrl?: string;
+  altText?: string;
 };
 
 export async function GET() {
@@ -19,26 +28,56 @@ export async function GET() {
     await connectDB();
 
     const settings = await HeroSettings.findOne()
-      .select("images imageUrl publicId altText")
+      .select("images imageUrl altText")
       .lean();
 
-    let images: HeroImage[] = [];
+    const savedSettings =
+      settings as HeroSettingsRecord | null;
 
-    if (settings && Array.isArray(settings.images) && settings.images.length > 0) {
-      images = settings.images
-        .map((image: HeroImage, index: number) => ({
-          imageUrl: image.imageUrl,
-          altText: image.altText || DEFAULT_ALT,
-          sortOrder: image.sortOrder ?? index,
-        }))
-        .filter((image) => Boolean(image.imageUrl))
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    } else if (settings?.imageUrl) {
-      // Backward compatibility with the previous single-image format.
+    let images = [];
+
+    if (
+      savedSettings &&
+      Array.isArray(savedSettings.images) &&
+      savedSettings.images.length > 0
+    ) {
+      images = savedSettings.images
+        .map((image, index) => {
+          const desktopImageUrl =
+            image.desktopImageUrl ||
+            image.imageUrl ||
+            "";
+
+          return {
+            desktopImageUrl,
+            mobileImageUrl:
+              image.mobileImageUrl || undefined,
+
+            // Legacy alias for any older frontend code.
+            imageUrl: desktopImageUrl,
+
+            altText:
+              image.altText || DEFAULT_ALT,
+
+            sortOrder:
+              image.sortOrder ?? index,
+          };
+        })
+        .filter((image) => Boolean(image.desktopImageUrl))
+        .sort(
+          (a, b) =>
+            (a.sortOrder ?? 0) -
+            (b.sortOrder ?? 0)
+        );
+    } else if (savedSettings?.imageUrl) {
+      // Compatibility with the original single-image format.
       images = [
         {
-          imageUrl: settings.imageUrl,
-          altText: settings.altText || DEFAULT_ALT,
+          desktopImageUrl: savedSettings.imageUrl,
+          mobileImageUrl: undefined,
+          imageUrl: savedSettings.imageUrl,
+          altText:
+            savedSettings.altText || DEFAULT_ALT,
           sortOrder: 0,
         },
       ];
@@ -51,7 +90,8 @@ export async function GET() {
       },
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate",
         },
       }
     );
@@ -59,8 +99,16 @@ export async function GET() {
     console.error("Public hero API error:", error);
 
     return NextResponse.json(
-      { success: false, hero: null },
-      { status: 500 }
+      {
+        success: false,
+        hero: null,
+      },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 }

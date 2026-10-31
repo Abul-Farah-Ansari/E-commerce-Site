@@ -1,6 +1,6 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
+
 import { connectDB } from "@/lib/mongodb";
 import { requireAdmin } from "@/lib/adminAuth";
 import HeroSettings from "@/models/HeroSettings";
@@ -16,25 +16,72 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+/*
+=========================================================
+TYPES
+=========================================================
+*/
+
+// Supports both new desktop/mobile images and older records.
 type HeroImageInput = {
-  imageUrl: string;
-  publicId: string;
+  desktopImageUrl?: string;
+  desktopPublicId?: string;
+
+  mobileImageUrl?: string;
+  mobilePublicId?: string;
+
+  // Legacy fields for backward compatibility.
+  imageUrl?: string;
+  publicId?: string;
+
   altText?: string;
   sortOrder?: number;
 };
+
+type HeroImage = {
+  desktopImageUrl: string;
+  desktopPublicId: string;
+
+  mobileImageUrl?: string;
+  mobilePublicId?: string;
+
+  // Legacy aliases: desktop image.
+  imageUrl: string;
+  publicId: string;
+
+  altText: string;
+  sortOrder: number;
+};
+
+/*
+=========================================================
+ADMIN AUTHORIZATION
+=========================================================
+*/
 
 async function authorize() {
   const admin = await requireAdmin();
 
   if (!admin.success) {
     return NextResponse.json(
-      { success: false, message: admin.message || "Unauthorized" },
-      { status: admin.status || 401 }
+      {
+        success: false,
+        message: admin.message || "Unauthorized",
+      },
+      {
+        status: admin.status || 401,
+      }
     );
   }
 
   return null;
 }
+
+/*
+=========================================================
+VALIDATION
+=========================================================
+*/
 
 function validImageUrl(url: unknown): url is string {
   return (
@@ -52,30 +99,81 @@ function validPublicId(publicId: unknown): publicId is string {
   );
 }
 
+/*
+=========================================================
+NORMALIZE SAVED IMAGES
+=========================================================
+*/
+
 function getImageList(settings: {
   images?: HeroImageInput[];
   imageUrl?: string;
   publicId?: string;
   altText?: string;
-}): HeroImageInput[] {
-  if (Array.isArray(settings.images) && settings.images.length > 0) {
+}): HeroImage[] {
+  if (
+    Array.isArray(settings.images) &&
+    settings.images.length > 0
+  ) {
     return settings.images
-      .map((image, index) => ({
-        imageUrl: image.imageUrl,
-        publicId: image.publicId,
-        altText: image.altText || DEFAULT_ALT,
-        sortOrder: image.sortOrder ?? index,
-      }))
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      .map((image, index) => {
+        // Prefer the new desktop fields.
+        // Fall back to the old imageUrl/publicId fields.
+        const desktopImageUrl =
+          image.desktopImageUrl || image.imageUrl || "";
+
+        const desktopPublicId =
+          image.desktopPublicId || image.publicId || "";
+
+        return {
+          desktopImageUrl,
+          desktopPublicId,
+
+          mobileImageUrl:
+            image.mobileImageUrl || undefined,
+
+          mobilePublicId:
+            image.mobilePublicId || undefined,
+
+          // Legacy aliases point to the desktop image.
+          imageUrl: desktopImageUrl,
+          publicId: desktopPublicId,
+
+          altText:
+            image.altText || DEFAULT_ALT,
+
+          sortOrder:
+            image.sortOrder ?? index,
+        };
+      })
+      .filter(
+        (image) =>
+          Boolean(image.desktopImageUrl) &&
+          Boolean(image.desktopPublicId)
+      )
+      .sort(
+        (a, b) =>
+          a.sortOrder - b.sortOrder
+      );
   }
 
-  // Backward compatibility for the previous single-image schema.
+  // Backward compatibility for the original
+  // single-image database structure.
   if (settings.imageUrl && settings.publicId) {
     return [
       {
+        desktopImageUrl: settings.imageUrl,
+        desktopPublicId: settings.publicId,
+
+        mobileImageUrl: undefined,
+        mobilePublicId: undefined,
+
         imageUrl: settings.imageUrl,
         publicId: settings.publicId,
-        altText: settings.altText || DEFAULT_ALT,
+
+        altText:
+          settings.altText || DEFAULT_ALT,
+
         sortOrder: 0,
       },
     ];
@@ -84,34 +182,94 @@ function getImageList(settings: {
   return [];
 }
 
-async function destroyCloudinaryImages(publicIds: string[]) {
+/*
+=========================================================
+GET ALL CLOUDINARY PUBLIC IDS
+=========================================================
+*/
+
+function getAllPublicIds(images: HeroImageInput[]) {
+  const ids: string[] = [];
+
+  for (const image of images) {
+    const desktopId =
+      image.desktopPublicId || image.publicId;
+
+    const mobileId =
+      image.mobilePublicId;
+
+    if (desktopId) {
+      ids.push(desktopId);
+    }
+
+    if (mobileId) {
+      ids.push(mobileId);
+    }
+  }
+
+  return [...new Set(ids)];
+}
+
+/*
+=========================================================
+DELETE CLOUDINARY IMAGES
+=========================================================
+*/
+
+async function destroyCloudinaryImages(
+  publicIds: string[]
+) {
   for (const publicId of [...new Set(publicIds)]) {
     try {
-      const result = await cloudinary.uploader.destroy(publicId, {
-        resource_type: "image",
-        invalidate: true,
-      });
+      const result =
+        await cloudinary.uploader.destroy(
+          publicId,
+          {
+            resource_type: "image",
+            invalidate: true,
+          }
+        );
 
-      if (result.result !== "ok" && result.result !== "not found") {
-        console.error("Hero image cleanup failed:", publicId, result);
+      if (
+        result.result !== "ok" &&
+        result.result !== "not found"
+      ) {
+        console.error(
+          "Hero image cleanup failed:",
+          publicId,
+          result
+        );
       }
     } catch (error) {
-      console.error("Hero image cleanup failed:", publicId, error);
+      console.error(
+        "Hero image cleanup failed:",
+        publicId,
+        error
+      );
     }
   }
 }
 
+/*
+=========================================================
+GET
+=========================================================
+*/
+
 export async function GET() {
   try {
     const denied = await authorize();
+
     if (denied) return denied;
 
     await connectDB();
 
-    const settings = await HeroSettings.findOne().lean();
+    const settings =
+      await HeroSettings.findOne().lean();
 
     return NextResponse.json({
       success: true,
+
       hero: settings
         ? {
             images: getImageList(
@@ -125,99 +283,244 @@ export async function GET() {
           }
         : null,
     });
+
   } catch (error) {
-    console.error("Hero settings GET error:", error);
+    console.error(
+      "Hero settings GET error:",
+      error
+    );
 
     return NextResponse.json(
-      { success: false, message: "Unable to load hero settings." },
-      { status: 500 }
+      {
+        success: false,
+        message: "Unable to load hero settings.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
 
-export async function PUT(request: NextRequest) {
+/*
+=========================================================
+PUT
+=========================================================
+*/
+
+export async function PUT(
+  request: NextRequest
+) {
   try {
     const denied = await authorize();
+
     if (denied) return denied;
 
     const body = await request.json();
 
     if (!Array.isArray(body.images)) {
       return NextResponse.json(
-        { success: false, message: "Please provide an images array." },
-        { status: 400 }
+        {
+          success: false,
+          message: "Please provide an images array.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const inputImages = body.images as HeroImageInput[];
+    const inputImages =
+      body.images as HeroImageInput[];
 
-    if (inputImages.length < 1 || inputImages.length > MAX_IMAGES) {
+    if (
+      inputImages.length < 1 ||
+      inputImages.length > MAX_IMAGES
+    ) {
       return NextResponse.json(
         {
           success: false,
           message: `Select between 1 and ${MAX_IMAGES} hero images.`,
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const images: HeroImageInput[] = [];
+    const images: HeroImage[] = [];
 
-    for (let index = 0; index < inputImages.length; index++) {
+    /*
+     * Validate every desktop and mobile image.
+     */
+
+    for (
+      let index = 0;
+      index < inputImages.length;
+      index++
+    ) {
       const image = inputImages[index];
 
+      if (!image || typeof image !== "object") {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Invalid image details for slide ${index + 1}.`,
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      // New fields first, old fields as fallback.
+      const desktopImageUrl =
+        image.desktopImageUrl || image.imageUrl;
+
+      const desktopPublicId =
+        image.desktopPublicId || image.publicId;
+
       if (
-        !image ||
-        !validImageUrl(image.imageUrl) ||
-        !validPublicId(image.publicId)
+        !validImageUrl(desktopImageUrl) ||
+        !validPublicId(desktopPublicId)
       ) {
         return NextResponse.json(
           {
             success: false,
-            message: `Invalid Cloudinary details for image ${index + 1}.`,
+            message: `Invalid desktop image details for slide ${index + 1}.`,
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
+        );
+      }
+
+      // Mobile image is optional.
+      const mobileImageUrl =
+        image.mobileImageUrl || undefined;
+
+      const mobilePublicId =
+        image.mobilePublicId || undefined;
+
+      // Both mobile fields must be provided together.
+      if (
+        Boolean(mobileImageUrl) !==
+        Boolean(mobilePublicId)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Both mobile image URL and public ID are required for slide ${index + 1}.`,
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      if (
+        mobileImageUrl &&
+        !validImageUrl(mobileImageUrl)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Invalid mobile image URL for slide ${index + 1}.`,
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      if (
+        mobilePublicId &&
+        !validPublicId(mobilePublicId)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Invalid mobile image public ID for slide ${index + 1}.`,
+          },
+          {
+            status: 400,
+          }
         );
       }
 
       if (
         image.altText !== undefined &&
-        (typeof image.altText !== "string" ||
-          image.altText.trim().length > 200)
+        (
+          typeof image.altText !== "string" ||
+          image.altText.trim().length > 200
+        )
       ) {
         return NextResponse.json(
           {
             success: false,
-            message: `Invalid alternative text for image ${index + 1}.`,
+            message: `Invalid alternative text for slide ${index + 1}.`,
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
       images.push({
-        imageUrl: image.imageUrl,
-        publicId: image.publicId,
-        altText: image.altText?.trim() || DEFAULT_ALT,
+        desktopImageUrl,
+        desktopPublicId,
+
+        mobileImageUrl,
+        mobilePublicId,
+
+        // Keep old frontend/API code working.
+        imageUrl: desktopImageUrl,
+        publicId: desktopPublicId,
+
+        altText:
+          image.altText?.trim() || DEFAULT_ALT,
+
         sortOrder: index,
       });
     }
 
-    // Prevent accidental duplicates in the carousel.
-    const publicIds = images.map((image) => image.publicId);
+    /*
+     * Prevent duplicate Cloudinary images.
+     */
 
-    if (new Set(publicIds).size !== publicIds.length) {
+    const allNewPublicIds = images.flatMap(
+      (image) => [
+        image.desktopPublicId,
+        ...(image.mobilePublicId
+          ? [image.mobilePublicId]
+          : []),
+      ]
+    );
+
+    if (
+      new Set(allNewPublicIds).size !==
+      allNewPublicIds.length
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "The same image cannot be added more than once.",
+          message: "The same Cloudinary image cannot be added more than once.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    /*
+     * Save database settings.
+     */
+
     await connectDB();
 
-    const previous = await HeroSettings.findOne();
+    const previous =
+      await HeroSettings.findOne();
+
     const previousImages = previous
       ? getImageList(
           previous.toObject() as {
@@ -229,64 +532,96 @@ export async function PUT(request: NextRequest) {
         )
       : [];
 
-    const newPublicIds = new Set(images.map((image) => image.publicId));
+    const oldPublicIds = getAllPublicIds(
+      previousImages
+    );
 
-    // Save the array and the legacy fields together. The legacy fields
-    // allow older application code to continue reading the first image.
+    const newPublicIds = new Set(
+      allNewPublicIds
+    );
+
     const firstImage = images[0];
 
     if (previous) {
       previous.set({
         images,
-        imageUrl: firstImage.imageUrl,
-        publicId: firstImage.publicId,
-        altText: firstImage.altText || DEFAULT_ALT,
+
+        // Keep legacy fields for compatibility.
+        imageUrl: firstImage.desktopImageUrl,
+        publicId: firstImage.desktopPublicId,
+        altText: firstImage.altText,
       });
 
       await previous.save();
+
     } else {
       await HeroSettings.create({
         images,
-        imageUrl: firstImage.imageUrl,
-        publicId: firstImage.publicId,
-        altText: firstImage.altText || DEFAULT_ALT,
+
+        // Keep legacy fields for compatibility.
+        imageUrl: firstImage.desktopImageUrl,
+        publicId: firstImage.desktopPublicId,
+        altText: firstImage.altText,
       });
     }
 
-    // Delete images that were removed from the carousel only after saving.
-    const removedIds = previousImages
-      .map((image) => image.publicId)
-      .filter((id) => !newPublicIds.has(id));
+    /*
+     * Remove images that are no longer referenced.
+     * Cleanup happens only after the database save succeeds.
+     */
 
-    await destroyCloudinaryImages(removedIds);
+    const removedIds = oldPublicIds.filter(
+      (id) => !newPublicIds.has(id)
+    );
+
+    await destroyCloudinaryImages(
+      removedIds
+    );
 
     return NextResponse.json({
       success: true,
-      message: `${images.length} hero image${images.length === 1 ? "" : "s"} saved successfully.`,
+      message: `${images.length} hero slide${images.length === 1 ? "" : "s"} saved successfully.`,
     });
+
   } catch (error) {
-    console.error("Hero settings PUT error:", error);
+    console.error(
+      "Hero settings PUT error:",
+      error
+    );
 
     return NextResponse.json(
-      { success: false, message: "Unable to save hero images." },
-      { status: 500 }
+      {
+        success: false,
+        message: "Unable to save hero images.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
 
+/*
+=========================================================
+DELETE
+=========================================================
+*/
+
 export async function DELETE() {
   try {
     const denied = await authorize();
+
     if (denied) return denied;
 
     await connectDB();
 
-    const settings = await HeroSettings.findOne();
+    const settings =
+      await HeroSettings.findOne();
 
     if (!settings) {
       return NextResponse.json({
         success: true,
-        message: "The default hero image is already active.",
+        message: "The hero carousel is already empty.",
       });
     }
 
@@ -299,24 +634,37 @@ export async function DELETE() {
       }
     );
 
-    // Delete the database settings first so the storefront can fall back
-    // to its default image even if Cloudinary cleanup fails.
+    const publicIds = getAllPublicIds(
+      savedImages
+    );
+
+    // Delete database settings first.
     await settings.deleteOne();
 
+    // Delete both desktop and mobile images.
     await destroyCloudinaryImages(
-      savedImages.map((image) => image.publicId)
+      publicIds
     );
 
     return NextResponse.json({
       success: true,
-      message: "Hero carousel deleted. The default image is now active.",
+      message: "Hero carousel deleted successfully.",
     });
+
   } catch (error) {
-    console.error("Hero settings DELETE error:", error);
+    console.error(
+      "Hero settings DELETE error:",
+      error
+    );
 
     return NextResponse.json(
-      { success: false, message: "Unable to delete hero images." },
-      { status: 500 }
+      {
+        success: false,
+        message: "Unable to delete hero images.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

@@ -972,13 +972,13 @@ export default function Navbar() {
                         Best Sellers
                       </Link>
 
-                      <Link
-                        href="/products?search=sale"
-                        onClick={closeMobile}
-                        className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
-                      >
-                        Sale
-                      </Link>
+                  <Link
+  href="/sale"
+  onClick={closeMobile}
+  className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
+>
+  Sale
+</Link>
                     </div>
                   )}
                 </div>
