@@ -3,15 +3,116 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@iconify/react";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
+type CustomerOrder = {
+  _id: string;
+  paymentMethod: "cod" | "online";
+  paymentStatus: "pending" | "paid" | "failed";
+};
+
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
-
   const orderId = searchParams.get("orderId");
+
+  const [order, setOrder] = useState<CustomerOrder | null>(null);
+  const [orderLoading, setOrderLoading] = useState(true);
+  const [orderError, setOrderError] = useState("");
+
+  useEffect(() => {
+    if (!orderId) {
+      setOrder(null);
+      setOrderError("Order ID is missing.");
+      setOrderLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadOrder = async () => {
+      try {
+        setOrderLoading(true);
+        setOrderError("");
+
+        // This endpoint returns orders belonging to the logged-in customer.
+        const response = await fetch("/api/orders", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to load order details.");
+        }
+
+        const matchingOrder = Array.isArray(data.orders)
+          ? data.orders.find(
+              (item: CustomerOrder) => String(item._id) === orderId
+            )
+          : null;
+
+        if (!matchingOrder) {
+          throw new Error("We could not find this order in your account.");
+        }
+
+        if (!cancelled) {
+          setOrder(matchingOrder);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setOrder(null);
+          setOrderError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load order details."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setOrderLoading(false);
+        }
+      }
+    };
+
+    loadOrder();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
+
+  const isOnlinePayment = order?.paymentMethod === "online";
+  const isPaymentPaid = order?.paymentStatus === "paid";
+  const isPaymentFailed = order?.paymentStatus === "failed";
+
+  const paymentTitle = orderLoading
+    ? "Loading payment details..."
+    : orderError
+      ? "Payment details unavailable"
+      : isOnlinePayment
+        ? isPaymentPaid
+          ? "Online Payment Successful"
+          : isPaymentFailed
+            ? "Online Payment Failed"
+            : "Online Payment Pending"
+        : "Cash on Delivery";
+
+  const paymentDescription = orderLoading
+    ? "Please wait while we retrieve your payment information."
+    : orderError
+      ? orderError
+      : isOnlinePayment
+        ? isPaymentPaid
+          ? "Your payment has been received and verified successfully. No payment is due on delivery."
+          : isPaymentFailed
+            ? "Your payment has not been completed. Please contact support before assuming the order is paid."
+            : "Your payment is awaiting confirmation. Please check your order status before making another payment."
+        : "Your payment will be collected when your order is delivered. Please keep the required amount ready.";
 
   return (
     <>
@@ -36,13 +137,11 @@ function OrderSuccessContent() {
             borderRadius: "24px",
             padding: "55px 45px",
             textAlign: "center",
-            boxShadow:
-              "0 15px 50px rgba(0,0,0,0.06)",
+            boxShadow: "0 15px 50px rgba(0,0,0,0.06)",
             boxSizing: "border-box",
           }}
         >
           {/* SUCCESS ICON */}
-
           <div
             style={{
               width: "82px",
@@ -56,15 +155,10 @@ function OrderSuccessContent() {
               justifyContent: "center",
             }}
           >
-            <Icon
-              icon="solar:check-circle-bold"
-              width="45"
-              height="45"
-            />
+            <Icon icon="solar:check-circle-bold" width="45" height="45" />
           </div>
 
           {/* LABEL */}
-
           <span
             style={{
               display: "block",
@@ -80,12 +174,10 @@ function OrderSuccessContent() {
           </span>
 
           {/* TITLE */}
-
           <h1
             style={{
               margin: "9px 0 0",
-              fontSize:
-                "clamp(36px, 7vw, 48px)",
+              fontSize: "clamp(36px, 7vw, 48px)",
               lineHeight: "1",
               fontWeight: 600,
               letterSpacing: "-0.05em",
@@ -104,20 +196,17 @@ function OrderSuccessContent() {
               color: "#777777",
             }}
           >
-            Your order has been placed
-            successfully. We will process your
-            order and prepare it for delivery.
+            Your order has been placed successfully. We will process your order
+            and prepare it for delivery.
           </p>
 
           {/* ORDER ID */}
-
           {orderId && (
             <div
               style={{
                 marginTop: "30px",
                 padding: "18px 20px",
-                border:
-                  "1px solid #e7e7e7",
+                border: "1px solid #e7e7e7",
                 borderRadius: "13px",
                 background: "#fafafa",
               }}
@@ -135,11 +224,7 @@ function OrderSuccessContent() {
                   color: "#999999",
                 }}
               >
-                <Icon
-                  icon="solar:document-text-linear"
-                  width="16"
-                />
-
+                <Icon icon="solar:document-text-linear" width="16" />
                 Order ID
               </div>
 
@@ -157,8 +242,7 @@ function OrderSuccessContent() {
             </div>
           )}
 
-          {/* COD INFORMATION */}
-
+          {/* PAYMENT INFORMATION - DYNAMICALLY LOADED FROM THE SAVED ORDER */}
           <div
             style={{
               marginTop: "18px",
@@ -191,13 +275,21 @@ function OrderSuccessContent() {
                 }}
               >
                 <Icon
-                  icon="solar:hand-money-linear"
+                  icon={
+                    orderLoading
+                      ? "solar:refresh-circle-linear"
+                      : isOnlinePayment
+                        ? isPaymentPaid
+                          ? "solar:card-bold"
+                          : "solar:card-linear"
+                        : "solar:hand-money-linear"
+                  }
                   width="20"
                   height="20"
                 />
               </div>
 
-              Cash on Delivery
+              {paymentTitle}
             </div>
 
             <p
@@ -209,41 +301,29 @@ function OrderSuccessContent() {
                 color: "#777777",
               }}
             >
-              Your payment will be collected
-              when your order is delivered.
-              Please keep the required amount
-              ready.
+              {paymentDescription}
             </p>
           </div>
 
           {/* ORDER STATUS */}
-
           <div
             className="status-row"
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "repeat(3, 1fr)",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: "10px",
               marginTop: "18px",
             }}
           >
             {/* CONFIRMED */}
-
             <div
               style={{
                 padding: "15px 10px",
-                border:
-                  "1px solid #eeeeee",
+                border: "1px solid #eeeeee",
                 borderRadius: "12px",
               }}
             >
-              <Icon
-                icon="solar:check-circle-bold"
-                width="21"
-                height="21"
-              />
-
+              <Icon icon="solar:check-circle-bold" width="21" height="21" />
               <p
                 style={{
                   margin: "8px 0 0",
@@ -257,21 +337,14 @@ function OrderSuccessContent() {
             </div>
 
             {/* PROCESSING */}
-
             <div
               style={{
                 padding: "15px 10px",
-                border:
-                  "1px solid #eeeeee",
+                border: "1px solid #eeeeee",
                 borderRadius: "12px",
               }}
             >
-              <Icon
-                icon="solar:box-linear"
-                width="21"
-                height="21"
-              />
-
+              <Icon icon="solar:box-linear" width="21" height="21" />
               <p
                 style={{
                   margin: "8px 0 0",
@@ -285,21 +358,14 @@ function OrderSuccessContent() {
             </div>
 
             {/* DELIVERY */}
-
             <div
               style={{
                 padding: "15px 10px",
-                border:
-                  "1px solid #eeeeee",
+                border: "1px solid #eeeeee",
                 borderRadius: "12px",
               }}
             >
-              <Icon
-                icon="solar:delivery-linear"
-                width="21"
-                height="21"
-              />
-
+              <Icon icon="solar:delivery-linear" width="21px" height="21px" />
               <p
                 style={{
                   margin: "8px 0 0",
@@ -314,7 +380,6 @@ function OrderSuccessContent() {
           </div>
 
           {/* ACTIONS */}
-
           <div
             style={{
               display: "flex",
@@ -323,8 +388,6 @@ function OrderSuccessContent() {
               marginTop: "30px",
             }}
           >
-            {/* ACCOUNT */}
-
             <Link
               href="/account"
               style={{
@@ -344,15 +407,8 @@ function OrderSuccessContent() {
               }}
             >
               View My Account
-
-              <Icon
-                icon="solar:arrow-right-linear"
-                width="18"
-                height="18"
-              />
+              <Icon icon="solar:arrow-right-linear" width="18" height="18" />
             </Link>
-
-            {/* PRODUCTS */}
 
             <Link
               href="/products"
@@ -360,8 +416,7 @@ function OrderSuccessContent() {
                 width: "100%",
                 minHeight: "53px",
                 borderRadius: "999px",
-                border:
-                  "1px solid #dddddd",
+                border: "1px solid #dddddd",
                 background: "#ffffff",
                 color: "#333333",
                 textDecoration: "none",
@@ -375,17 +430,11 @@ function OrderSuccessContent() {
               }}
             >
               Continue Shopping
-
-              <Icon
-                icon="solar:arrow-right-linear"
-                width="18"
-                height="18"
-              />
+              <Icon icon="solar:arrow-right-linear" width="18" height="18" />
             </Link>
           </div>
 
           {/* SMALL NOTE */}
-
           <div
             style={{
               display: "flex",
@@ -397,13 +446,8 @@ function OrderSuccessContent() {
               fontSize: "11px",
             }}
           >
-            <Icon
-              icon="solar:shield-check-linear"
-              width="16"
-            />
-
-            Your order information is securely
-            saved.
+            <Icon icon="solar:shield-check-linear" width="16" />
+            Your order information is securely saved.
           </div>
         </div>
       </main>
@@ -411,7 +455,6 @@ function OrderSuccessContent() {
       <Footer />
 
       {/* RESPONSIVE */}
-
       <style jsx>{`
         @media (max-width: 600px) {
           .success-card {
@@ -459,12 +502,8 @@ export default function OrderSuccessPage() {
             <Icon
               icon="solar:refresh-circle-bold"
               width="20"
-              style={{
-                animation:
-                  "spin 1s linear infinite",
-              }}
+              style={{ animation: "spin 1s linear infinite" }}
             />
-
             Loading...
           </div>
 

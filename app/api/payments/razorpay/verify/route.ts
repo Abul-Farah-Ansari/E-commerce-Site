@@ -1,36 +1,24 @@
 import { NextResponse } from "next/server";
-
 import crypto from "crypto";
 import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth";
 import Order from "@/models/Order";
+import { getRazorpayClient } from "@/lib/razorpay";
 
+export const runtime = "nodejs";
 
-// ============================================================
-// POST /api/payments/razorpay/verify
-// ============================================================
-//
-// Verifies a Razorpay payment securely.
-//
-// Security:
-// 1. Requires authenticated user.
-// 2. Disabled accounts are rejected through requireAuth().
-// 3. Order must belong to the authenticated user.
-// 4. Order must use online payment.
-// 5. Razorpay order ID must match local order.
-// 6. Razorpay signature is verified using HMAC SHA256.
-// 7. Signature comparison uses timingSafeEqual.
-// 8. Already-paid orders are handled idempotently.
-// ============================================================
-
+/**
+ * POST /api/payments/razorpay/verify
+ *
+ * Verifies the Checkout signature using the Razorpay order ID stored in
+ * MongoDB, then independently fetches the payment from Razorpay. An order
+ * is marked paid only when the fetched payment is captured and its order,
+ * amount and currency match the local order.
+ */
 export async function POST(request: Request) {
   try {
-    // ========================================================
-    // AUTHENTICATION
-    // ========================================================
-
     const auth = await requireAuth();
 
     if (!auth.success) {
@@ -42,75 +30,43 @@ export async function POST(request: Request) {
               ? "Please login to verify payment."
               : auth.message,
         },
-        {
-          status: auth.status,
-        }
+        { status: auth.status }
       );
     }
 
-
-    // ========================================================
-    // RAZORPAY CONFIGURATION
-    // ========================================================
-
-    const RAZORPAY_KEY_SECRET =
-      process.env.RAZORPAY_KEY_SECRET;
-
-    if (!RAZORPAY_KEY_SECRET) {
+    // requireAuth() declares user as optional; narrow it before using it.
+    const authenticatedUser = auth.user;
+    if (!authenticatedUser) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Razorpay is not configured on the server.",
-        },
-        {
-          status: 500,
-        }
+        { success: false, message: "Please login to verify payment." },
+        { status: 401 }
       );
     }
 
-
-    // ========================================================
-    // REQUEST BODY
-    // ========================================================
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      return NextResponse.json(
+        { success: false, message: "Razorpay is not configured on the server." },
+        { status: 500 }
+      );
+    }
 
     let body: unknown;
-
     try {
       body = await request.json();
     } catch {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid request body.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "Invalid request body." },
+        { status: 400 }
       );
     }
 
-
-    // ========================================================
-    // VALIDATE REQUEST BODY
-    // ========================================================
-
-    if (
-      typeof body !== "object" ||
-      body === null
-    ) {
+    if (!body || typeof body !== "object") {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Payment verification details are incomplete.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "Payment verification details are incomplete." },
+        { status: 400 }
       );
     }
-
 
     const {
       orderId,
@@ -124,11 +80,6 @@ export async function POST(request: Request) {
       razorpaySignature?: unknown;
     };
 
-
-    // ========================================================
-    // BASIC VALIDATION
-    // ========================================================
-
     if (
       typeof orderId !== "string" ||
       typeof razorpayOrderId !== "string" ||
@@ -136,394 +87,221 @@ export async function POST(request: Request) {
       typeof razorpaySignature !== "string"
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Payment verification details are incomplete.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "Payment verification details are incomplete." },
+        { status: 400 }
       );
     }
-
 
     const cleanOrderId = orderId.trim();
-    const cleanRazorpayOrderId =
-      razorpayOrderId.trim();
-    const cleanRazorpayPaymentId =
-      razorpayPaymentId.trim();
-    const cleanRazorpaySignature =
-      razorpaySignature.trim();
-
+    const cleanRazorpayOrderId = razorpayOrderId.trim();
+    const cleanRazorpayPaymentId = razorpayPaymentId.trim();
+    const cleanRazorpaySignature = razorpaySignature.trim();
 
     if (
-      !cleanOrderId ||
+      !mongoose.Types.ObjectId.isValid(cleanOrderId) ||
       !cleanRazorpayOrderId ||
       !cleanRazorpayPaymentId ||
-      !cleanRazorpaySignature
+      !/^[a-f0-9]{64}$/i.test(cleanRazorpaySignature)
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Payment verification details are incomplete.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "Invalid payment verification details." },
+        { status: 400 }
       );
     }
-
-
-    // ========================================================
-    // VALIDATE LOCAL ORDER ID
-    // ========================================================
-
-    if (
-      !mongoose.Types.ObjectId.isValid(
-        cleanOrderId
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid order ID.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-
-    // ========================================================
-    // DATABASE
-    // ========================================================
 
     await connectDB();
 
-
-    // ========================================================
-    // FIND ORDER
-    // ========================================================
-    //
-    // IMPORTANT:
-    // The order must belong to the currently
-    // authenticated customer.
-    //
-    // This prevents one customer from attempting
-    // to verify another customer's order.
-    // ========================================================
-
     const order = await Order.findOne({
       _id: cleanOrderId,
-      userId: auth.user.id,
+      userId: authenticatedUser.id,
     });
-
 
     if (!order) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Order not found.",
-        },
-        {
-          status: 404,
-        }
+        { success: false, message: "Order not found." },
+        { status: 404 }
       );
     }
 
-
-    // ========================================================
-    // PAYMENT METHOD CHECK
-    // ========================================================
-
-    if (
-      order.paymentMethod !== "online"
-    ) {
+    if (order.paymentMethod !== "online" || !order.razorpayOrderId) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "This order does not use online payment.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "This order is not configured for Razorpay payment." },
+        { status: 400 }
       );
     }
 
-
-    // ========================================================
-    // RAZORPAY ORDER ID CHECK
-    // ========================================================
-
-    if (
-      !order.razorpayOrderId ||
-      order.razorpayOrderId !==
-        cleanRazorpayOrderId
-    ) {
+    // Compare the callback order ID against the trusted value stored in MongoDB.
+    if (order.razorpayOrderId !== cleanRazorpayOrderId) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Razorpay order ID does not match.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "Razorpay order ID does not match." },
+        { status: 400 }
       );
     }
 
-
-    // ========================================================
-    // ALREADY PAID CHECK
-    // ========================================================
-    //
-    // Makes the endpoint idempotent.
-    //
-    // If the frontend retries the verification request
-    // after a successful payment, we don't verify/save
-    // the payment again.
-    // ========================================================
-
+    // Safe idempotency: only the same already-recorded payment can be retried.
     if (order.paymentStatus === "paid") {
+      if (order.razorpayPaymentId !== cleanRazorpayPaymentId) {
+        return NextResponse.json(
+          { success: false, message: "This order has already been paid using another payment." },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json({
         success: true,
-        message:
-          "Payment has already been verified.",
+        message: "Payment has already been verified.",
         order: {
           id: order._id.toString(),
           total: order.total,
-          paymentMethod:
-            order.paymentMethod,
-          paymentStatus:
-            order.paymentStatus,
-          orderStatus:
-            order.orderStatus,
-          razorpayOrderId:
-            order.razorpayOrderId,
-          razorpayPaymentId:
-            order.razorpayPaymentId || "",
+          paymentStatus: order.paymentStatus,
+          orderStatus: order.orderStatus,
+          razorpayOrderId: order.razorpayOrderId,
+          razorpayPaymentId: order.razorpayPaymentId,
         },
       });
     }
 
+    // HMAC payload must use the Razorpay order ID stored in our database.
+    const expectedSignature = crypto
+      .createHmac("sha256", keySecret)
+      .update(`${order.razorpayOrderId}|${cleanRazorpayPaymentId}`)
+      .digest();
 
-    // ========================================================
-    // CREATE RAZORPAY SIGNATURE
-    // ========================================================
-    //
-    // Razorpay verification:
-    //
-    // HMAC SHA256
-    //
-    // message:
-    // razorpayOrderId + "|" + razorpayPaymentId
-    // ========================================================
-
-    const signaturePayload =
-      `${cleanRazorpayOrderId}|${cleanRazorpayPaymentId}`;
-
-
-    const expectedSignature =
-      crypto
-        .createHmac(
-          "sha256",
-          RAZORPAY_KEY_SECRET
-        )
-        .update(signaturePayload)
-        .digest("hex");
-
-
-    // ========================================================
-    // SAFE SIGNATURE COMPARISON
-    // ========================================================
-
-    const expectedBuffer =
-      Buffer.from(
-        expectedSignature,
-        "utf8"
-      );
-
-    const receivedBuffer =
-      Buffer.from(
-        cleanRazorpaySignature,
-        "utf8"
-      );
-
-
-    // ========================================================
-    // LENGTH CHECK
-    // ========================================================
-    //
-    // timingSafeEqual throws if the two buffers
-    // have different lengths.
-    // ========================================================
+    const receivedSignature = Buffer.from(cleanRazorpaySignature, "hex");
 
     if (
-      expectedBuffer.length !==
-      receivedBuffer.length
+      expectedSignature.length !== receivedSignature.length ||
+      !crypto.timingSafeEqual(expectedSignature, receivedSignature)
     ) {
-      order.paymentStatus = "failed";
+      // Do not mark the order failed on an invalid callback. A forged request
+      // must not be able to change a legitimate pending order's state.
+      return NextResponse.json(
+        { success: false, message: "Payment signature verification failed." },
+        { status: 400 }
+      );
+    }
 
-      await order.save();
+    // A valid signature alone is not enough: confirm payment with Razorpay.
+    const payment = await getRazorpayClient().payments.fetch(cleanRazorpayPaymentId);
+    const expectedAmountPaise = Math.round(Number(order.total) * 100);
 
+    if (
+      String(payment.order_id || "") !== order.razorpayOrderId ||
+      Number(payment.amount) !== expectedAmountPaise ||
+      String(payment.currency || "") !== "INR"
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Payment details do not match this order." },
+        { status: 400 }
+      );
+    }
+
+    if (payment.status !== "captured" && payment.captured !== true) {
       return NextResponse.json(
         {
           success: false,
+          paymentPending: true,
           message:
-            "Payment verification failed.",
+            payment.status === "authorized"
+              ? "Payment is authorised but not captured yet. Please do not retry the payment; contact support if the amount was debited."
+              : "Payment has not been captured by Razorpay yet. Please check the payment status before retrying.",
         },
-        {
-          status: 400,
-        }
+        { status: 409 }
       );
     }
 
+    const nextOrderStatus =
+      order.orderStatus === "pending" ? "confirmed" : order.orderStatus;
 
-    const signatureValid =
-      crypto.timingSafeEqual(
-        expectedBuffer,
-        receivedBuffer
-      );
+    // Conditional update prevents two different payment attempts from both
+    // attaching themselves to the same local order.
+    const updatedOrder = await Order.findOneAndUpdate(
+      {
+        _id: cleanOrderId,
+        userId: authenticatedUser.id,
+        paymentMethod: "online",
+        paymentStatus: { $ne: "paid" },
+        razorpayOrderId: order.razorpayOrderId,
+      },
+      {
+        $set: {
+          paymentStatus: "paid",
+          razorpayPaymentId: cleanRazorpayPaymentId,
+          razorpaySignature: cleanRazorpaySignature,
+          orderStatus: nextOrderStatus,
+        },
+      },
+      { new: true }
+    );
 
+    if (!updatedOrder) {
+      const latestOrder = await Order.findOne({
+        _id: cleanOrderId,
+        userId: authenticatedUser.id,
+      });
 
-    // ========================================================
-    // INVALID SIGNATURE
-    // ========================================================
-
-    if (!signatureValid) {
-      order.paymentStatus = "failed";
-
-      await order.save();
+      if (
+        latestOrder?.paymentStatus === "paid" &&
+        latestOrder.razorpayPaymentId === cleanRazorpayPaymentId
+      ) {
+        return NextResponse.json({
+          success: true,
+          message: "Payment has already been verified.",
+          order: {
+            id: latestOrder._id.toString(),
+            total: latestOrder.total,
+            paymentStatus: latestOrder.paymentStatus,
+            orderStatus: latestOrder.orderStatus,
+            razorpayOrderId: latestOrder.razorpayOrderId,
+            razorpayPaymentId: latestOrder.razorpayPaymentId,
+          },
+        });
+      }
 
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Payment verification failed.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "This order has already been updated. Please refresh your orders." },
+        { status: 409 }
       );
     }
-
-
-    // ========================================================
-    // PAYMENT VERIFIED
-    // ========================================================
-
-    order.paymentStatus = "paid";
-
-    order.razorpayPaymentId =
-      cleanRazorpayPaymentId;
-
-    order.razorpaySignature =
-      cleanRazorpaySignature;
-
-
-    // ========================================================
-    // CONFIRM ORDER
-    // ========================================================
-    //
-    // Once online payment is verified,
-    // move pending order to confirmed.
-    // ========================================================
-
-    if (
-      order.orderStatus === "pending"
-    ) {
-      order.orderStatus = "confirmed";
-    }
-
-
-    await order.save();
-
-
-    // ========================================================
-    // SUCCESS RESPONSE
-    // ========================================================
 
     return NextResponse.json({
       success: true,
-      message:
-        "Payment verified successfully.",
-
+      message: "Payment verified and captured successfully.",
       order: {
-        id: order._id.toString(),
-
-        total: order.total,
-
-        paymentMethod:
-          order.paymentMethod,
-
-        paymentStatus:
-          order.paymentStatus,
-
-        orderStatus:
-          order.orderStatus,
-
-        razorpayOrderId:
-          order.razorpayOrderId,
-
-        razorpayPaymentId:
-          order.razorpayPaymentId,
-
-        razorpaySignature:
-          order.razorpaySignature,
+        id: updatedOrder._id.toString(),
+        total: updatedOrder.total,
+        paymentMethod: updatedOrder.paymentMethod,
+        paymentStatus: updatedOrder.paymentStatus,
+        orderStatus: updatedOrder.orderStatus,
+        razorpayOrderId: updatedOrder.razorpayOrderId,
+        razorpayPaymentId: updatedOrder.razorpayPaymentId,
       },
     });
   } catch (error) {
-    console.error(
-      "Razorpay payment verification error:",
-      error
-    );
-
-
-    // ========================================================
-    // AUTHENTICATION ERROR
-    // ========================================================
+    console.error("Razorpay payment verification error:", error);
 
     if (
       error instanceof Error &&
-      (
-        error.message ===
-          "AUTH_CONFIG_MISSING" ||
-        error.name ===
-          "JsonWebTokenError" ||
-        error.name ===
-          "TokenExpiredError"
-      )
+      (error.message === "AUTH_CONFIG_MISSING" ||
+        error.name === "JsonWebTokenError" ||
+        error.name === "TokenExpiredError")
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Your session has expired. Please login again.",
-        },
-        {
-          status: 401,
-        }
+        { success: false, message: "Your session has expired. Please login again." },
+        { status: 401 }
       );
     }
 
-
-    // ========================================================
-    // SERVER ERROR
-    // ========================================================
+    if (error instanceof Error && error.message === "RAZORPAY_CONFIG_MISSING") {
+      return NextResponse.json(
+        { success: false, message: "Razorpay is not configured on the server." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Unable to verify payment.",
-      },
-      {
-        status: 500,
-      }
+      { success: false, message: "Unable to verify payment. Please check the payment status in your Razorpay dashboard before trying again." },
+      { status: 500 }
     );
   }
 }

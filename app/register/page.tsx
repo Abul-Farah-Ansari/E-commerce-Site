@@ -420,7 +420,7 @@ export default function RegisterPage() {
             >
               I agree to the{" "}
               <Link
-                href="/terms"
+                href="/terms-and-conditions"
                 style={{
                   color: "#111111",
                   fontWeight: 600,
@@ -430,7 +430,7 @@ export default function RegisterPage() {
               </Link>{" "}
               and{" "}
               <Link
-                href="/privacy"
+                href="/privacy-policy"
                 style={{
                   color: "#111111",
                   fontWeight: 600,

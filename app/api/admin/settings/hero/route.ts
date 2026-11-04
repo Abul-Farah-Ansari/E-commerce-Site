@@ -540,29 +540,15 @@ export async function PUT(
       allNewPublicIds
     );
 
-    const firstImage = images[0];
-
     if (previous) {
-      previous.set({
-        images,
-
-        // Keep legacy fields for compatibility.
-        imageUrl: firstImage.desktopImageUrl,
-        publicId: firstImage.desktopPublicId,
-        altText: firstImage.altText,
-      });
-
+      // The current HeroSettings schema stores legacy image aliases
+      // inside each `images` item, not as top-level fields.
+      previous.set({ images });
       await previous.save();
-
     } else {
-      await HeroSettings.create({
-        images,
-
-        // Keep legacy fields for compatibility.
-        imageUrl: firstImage.desktopImageUrl,
-        publicId: firstImage.desktopPublicId,
-        altText: firstImage.altText,
-      });
+      // Create only fields defined by the current Mongoose schema.
+      // Legacy records remain readable through getImageList() above.
+      await HeroSettings.create({ images });
     }
 
     /*

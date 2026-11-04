@@ -6,6 +6,7 @@ import { connectDB } from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
+import { getRazorpayClient, getRazorpayKeyId } from "@/lib/razorpay";
 
 type OrderItemRequest = {
   productId?: unknown;
@@ -45,10 +46,19 @@ export async function GET() {
       );
     }
 
+    // requireAuth() types user as optional, so guard it explicitly.
+    const authenticatedUser = auth.user;
+    if (!authenticatedUser) {
+      return NextResponse.json(
+        { success: false, message: "Please login to view your orders." },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
 
     const orders = await Order.find({
-      userId: auth.user.id,
+      userId: authenticatedUser.id,
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -106,7 +116,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // requireAuth() declares user as optional; narrow it before using it.
     const user = auth.user;
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Please login before placing an order." },
+        { status: 401 }
+      );
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -249,27 +266,7 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Online payment
-    |--------------------------------------------------------------------------
-    |
-    | Online payment is not being processed by this endpoint yet.
-    |
-    */
-
-    if (paymentMethod === "online") {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Online payment is coming soon. Please select Cash on Delivery for now.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+    const normalizedPaymentMethod = String(paymentMethod) as "cod" | "online";
 
     /*
     |--------------------------------------------------------------------------
@@ -722,16 +719,51 @@ export async function POST(request: Request) {
     |--------------------------------------------------------------------------
     | Shipping
     |--------------------------------------------------------------------------
-    |
-    | Your current store uses free shipping.
-    |
+    | Free shipping applies to every order.
     */
 
     const calculatedShipping = 0;
 
-    const calculatedTotal =
-      calculatedSubtotal +
-      calculatedShipping;
+    const calculatedTotal = calculatedSubtotal;
+
+    if (!Number.isFinite(calculatedTotal) || calculatedTotal <= 0) {
+      await session.abortTransaction();
+      return NextResponse.json(
+        { success: false, message: "Invalid order amount." },
+        { status: 400 }
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create Razorpay order for online payments
+    |--------------------------------------------------------------------------
+    | Amount is calculated from verified MongoDB product prices, not from
+    | the browser. Razorpay expects the amount in paise.
+    */
+
+    let razorpayOrder: {
+      id: string;
+      amount: number;
+      currency: string;
+    } | null = null;
+
+    if (normalizedPaymentMethod === "online") {
+      const receipt = `ho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`.slice(0, 40);
+
+      const createdRazorpayOrder = await getRazorpayClient().orders.create({
+        amount: Math.round(calculatedTotal * 100),
+        currency: "INR",
+        receipt,
+        notes: { customerId: String(user.id) },
+      });
+
+      razorpayOrder = {
+        id: createdRazorpayOrder.id,
+        amount: Number(createdRazorpayOrder.amount),
+        currency: createdRazorpayOrder.currency || "INR",
+      };
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -822,10 +854,14 @@ export async function POST(request: Request) {
             deliveryMethod:
               deliveryMethodValue,
 
-            paymentMethod,
+            paymentMethod: normalizedPaymentMethod,
 
             paymentStatus:
               "pending",
+
+            ...(razorpayOrder
+              ? { razorpayOrderId: razorpayOrder.id }
+              : {}),
 
             orderStatus:
               "pending",
@@ -877,8 +913,8 @@ await session.commitTransaction();
 try {
   await AdminNotification.create({
     type: "new_order",
-    title: "New Order Received",
-    message: `${user.name} placed a new order #${order._id.toString()} for ₹${Number(order.total).toLocaleString("en-IN")}.`,
+    title: normalizedPaymentMethod === "online" ? "Online Order Awaiting Payment" : "New Order Received",
+    message: `${user.name} placed ${normalizedPaymentMethod === "online" ? "an online-payment order" : "a COD order"} #${order._id.toString()} for ₹${Number(order.total).toLocaleString("en-IN")}.`,
     orderId: order._id,
     isRead: false,
   });
@@ -921,6 +957,15 @@ try {
 
           orderStatus:
             order.orderStatus,
+
+          ...(razorpayOrder
+            ? {
+                razorpayKeyId: getRazorpayKeyId(),
+                razorpayOrderId: razorpayOrder.id,
+                razorpayAmount: razorpayOrder.amount,
+                razorpayCurrency: razorpayOrder.currency,
+              }
+            : {}),
         },
       },
       {

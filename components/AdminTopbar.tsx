@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type AdminTopbarProps = {
   onMenuClick: () => void;
@@ -28,7 +29,11 @@ type AdminNotification = {
 export default function AdminTopbar({
   onMenuClick,
 }: AdminTopbarProps) {
+  const router = useRouter();
+
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -252,6 +257,44 @@ export default function AdminTopbar({
     }
 
     await fetchNotifications();
+  };
+
+  // ==========================================
+  // ADMIN LOGOUT
+  // ==========================================
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      // Reuse the same logout endpoint used by the customer account menu.
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Unable to log out. Please try again.");
+      }
+
+      setAdminMenuOpen(false);
+      setNotificationsOpen(false);
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      console.error("ADMIN LOGOUT ERROR:", error);
+      setLogoutError(
+        error instanceof Error ? error.message : "Unable to log out. Please try again."
+      );
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   // ==========================================
@@ -590,7 +633,7 @@ export default function AdminTopbar({
           </button>
 
           {adminMenuOpen && (
-            <div className="admin-topbar-dropdown" role="menu">
+            <div className="admin-topbar-dropdown" role="menu" aria-label="Admin account menu">
               <div className="admin-dropdown-header">
                 <div className="admin-dropdown-avatar">A</div>
 
@@ -604,29 +647,53 @@ export default function AdminTopbar({
 
               <div className="admin-dropdown-divider" />
 
-              <Link
-                href="/admin/settings/profile"
-                className="admin-dropdown-item"
-                role="menuitem"
-                onClick={() => setAdminMenuOpen(false)}
-              >
-                <Icon icon="solar:user-linear" width={18} height={18} />
-                <span>My Profile</span>
-              </Link>
+              <div className="admin-dropdown-links">
+                <Link
+                  href="/admin/settings/profile"
+                  className="admin-dropdown-item"
+                  role="menuitem"
+                  onClick={() => setAdminMenuOpen(false)}
+                >
+                  <Icon icon="solar:user-linear" width={18} height={18} />
+                  <span>My Profile</span>
+                </Link>
 
-              <Link
-                href="/admin/settings"
-                className="admin-dropdown-item"
+                <Link
+                  href="/admin/settings"
+                  className="admin-dropdown-item"
+                  role="menuitem"
+                  onClick={() => setAdminMenuOpen(false)}
+                >
+                  <Icon
+                    icon="solar:settings-linear"
+                    width={18}
+                    height={18}
+                  />
+                  <span>Settings</span>
+                </Link>
+              </div>
+
+              {logoutError && (
+                <div className="admin-logout-error" role="alert">
+                  {logoutError}
+                </div>
+              )}
+
+              <div className="admin-dropdown-divider" />
+
+              <button
+                type="button"
+                className="admin-dropdown-item admin-dropdown-logout"
                 role="menuitem"
-                onClick={() => setAdminMenuOpen(false)}
+                onClick={() => void handleLogout()}
+                disabled={loggingOut}
               >
-                <Icon
-                  icon="solar:settings-linear"
-                  width={18}
-                  height={18}
-                />
-                <span>Settings</span>
-              </Link>
+                <Icon icon="solar:logout-2-linear" width={18} height={18} />
+                <span>{loggingOut ? "Signing out..." : "Logout"}</span>
+                {loggingOut && (
+                  <Icon icon="solar:refresh-linear" width={15} height={15} className="admin-logout-spinner" />
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -830,20 +897,24 @@ export default function AdminTopbar({
           position: absolute;
           top: calc(100% + 10px);
           right: 0;
-          width: 248px;
+          z-index: 3000;
+          width: 270px;
+          max-width: calc(100vw - 20px);
           overflow: hidden;
-          border: 1px solid #e5e5e5;
-          border-radius: 12px;
-          background: #faf8f5;
-          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.12);
-          z-index: 2000;
+          border: 1px solid #e8e5e1;
+          border-radius: 14px;
+          background: #ffffff;
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
+          color: #171717;
         }
 
         .admin-dropdown-header {
-          padding: 15px;
+          min-height: 72px;
+          padding: 16px 18px;
+          box-sizing: border-box;
           display: flex;
           align-items: center;
-          gap: 11px;
+          gap: 12px;
         }
 
         .admin-dropdown-avatar {
@@ -872,30 +943,85 @@ export default function AdminTopbar({
         .admin-dropdown-divider {
           width: 100%;
           height: 1px;
-          background: #eee;
+          background: #eeece9;
+        }
+
+        .admin-dropdown-links {
+          display: flex;
+          flex-direction: column;
+          padding: 6px 0;
         }
 
         .admin-dropdown-item {
+          appearance: none;
           width: 100%;
-          min-height: 42px;
-          padding: 0 15px;
+          min-height: 46px;
+          padding: 0 18px;
           box-sizing: border-box;
           display: flex;
+          flex-direction: row;
           align-items: center;
-          gap: 10px;
+          justify-content: flex-start;
+          gap: 12px;
           border: 0;
-          background: #faf8f5;
-          color: #222;
+          border-radius: 0;
+          background: #ffffff;
+          color: #282828;
           text-align: left;
           text-decoration: none;
           font-family: inherit;
-          font-size: 12px;
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.2;
           cursor: pointer;
-          transition: background 0.2s ease;
+          transition: background 0.18s ease, color 0.18s ease;
+        }
+
+        .admin-dropdown-item :global(svg) {
+          display: block;
+          flex: 0 0 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        .admin-dropdown-item > span {
+          display: block;
+          flex: 1;
+          min-width: 0;
         }
 
         .admin-dropdown-item:hover {
-          background: #f0eeeb;
+          background: #f7f6f4;
+        }
+
+        .admin-dropdown-logout {
+          color: #a12828;
+        }
+
+        .admin-dropdown-logout:hover {
+          background: #fff5f4;
+          color: #8f1f1f;
+        }
+
+        .admin-dropdown-item:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        .admin-logout-error {
+          margin: 0 14px 8px;
+          padding: 8px 10px;
+          border: 1px solid #f0d1cf;
+          border-radius: 8px;
+          background: #fff7f6;
+          color: #9d2d25;
+          font-size: 11px;
+          line-height: 1.45;
+        }
+
+        .admin-logout-spinner {
+          margin-left: auto;
+          animation: admin-spin 0.9s linear infinite;
         }
 
         /* NOTIFICATION DROPDOWN */
@@ -1258,9 +1384,10 @@ export default function AdminTopbar({
           .admin-topbar-dropdown {
             position: fixed;
             top: 66px;
-            left: 10px;
             right: 10px;
-            width: auto;
+            left: auto;
+            width: min(270px, calc(100vw - 20px));
+            max-width: calc(100vw - 20px);
           }
 
           .admin-notifications-dropdown {

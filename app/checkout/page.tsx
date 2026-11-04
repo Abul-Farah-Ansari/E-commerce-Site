@@ -403,10 +403,10 @@ export default function CheckoutPage() {
      SHIPPING
   ========================= */
 
-  const shipping =
-    cartTotal >= 2000 ? 0 : 99;
+  // Free shipping on every order.
+  const shipping = 0;
 
-  const total = cartTotal + shipping;
+  const total = cartTotal;
 
   /* =========================
      PAYMENT CHANGE
@@ -425,6 +425,8 @@ export default function CheckoutPage() {
   ========================= */
 
   const handlePlaceOrder = async () => {
+    let razorpayModalOpened = false;
+
     try {
       setError("");
       setSuccess("");
@@ -465,14 +467,32 @@ export default function CheckoutPage() {
       }
 
       /*
-       * Make sure saved address exists.
+       * When the address was just edited, React state may not yet have
+       * updated `user`. Use the validated form values for this order.
+       */
+      const shippingAddressForOrder = editingAddress
+        ? {
+            address: addressData.address.trim(),
+            city: addressData.city.trim(),
+            state: addressData.state.trim(),
+            pincode: addressData.pincode.trim(),
+          }
+        : {
+            address: user.address,
+            city: user.city,
+            state: user.state,
+            pincode: user.pincode,
+          };
+
+      /*
+       * Make sure a complete delivery address exists.
        */
 
       if (
-        !user.address ||
-        !user.city ||
-        !user.state ||
-        !user.pincode
+        !shippingAddressForOrder.address ||
+        !shippingAddressForOrder.city ||
+        !shippingAddressForOrder.state ||
+        !/^\d{6}$/.test(shippingAddressForOrder.pincode)
       ) {
         setError(
           "Please add your delivery address first."
@@ -511,12 +531,7 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             items: orderItems,
 
-            shippingAddress: {
-              address: user.address,
-              city: user.city,
-              state: user.state,
-              pincode: user.pincode,
-            },
+            shippingAddress: shippingAddressForOrder,
 
             deliveryMethod:
               "Standard Delivery",
@@ -574,7 +589,7 @@ export default function CheckoutPage() {
 
         currency: data.order.razorpayCurrency || "INR",
 
-        name: "Your Store",
+        name: "House Of Orive",
 
         description: `Order #${data.order.id}`,
 
@@ -677,8 +692,10 @@ export default function CheckoutPage() {
           razorpayOptions
         );
 
+      razorpayModalOpened = true;
       razorpay.open();
     } catch (error) {
+      razorpayModalOpened = false;
       console.error(
         "Checkout error:",
         error
@@ -690,7 +707,10 @@ export default function CheckoutPage() {
           : "Unable to place your order."
       );
     } finally {
-      setPlacingOrder(false);
+      // Keep the checkout button locked while the Razorpay modal is open.
+      if (!razorpayModalOpened) {
+        setPlacingOrder(false);
+      }
     }
   };
 
@@ -1147,17 +1167,8 @@ export default function CheckoutPage() {
                     padding: "18px",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "1fr auto auto",
-                      gap: "10px",
-                      alignItems:
-                        "end",
-                    }}
-                  >
-                    <div>
+                  <div className="phone-edit-row">
+                    <div className="phone-edit-field">
                       <label
                         style={{
                           display:
@@ -1173,7 +1184,9 @@ export default function CheckoutPage() {
                       </label>
 
                       <input
-                        type="text"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
                         value={phone}
                         onChange={(e) =>
                           setPhone(
@@ -1203,6 +1216,7 @@ export default function CheckoutPage() {
                     </div>
 
                     <button
+                      className="phone-edit-save"
                       type="button"
                       onClick={
                         saveContact
@@ -1254,6 +1268,7 @@ export default function CheckoutPage() {
                     </button>
 
                     <button
+                      className="phone-edit-cancel"
                       type="button"
                       onClick={() => {
                         setPhone(
@@ -2341,11 +2356,7 @@ export default function CheckoutPage() {
                 </span>
 
                 <span>
-                  {shipping === 0
-                    ? "FREE"
-                    : `₹${shipping.toLocaleString(
-                        "en-IN"
-                      )}`}
+                  FREE
                 </span>
               </div>
             </div>
@@ -2563,6 +2574,51 @@ export default function CheckoutPage() {
       </div>
 
       <style jsx>{`
+        .phone-edit-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-end;
+          gap: 10px;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .phone-edit-field {
+          flex: 1 1 180px;
+          min-width: 0;
+        }
+
+        .phone-edit-field input {
+          display: block;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+
+        .phone-edit-save,
+        .phone-edit-cancel {
+          flex: 0 0 auto;
+          white-space: nowrap;
+          justify-content: center;
+          text-align: center;
+        }
+
+        @media (max-width: 500px) {
+          .phone-edit-row {
+            gap: 9px;
+          }
+
+          .phone-edit-field {
+            flex-basis: 100%;
+          }
+
+          .phone-edit-save,
+          .phone-edit-cancel {
+            flex: 1 1 0;
+            justify-content: center;
+          }
+        }
+
         @keyframes spin {
           from {
             transform: rotate(0deg);

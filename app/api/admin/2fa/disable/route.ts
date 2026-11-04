@@ -21,28 +21,42 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
+
     const password =
-      typeof body?.password === "string" ? body.password : "";
-    const code = typeof body?.code === "string" ? body.code : "";
+      typeof body?.password === "string"
+        ? body.password
+        : "";
+
+    const code =
+      typeof body?.code === "string"
+        ? body.code
+        : "";
 
     if (!password || !/^\d{6}$/.test(code)) {
       return NextResponse.json(
-        { success: false, message: "Enter your password and six-digit authenticator code." },
+        {
+          success: false,
+          message:
+            "Enter your password and six-digit authenticator code.",
+        },
         { status: 400 }
       );
     }
 
     if (password.length > 200) {
       return NextResponse.json(
-        { success: false, message: "Invalid credentials." },
+        {
+          success: false,
+          message: "Invalid credentials.",
+        },
         { status: 400 }
       );
     }
 
-    // Use your project's existing named MongoDB connection export.
-   
+    // Connect to MongoDB.
     await connectDB();
 
+    // Retrieve admin account with password and encrypted TOTP fields.
     const user = await User.findById(auth.user.id).select(
       "+password +totpSecretEncrypted"
     );
@@ -53,66 +67,124 @@ export async function POST(request: Request) {
       user.accountStatus !== "active"
     ) {
       return NextResponse.json(
-        { success: false, message: "Admin account not found or inactive." },
+        {
+          success: false,
+          message: "Admin account not found or inactive.",
+        },
         { status: 403 }
       );
     }
 
     if (!user.totpEnabled || !user.totpSecretEncrypted) {
       return NextResponse.json(
-        { success: false, message: "Two-factor authentication is not enabled." },
+        {
+          success: false,
+          message:
+            "Two-factor authentication is not enabled.",
+        },
         { status: 400 }
       );
     }
 
-    const passwordMatches = await bcrypt.compare(password, user.password);
+    // Explicitly validate password hash before bcrypt comparison.
+    const passwordHash = user.password;
 
-    if (!passwordMatches) {
+    if (
+      typeof passwordHash !== "string" ||
+      !passwordHash.trim()
+    ) {
       return NextResponse.json(
-        { success: false, message: "Incorrect password or authenticator code." },
+        {
+          success: false,
+          message:
+            "Incorrect password or authenticator code.",
+        },
         { status: 401 }
       );
     }
 
+    const passwordMatches = await bcrypt.compare(
+      password,
+      passwordHash
+    );
+
+    if (!passwordMatches) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Incorrect password or authenticator code.",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Decrypt TOTP secret.
     let secret: string;
 
     try {
-      secret = decryptTotpSecret(user.totpSecretEncrypted);
+      secret = decryptTotpSecret(
+        user.totpSecretEncrypted
+      );
     } catch {
-      console.error("Unable to decrypt the admin TOTP secret.");
+      console.error(
+        "Unable to decrypt the admin TOTP secret."
+      );
+
       return NextResponse.json(
-        { success: false, message: "Unable to verify authenticator. Contact support." },
+        {
+          success: false,
+          message:
+            "Unable to verify authenticator. Contact support.",
+        },
         { status: 500 }
       );
     }
 
+    // Verify authenticator code.
     if (!verifyTotpCode(secret, code)) {
       return NextResponse.json(
-        { success: false, message: "Incorrect password or authenticator code." },
+        {
+          success: false,
+          message:
+            "Incorrect password or authenticator code.",
+        },
         { status: 401 }
       );
     }
 
+    // Disable two-factor authentication.
     user.totpEnabled = false;
     user.totpSecretEncrypted = undefined;
     user.totpPendingSecretEncrypted = undefined;
+
     await user.save();
 
     return NextResponse.json(
       {
         success: true,
-        message: "Two-factor authentication has been disabled.",
+        message:
+          "Two-factor authentication has been disabled.",
       },
       {
         status: 200,
-        headers: { "Cache-Control": "no-store, max-age=0" },
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
       }
     );
   } catch (error) {
-    console.error("Disable admin 2FA error:", error);
+    console.error(
+      "Disable admin 2FA error:",
+      error
+    );
 
     return NextResponse.json(
-      { success: false, message: "Unable to disable two-factor authentication." },
+      {
+        success: false,
+        message:
+          "Unable to disable two-factor authentication.",
+      },
       { status: 500 }
     );
   }

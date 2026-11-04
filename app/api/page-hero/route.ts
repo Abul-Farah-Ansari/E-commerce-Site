@@ -11,14 +11,18 @@ export const revalidate = 0;
 
 const DEFAULT_ALT = "House Of Orive collection";
 
+type PageHeroSlug = (typeof PAGE_HERO_SLUGS)[number];
+
+function isPageHeroSlug(value: string): value is PageHeroSlug {
+  return (PAGE_HERO_SLUGS as readonly string[]).includes(value);
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const page =
+    const pageParam =
       request.nextUrl.searchParams.get("page") || "";
 
-    if (
-      !(PAGE_HERO_SLUGS as readonly string[]).includes(page)
-    ) {
+    if (!isPageHeroSlug(pageParam)) {
       return NextResponse.json(
         {
           success: false,
@@ -28,6 +32,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // TypeScript now knows this is a valid PageHeroSlug.
+    const page: PageHeroSlug = pageParam;
 
     await connectDB();
 
@@ -89,7 +96,7 @@ export async function GET(request: NextRequest) {
     const hero = {
       page: settings.page,
 
-      // New responsive image fields
+      // Responsive image fields
       desktopImageUrl,
       desktopPublicId,
       mobileImageUrl,
@@ -100,23 +107,12 @@ export async function GET(request: NextRequest) {
       publicId: desktopPublicId,
 
       // Existing page content
-      altText:
-        settings.altText || DEFAULT_ALT,
-
-      eyebrow:
-        settings.eyebrow || "",
-
-      heading:
-        settings.heading || "",
-
-      description:
-        settings.description || "",
-
-      buttonText:
-        settings.buttonText || "",
-
-      buttonLink:
-        settings.buttonLink || "",
+      altText: settings.altText || DEFAULT_ALT,
+      eyebrow: settings.eyebrow || "",
+      heading: settings.heading || "",
+      description: settings.description || "",
+      buttonText: settings.buttonText || "",
+      buttonLink: settings.buttonLink || "",
 
       updatedAt: settings.updatedAt,
     };
@@ -133,7 +129,6 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-
   } catch (error) {
     console.error(
       "Public page hero API error:",

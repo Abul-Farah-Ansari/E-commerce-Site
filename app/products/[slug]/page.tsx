@@ -8,6 +8,7 @@ import { Icon } from "@iconify/react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/components/CartContext";
+import sizeGuideImage from "@/assets/size-guide.png";
 
 type Category = {
   _id: string;
@@ -34,6 +35,7 @@ type Product = {
   newArrival: boolean;
 };
 
+
 export default function ProductDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -57,6 +59,27 @@ export default function ProductDetailsPage() {
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
 
   const [added, setAdded] = useState(false);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sizeGuideOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSizeGuideOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sizeGuideOpen]);
 
   /*
   |--------------------------------------------------------------------------
@@ -796,7 +819,7 @@ export default function ProductDetailsPage() {
                 </div>
                 <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
                   <Icon icon="solar:refresh-linear" width="21" />
-                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#555", fontWeight: 600 }}>Easy Returns</div>
+                 
                 </div>
               </div>
             </div>
@@ -1004,14 +1027,19 @@ export default function ProductDetailsPage() {
 
                       <button
                         type="button"
+                        onClick={() => setSizeGuideOpen(true)}
+                        aria-haspopup="dialog"
+                        aria-expanded={sizeGuideOpen}
+                        aria-label="Open size guide"
                         style={{
                           border: "none",
+                          padding: "4px 0",
                           background: "none",
                           color: "#777",
                           fontSize: "12px",
                           cursor: "pointer",
-                          textDecoration:
-                            "underline",
+                          textDecoration: "underline",
+                          textUnderlineOffset: "4px",
                         }}
                       >
                         Size Guide
@@ -1483,37 +1511,12 @@ export default function ProductDetailsPage() {
                     padding: "17px 0",
                   }}
                 >
-                  <Icon
-                    icon="solar:refresh-circle-linear"
-                    width="22"
-                    style={{
-                      flexShrink: 0,
-                    }}
-                  />
+                 
 
                   <div>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        color: "#111",
-                        marginBottom:
-                          "3px",
-                      }}
-                    >
-                      Easy Returns
-                    </div>
+                   
 
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#777",
-                      }}
-                    >
-                      Simple return
-                      process for eligible
-                      products.
-                    </div>
+                  
                   </div>
                 </div>
               </div>
@@ -1710,11 +1713,601 @@ export default function ProductDetailsPage() {
         </section>
       </main>
 
+      {sizeGuideOpen && (
+        <div
+          className="size-guide-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSizeGuideOpen(false);
+            }
+          }}
+        >
+          <section
+            className="size-guide-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="size-guide-title"
+            aria-describedby="size-guide-description"
+          >
+            <header className="size-guide-header">
+              <div>
+                <p className="size-guide-eyebrow">HOUSE OF ORIVE · FIT GUIDE</p>
+                <h2 id="size-guide-title">Find your perfect fit</h2>
+                <p id="size-guide-description">Use the measuring guide below, then compare your measurements with the garment size chart.</p>
+              </div>
+
+              <button
+                type="button"
+                className="size-guide-close"
+                onClick={() => setSizeGuideOpen(false)}
+                aria-label="Close size guide"
+              >
+                <Icon icon="solar:close-linear" width={22} height={22} />
+              </button>
+            </header>
+
+            <div className="size-guide-body">
+              <div className="size-guide-measure-layout">
+                <div className="size-guide-instructions">
+                  <div className="size-guide-section-heading">
+                    <span>01 / MEASUREMENT</span>
+                    <h3>How to measure</h3>
+                    <p>Keep the measuring tape level and comfortably snug, not tight.</p>
+                  </div>
+
+                  <div className="size-guide-instruction-list">
+                    <article>
+                      <span className="size-guide-step">01</span>
+                      <div>
+                        <h4>Chest / Bust</h4>
+                        <p>Measure around the fullest part of your bust, keeping the tape parallel to the floor.</p>
+                      </div>
+                    </article>
+                    <article>
+                      <span className="size-guide-step">02</span>
+                      <div>
+                        <h4>Waist</h4>
+                        <p>Measure around the narrowest point of your waist, with the tape level.</p>
+                      </div>
+                    </article>
+                    <article>
+                      <span className="size-guide-step">03</span>
+                      <div>
+                        <h4>Low waist</h4>
+                        <p>Measure around the lower waistline, below your natural waist.</p>
+                      </div>
+                    </article>
+                    <article>
+                      <span className="size-guide-step">04</span>
+                      <div>
+                        <h4>Hip</h4>
+                        <p>Measure around the fullest part of your hips while standing naturally.</p>
+                      </div>
+                    </article>
+                    <article>
+                      <span className="size-guide-step">05</span>
+                      <div>
+                        <h4>Inseam</h4>
+                        <p>Measure along the inside of your leg, from the crotch to the ankle.</p>
+                      </div>
+                    </article>
+                  </div>
+                </div>
+
+                <div className="size-guide-figure-panel">
+                  <span className="size-guide-figure-label">HOUSE OF ORIVE SIZE GUIDE</span>
+                  <img
+                    className="size-guide-figure"
+                    src={sizeGuideImage.src}
+                    alt="House Of Orive body measurement reference showing chest, waist, low waist, hip and inseam positions"
+                    loading="eager"
+                    decoding="async"
+                  />
+                  <p>Use this guide to locate each measurement point. Measure over light clothing with the tape kept level.</p>
+                </div>
+              </div>
+
+              <div className="size-guide-chart-section">
+                <div className="size-guide-section-heading size-guide-chart-heading">
+                  <span>02 / SIZE CHART</span>
+                  <h3>Garment measurements</h3>
+                  <p>All garment measurements below are in inches.</p>
+                </div>
+
+                <div className="size-guide-table-scroll">
+                  <table className="size-guide-table">
+                    <thead>
+                      <tr>
+                        <th>Size</th>
+                        <th>Chest</th>
+                        <th>Waist</th>
+                        <th>Hip</th>
+                        <th>Kurta length</th>
+                        <th>Shalwar length</th>
+                        <th>Shalwar (elastic)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { size: "XS", chest: 38, waist: 36, hip: 42, kurta: 32, shalwar: 39, elastic: 26 },
+                        { size: "S", chest: 40, waist: 38, hip: 44, kurta: 32, shalwar: 39, elastic: 28 },
+                        { size: "M", chest: 42, waist: 40, hip: 46, kurta: 32, shalwar: 39, elastic: 30 },
+                        { size: "L", chest: 44, waist: 42, hip: 48, kurta: 32, shalwar: 39, elastic: 32 },
+                        { size: "XL", chest: 46, waist: 44, hip: 50, kurta: 32, shalwar: 39, elastic: 34 },
+                      ].map((row) => (
+                        <tr key={row.size}>
+                          <th scope="row">{row.size}</th>
+                          <td>{row.chest}</td>
+                          <td>{row.waist}</td>
+                          <td>{row.hip}</td>
+                          <td>{row.kurta}</td>
+                          <td>{row.shalwar}</td>
+                          <td>{row.elastic}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="size-guide-note">
+                  <Icon icon="solar:info-circle-linear" width={18} height={18} />
+                  <p>For XXL or help choosing between sizes, please contact our team before placing your order.</p>
+                </div>
+              </div>
+            </div>
+
+            <footer className="size-guide-footer">
+              <span>HOUSE OF ORIVE</span>
+              <span>Thoughtfully made. Made to fit.</span>
+            </footer>
+          </section>
+        </div>
+      )}
+
       <Footer />
 
       {/* RESPONSIVE */}
 
       <style jsx>{`
+        .size-guide-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          background: rgba(18, 17, 15, 0.68);
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+        }
+
+        .size-guide-dialog {
+          display: flex;
+          flex-direction: column;
+          width: min(1120px, 100%);
+          max-height: min(92vh, 940px);
+          overflow: hidden;
+          border: 0;
+          border-radius: 0;
+          background: #fbfaf7;
+          color: #171613;
+          box-shadow: 0 28px 90px rgba(0, 0, 0, 0.28);
+        }
+
+        .size-guide-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 28px 32px 24px;
+          border-bottom: 1px solid #e7e2d9;
+        }
+
+        .size-guide-eyebrow,
+        .size-guide-section-heading > span,
+        .size-guide-figure-label {
+          margin: 0;
+          color: #8b7a64;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+        }
+
+        .size-guide-header h2 {
+          margin: 9px 0 7px;
+          color: #171613;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: clamp(27px, 3.3vw, 40px);
+          font-weight: 400;
+          letter-spacing: -0.045em;
+          line-height: 1.05;
+        }
+
+        .size-guide-header > div > p:last-child {
+          margin: 0;
+          color: #77716a;
+          font-size: 12px;
+          line-height: 1.65;
+        }
+
+        .size-guide-close {
+          display: flex;
+          flex: 0 0 38px;
+          width: 38px;
+          height: 38px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #e4ded5;
+          border-radius: 0;
+          background: #fff;
+          color: #222;
+          cursor: pointer;
+          transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .size-guide-close:hover {
+          background: #171613;
+          color: #fff;
+        }
+
+        .size-guide-body {
+          overflow-y: auto;
+          padding: 26px 32px 30px;
+          overscroll-behavior: contain;
+        }
+
+        .size-guide-measure-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1.05fr) minmax(330px, 0.95fr);
+          gap: 30px;
+          align-items: stretch;
+          padding-bottom: 30px;
+          border-bottom: 1px solid #e7e2d9;
+        }
+
+        .size-guide-section-heading h3 {
+          margin: 8px 0 7px;
+          color: #171613;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 25px;
+          font-weight: 400;
+          letter-spacing: -0.035em;
+        }
+
+        .size-guide-section-heading > p {
+          margin: 0;
+          color: #77716a;
+          font-size: 12px;
+          line-height: 1.7;
+        }
+
+        .size-guide-instruction-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px 22px;
+          margin-top: 25px;
+        }
+
+        .size-guide-instruction-list article {
+          display: flex;
+          align-items: flex-start;
+          gap: 11px;
+          min-width: 0;
+        }
+
+        .size-guide-step {
+          display: inline-flex;
+          flex: 0 0 27px;
+          width: 27px;
+          height: 27px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #ded6ca;
+          border-radius: 0;
+          color: #887965;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 11px;
+        }
+
+        .size-guide-instruction-list h4 {
+          margin: 1px 0 5px;
+          color: #24211d;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .size-guide-instruction-list p {
+          margin: 0;
+          color: #77716a;
+          font-size: 11px;
+          line-height: 1.7;
+        }
+
+        .size-guide-figure-panel {
+          display: flex;
+          min-width: 0;
+          min-height: 0;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          text-align: center;
+        }
+
+        .size-guide-figure {
+          display: block;
+          width: 100%;
+          max-width: 520px;
+          height: 500px;
+          margin: 12px auto 14px;
+          border: 0;
+          border-radius: 0;
+          object-fit: contain;
+          object-position: center;
+          background: transparent;
+        }
+
+        .size-guide-figure-panel > p {
+          max-width: 340px;
+          margin: 0;
+          color: #82796e;
+          font-size: 11px;
+          line-height: 1.65;
+        }
+
+        .size-guide-image-fallback {
+          display: flex;
+          width: 100%;
+          min-height: 410px;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #77716a;
+          text-align: center;
+        }
+
+        .size-guide-image-fallback p {
+          margin: 0;
+          color: #24211d;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .size-guide-image-fallback span {
+          max-width: 260px;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .size-guide-chart-section {
+          padding-top: 27px;
+        }
+
+        .size-guide-chart-heading {
+          display: flex;
+          align-items: baseline;
+          flex-wrap: wrap;
+          gap: 0 15px;
+          margin-bottom: 17px;
+        }
+
+        .size-guide-chart-heading > span {
+          width: 100%;
+        }
+
+        .size-guide-chart-heading h3 {
+          margin-bottom: 0;
+        }
+
+        .size-guide-chart-heading > p {
+          font-size: 11px;
+        }
+
+        .size-guide-table-scroll {
+          width: 100%;
+          overflow-x: auto;
+          border: 1px solid #ded9d0;
+          border-radius: 0;
+          background: #fff;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .size-guide-table {
+          width: 100%;
+          min-width: 790px;
+          border-collapse: collapse;
+          text-align: center;
+        }
+
+        .size-guide-table th,
+        .size-guide-table td {
+          padding: 13px 12px;
+          border-right: 1px solid #e7e2d9;
+          border-bottom: 1px solid #e7e2d9;
+          font-size: 11px;
+          white-space: nowrap;
+        }
+
+        .size-guide-table thead th {
+          background: #171613;
+          color: #fff;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .size-guide-table tbody th {
+          background: #f7f5f1;
+          color: #25221d;
+          font-weight: 700;
+        }
+
+        .size-guide-table tbody td {
+          color: #55504a;
+        }
+
+        .size-guide-table tr:last-child th,
+        .size-guide-table tr:last-child td {
+          border-bottom: 0;
+        }
+
+        .size-guide-table th:last-child,
+        .size-guide-table td:last-child {
+          border-right: 0;
+        }
+
+        .size-guide-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 9px;
+          margin-top: 15px;
+          padding: 12px 14px;
+          border: 1px solid #e5ddd0;
+          border-radius: 0;
+          background: #f4f0e8;
+          color: #6f6251;
+        }
+
+        .size-guide-note :global(svg) {
+          flex: 0 0 auto;
+          margin-top: 1px;
+        }
+
+        .size-guide-note p {
+          margin: 0;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .size-guide-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          padding: 13px 32px;
+          border-top: 1px solid #e7e2d9;
+          background: #f6f3ed;
+          color: #8b7a64;
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+        }
+
+        .size-guide-footer span:last-child {
+          color: #8b857c;
+          font-weight: 500;
+          letter-spacing: 0.08em;
+          text-align: right;
+        }
+
+        @media (max-width: 760px) {
+          .size-guide-backdrop {
+            align-items: flex-end;
+            padding: 10px;
+          }
+
+          .size-guide-dialog {
+            width: 100%;
+            max-height: 94vh;
+            border-radius: 0;
+          }
+
+          .size-guide-header {
+            padding: 21px 19px 18px;
+          }
+
+          .size-guide-header h2 {
+            font-size: 29px;
+          }
+
+          .size-guide-body {
+            padding: 20px 19px 23px;
+          }
+
+          .size-guide-measure-layout {
+            grid-template-columns: 1fr;
+            gap: 20px;
+          }
+
+          .size-guide-instruction-list {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+
+          .size-guide-figure-panel {
+            min-height: 0;
+            padding: 0;
+          }
+
+          .size-guide-figure {
+            width: 100%;
+            max-width: 440px;
+            height: 400px;
+            margin: 10px auto 12px;
+          }
+
+          .size-guide-image-fallback {
+            min-height: 320px;
+          }
+
+          .size-guide-footer {
+            padding: 12px 19px;
+            font-size: 7px;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .size-guide-backdrop {
+            padding: 0;
+          }
+
+          .size-guide-dialog {
+            max-height: 96vh;
+            border-radius: 0;
+          }
+
+          .size-guide-header {
+            gap: 10px;
+            padding: 18px 15px 15px;
+          }
+
+          .size-guide-close {
+            flex-basis: 34px;
+            width: 34px;
+            height: 34px;
+          }
+
+          .size-guide-body {
+            padding: 18px 15px 20px;
+          }
+
+          .size-guide-figure-panel {
+            min-height: 0;
+          }
+
+          .size-guide-figure {
+            height: 340px;
+          }
+
+          .size-guide-image-fallback {
+            min-height: 285px;
+          }
+
+          .size-guide-footer {
+            padding: 11px 15px;
+          }
+        }
+
+
         .product-gallery-thumbnails {
           display: flex;
           flex-direction: column;

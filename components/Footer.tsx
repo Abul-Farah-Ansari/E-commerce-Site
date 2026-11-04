@@ -108,9 +108,6 @@ export default function Footer() {
                 Contact
               </Link>
 
-              <Link href="/shipping">
-                Shipping
-              </Link>
 
              <Link href="/shipping-policy">
   Shipping Policy

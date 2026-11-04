@@ -23,10 +23,10 @@ const benefits = [
   {
     icon: "solar:refresh-circle-linear",
     number: "03",
-    title: "A Better Experience",
-    highlight: "Easy Returns",
+    title: "A Better Fit",
+    highlight: "Exchange Support",
     description:
-      "Simple return support to help you shop with greater peace of mind.",
+      "Exchanges are available on eligible items under our exchange policy. Returns are not available.",
   },
   {
     icon: "solar:headphones-round-linear",
@@ -182,9 +182,7 @@ export default function Benefits() {
           padding: 26px 29px 30px;
           border-right: 1px solid #ded9d0;
           background: transparent;
-          transition:
-            background 0.35s ease,
-            transform 0.35s ease;
+          transition: background 0.35s ease;
         }
 
         .benefit-card:last-child {
@@ -194,7 +192,6 @@ export default function Benefits() {
         .benefit-card:hover {
           z-index: 1;
           background: #fffefa;
-          transform: translateY(-5px);
         }
 
         .benefit-card-top {
@@ -215,14 +212,11 @@ export default function Benefits() {
           align-items: center;
           justify-content: center;
           color: #999084;
-          transition:
-            color 0.3s ease,
-            transform 0.3s ease;
+          transition: color 0.3s ease;
         }
 
         .benefit-card:hover .benefit-arrow {
           color: #171717;
-          transform: translate(3px, -3px);
         }
 
         .benefit-icon-wrap {
@@ -245,15 +239,13 @@ export default function Benefits() {
           transition:
             color 0.35s ease,
             background 0.35s ease,
-            border-color 0.35s ease,
-            transform 0.35s ease;
+            border-color 0.35s ease;
         }
 
         .benefit-card:hover .benefit-icon {
           border-color: #24211d;
           background: #24211d;
           color: #fff;
-          transform: scale(1.06);
         }
 
         .benefit-copy {
@@ -531,11 +523,6 @@ export default function Benefits() {
             transition: none !important;
           }
 
-          .benefit-card:hover,
-          .benefit-card:hover .benefit-icon,
-          .benefit-card:hover .benefit-arrow {
-            transform: none;
-          }
         }
       `}</style>
     </section>

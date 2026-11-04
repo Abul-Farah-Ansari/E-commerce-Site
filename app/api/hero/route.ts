@@ -9,10 +9,7 @@ const DEFAULT_ALT = "House of Orive fashion collection";
 type HeroImageRecord = {
   desktopImageUrl?: string;
   mobileImageUrl?: string;
-
-  // Legacy fields
   imageUrl?: string;
-
   altText?: string;
   sortOrder?: number;
 };
@@ -21,6 +18,14 @@ type HeroSettingsRecord = {
   images?: HeroImageRecord[];
   imageUrl?: string;
   altText?: string;
+};
+
+type HeroImageResponse = {
+  desktopImageUrl: string;
+  mobileImageUrl?: string;
+  imageUrl: string;
+  altText: string;
+  sortOrder: number;
 };
 
 export async function GET() {
@@ -34,7 +39,8 @@ export async function GET() {
     const savedSettings =
       settings as HeroSettingsRecord | null;
 
-    let images = [];
+    // Explicitly define the array element type.
+    let images: HeroImageResponse[] = [];
 
     if (
       savedSettings &&
@@ -42,7 +48,7 @@ export async function GET() {
       savedSettings.images.length > 0
     ) {
       images = savedSettings.images
-        .map((image, index) => {
+        .map((image, index): HeroImageResponse => {
           const desktopImageUrl =
             image.desktopImageUrl ||
             image.imageUrl ||
@@ -53,7 +59,7 @@ export async function GET() {
             mobileImageUrl:
               image.mobileImageUrl || undefined,
 
-            // Legacy alias for any older frontend code.
+            // Legacy alias for older frontend code.
             imageUrl: desktopImageUrl,
 
             altText:
@@ -66,8 +72,7 @@ export async function GET() {
         .filter((image) => Boolean(image.desktopImageUrl))
         .sort(
           (a, b) =>
-            (a.sortOrder ?? 0) -
-            (b.sortOrder ?? 0)
+            a.sortOrder - b.sortOrder
         );
     } else if (savedSettings?.imageUrl) {
       // Compatibility with the original single-image format.

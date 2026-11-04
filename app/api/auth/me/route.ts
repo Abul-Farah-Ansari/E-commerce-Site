@@ -1,12 +1,13 @@
+
 import { NextResponse } from "next/server";
 
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { requireAuth } from "@/lib/auth";
 
-/* =========================
+/* =========================================================
    GET CURRENT USER
-========================= */
+========================================================= */
 
 export async function GET() {
   try {
@@ -25,22 +26,44 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      authenticated: true,
+    // Explicitly verify authenticated user exists.
+    const authenticatedUser = auth.user;
 
-      user: {
-        id: auth.user.id,
-        name: auth.user.name,
-        email: auth.user.email,
-        phone: auth.user.phone,
+    if (!authenticatedUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          authenticated: false,
+          message: "Invalid or expired session.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
 
-        address: auth.user.address || "",
-        city: auth.user.city || "",
-        state: auth.user.state || "",
-        pincode: auth.user.pincode || "",
+    return NextResponse.json(
+      {
+        success: true,
+        authenticated: true,
+        user: {
+          id: authenticatedUser.id,
+          name: authenticatedUser.name,
+          email: authenticatedUser.email,
+          phone: authenticatedUser.phone,
+          address: authenticatedUser.address || "",
+          city: authenticatedUser.city || "",
+          state: authenticatedUser.state || "",
+          pincode: authenticatedUser.pincode || "",
+        },
       },
-    });
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("Auth check error:", error);
 
@@ -57,16 +80,13 @@ export async function GET() {
   }
 }
 
-/* =========================
+/* =========================================================
    UPDATE USER PROFILE
-========================= */
+========================================================= */
 
 export async function PUT(request: Request) {
   try {
-    // ---------------------------------
-    // VERIFY CURRENT USER
-    // ---------------------------------
-
+    // 1. Verify current user.
     const auth = await requireAuth();
 
     if (!auth.success) {
@@ -81,25 +101,83 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ---------------------------------
-    // REQUEST BODY
-    // ---------------------------------
+    // 2. Explicitly verify authenticated user exists.
+    const authenticatedUser = auth.user;
 
-    const body = await request.json();
+    if (!authenticatedUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid or expired session.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
 
-    const {
-      phone,
-      address,
-      city,
-      state,
-      pincode,
-    } = body;
+    // 3. Read request body safely.
+    let body: unknown;
 
-    // ---------------------------------
-    // PHONE VALIDATION
-    // ---------------------------------
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid request body.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
-    if (!phone?.trim()) {
+    if (
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid request body.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const profile = body as Record<string, unknown>;
+
+    const phone =
+      typeof profile.phone === "string"
+        ? profile.phone.trim()
+        : "";
+
+    const address =
+      typeof profile.address === "string"
+        ? profile.address.trim()
+        : "";
+
+    const city =
+      typeof profile.city === "string"
+        ? profile.city.trim()
+        : "";
+
+    const state =
+      typeof profile.state === "string"
+        ? profile.state.trim()
+        : "";
+
+    const pincode =
+      typeof profile.pincode === "string"
+        ? profile.pincode.trim()
+        : "";
+
+    // 4. Phone validation.
+    if (!phone) {
       return NextResponse.json(
         {
           success: false,
@@ -111,16 +189,11 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (
-      !/^\+?[0-9\s-]{10,15}$/.test(
-        phone.trim()
-      )
-    ) {
+    if (!/^\+?[0-9\s-]{10,15}$/.test(phone)) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Please enter a valid phone number.",
+          message: "Please enter a valid phone number.",
         },
         {
           status: 400,
@@ -128,11 +201,8 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ---------------------------------
-    // ADDRESS VALIDATION
-    // ---------------------------------
-
-    if (!address?.trim()) {
+    // 5. Address validation.
+    if (!address) {
       return NextResponse.json(
         {
           success: false,
@@ -144,7 +214,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (!city?.trim()) {
+    if (!city) {
       return NextResponse.json(
         {
           success: false,
@@ -156,7 +226,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (!state?.trim()) {
+    if (!state) {
       return NextResponse.json(
         {
           success: false,
@@ -168,16 +238,12 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ---------------------------------
-    // PINCODE VALIDATION
-    // ---------------------------------
-
-    if (!/^\d{6}$/.test(pincode?.trim())) {
+    // 6. PIN code validation.
+    if (!/^\d{6}$/.test(pincode)) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Please enter a valid 6-digit PIN code.",
+          message: "Please enter a valid 6-digit PIN code.",
         },
         {
           status: 400,
@@ -185,21 +251,18 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ---------------------------------
-    // DATABASE
-    // ---------------------------------
-
+    // 7. Update database.
     await connectDB();
 
     const user = await User.findByIdAndUpdate(
-      auth.user.id,
+      authenticatedUser.id,
       {
         $set: {
-          phone: phone.trim(),
-          address: address.trim(),
-          city: city.trim(),
-          state: state.trim(),
-          pincode: pincode.trim(),
+          phone,
+          address,
+          city,
+          state,
+          pincode,
         },
       },
       {
@@ -220,38 +283,33 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ---------------------------------
-    // RESPONSE
-    // ---------------------------------
-
-    return NextResponse.json({
-      success: true,
-
-      message: "Profile updated successfully.",
-
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-
-        address: user.address || "",
-        city: user.city || "",
-        state: user.state || "",
-        pincode: user.pincode || "",
+    // 8. Return updated profile.
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Profile updated successfully.",
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          address: user.address || "",
+          city: user.city || "",
+          state: user.state || "",
+          pincode: user.pincode || "",
+        },
       },
-    });
-  } catch (error) {
-    console.error(
-      "Update profile error:",
-      error
+      {
+        status: 200,
+      }
     );
+  } catch (error) {
+    console.error("Update profile error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          "Unable to update your profile.",
+        message: "Unable to update your profile.",
       },
       {
         status: 500,

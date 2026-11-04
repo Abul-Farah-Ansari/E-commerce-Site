@@ -436,6 +436,20 @@ export default function NewArrivalsPage() {
       return;
     }
 
+    // CartContext requires an object category to have a string _id.
+    // If the API returns a category without an _id, pass its name instead.
+    const cartCategory =
+      typeof product.category === "string" ||
+      product.category == null
+        ? product.category
+        : product.category._id
+          ? {
+              _id: product.category._id,
+              name: product.category.name,
+              slug: product.category.slug,
+            }
+          : product.category.name;
+
     try {
       setAddingProduct(
         product._id
@@ -453,7 +467,7 @@ export default function NewArrivalsPage() {
         images:
           product.images,
         category:
-          product.category,
+          cartCategory,
         description:
           product.description,
         sizes:

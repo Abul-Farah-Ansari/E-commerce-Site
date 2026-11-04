@@ -38,44 +38,75 @@ export async function GET(
       );
     }
 
+    // Explicitly verify that the authenticated user exists.
+    const authenticatedUser = auth.user;
+
+    if (!authenticatedUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Please login first.",
+        },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
-        { success: false, message: "Invalid order ID." },
+        {
+          success: false,
+          message: "Invalid order ID.",
+        },
         { status: 400 }
       );
     }
 
     await connectDB();
 
+    // Only allow the authenticated customer to access their own order.
     const order = await Order.findOne({
       _id: id,
-      userId: auth.user.id,
+      userId: authenticatedUser.id,
     }).lean();
 
     if (!order) {
       return NextResponse.json(
-        { success: false, message: "Order not found." },
+        {
+          success: false,
+          message: "Order not found.",
+        },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      order: {
-        ...order,
-        _id: order._id.toString(),
-        userId: order.userId.toString(),
-        createdAt: order.createdAt.toISOString(),
-        updatedAt: order.updatedAt.toISOString(),
+    return NextResponse.json(
+      {
+        success: true,
+        order: {
+          ...order,
+          _id: order._id.toString(),
+          userId: order.userId.toString(),
+          createdAt: order.createdAt.toISOString(),
+          updatedAt: order.updatedAt.toISOString(),
+        },
       },
-    });
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("Get single order error:", error);
 
     return NextResponse.json(
-      { success: false, message: "Unable to load order." },
+      {
+        success: false,
+        message: "Unable to load order.",
+      },
       { status: 500 }
     );
   }
@@ -93,7 +124,7 @@ export async function PATCH(
   let session: mongoose.ClientSession | null = null;
 
   try {
-    // 1. Authenticate customer
+    // 1. Authenticate customer.
     const auth = await requireAuth();
 
     if (!auth.success) {
@@ -109,43 +140,65 @@ export async function PATCH(
       );
     }
 
-    // 2. Validate order ID
+    // Explicitly verify that the authenticated user exists.
+    const authenticatedUser = auth.user;
+
+    if (!authenticatedUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Please login first.",
+        },
+        { status: 401 }
+      );
+    }
+
+    // 2. Validate order ID.
     const { id } = await context.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
-        { success: false, message: "Invalid order ID." },
+        {
+          success: false,
+          message: "Invalid order ID.",
+        },
         { status: 400 }
       );
     }
 
-    // 3. Connect and start transaction
+    // 3. Connect and start transaction.
     await connectDB();
 
     session = await mongoose.startSession();
     session.startTransaction();
 
-    // 4. Find only this customer's order
+    // 4. Find only this authenticated customer's order.
     const order = await Order.findOne({
       _id: id,
-      userId: auth.user.id,
+      userId: authenticatedUser.id,
     }).session(session);
 
     if (!order) {
       await session.abortTransaction();
 
       return NextResponse.json(
-        { success: false, message: "Order not found." },
+        {
+          success: false,
+          message: "Order not found.",
+        },
         { status: 404 }
       );
     }
 
-    // 5. Check whether cancellation is allowed
+    // 5. Check whether cancellation is allowed.
     if (order.orderStatus === "cancelled") {
       await session.abortTransaction();
 
       return NextResponse.json(
-        { success: false, message: "This order is already cancelled." },
+        {
+          success: false,
+          message: "This order is already cancelled.",
+        },
         { status: 409 }
       );
     }
@@ -167,7 +220,7 @@ export async function PATCH(
       );
     }
 
-    // 6. Restore stock within the same transaction
+    // 6. Restore product stock within the same transaction.
     for (const item of order.items) {
       const productId = String(item.productId || "").trim();
       const quantity = Number(item.quantity);
@@ -190,8 +243,15 @@ export async function PATCH(
 
       const product = await Product.findByIdAndUpdate(
         productId,
-        { $inc: { stock: quantity } },
-        { new: true, session }
+        {
+          $inc: {
+            stock: quantity,
+          },
+        },
+        {
+          new: true,
+          session,
+        }
       );
 
       if (!product) {
@@ -208,13 +268,13 @@ export async function PATCH(
       }
     }
 
-    // 7. Cancel order in the same transaction
+    // 7. Cancel the order in the same transaction.
     order.orderStatus = "cancelled";
 
     await order.save({ session });
     await session.commitTransaction();
 
-    // 8. Notify admin only after successful cancellation
+    // 8. Notify admin only after successful cancellation.
     try {
       await AdminNotification.create({
         type: "customer_cancellation",
@@ -233,7 +293,8 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      message: "Order cancelled successfully. Product stock has been restored.",
+      message:
+        "Order cancelled successfully. Product stock has been restored.",
       order: {
         id: order._id.toString(),
         orderStatus: order.orderStatus,
@@ -247,12 +308,18 @@ export async function PATCH(
       try {
         await session.abortTransaction();
       } catch (rollbackError) {
-        console.error("Cancellation rollback error:", rollbackError);
+        console.error(
+          "Cancellation rollback error:",
+          rollbackError
+        );
       }
     }
 
     return NextResponse.json(
-      { success: false, message: "Unable to cancel order." },
+      {
+        success: false,
+        message: "Unable to cancel order.",
+      },
       { status: 500 }
     );
   } finally {

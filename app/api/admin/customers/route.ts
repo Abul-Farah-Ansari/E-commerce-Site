@@ -1,4 +1,6 @@
+
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/mongodb";
 import { requireAdmin } from "@/lib/adminAuth";
@@ -6,15 +8,30 @@ import { requireAdmin } from "@/lib/adminAuth";
 import User from "@/models/User";
 import Order from "@/models/Order";
 
+// ============================================================
+// Search filter type
+// ============================================================
+
+type SearchCondition = {
+  $regex: string;
+  $options: "i";
+};
+
+type CustomerSearchFilter = {
+  $or?: Array<
+    | { name: SearchCondition }
+    | { email: SearchCondition }
+    | { phone: SearchCondition }
+  >;
+};
 
 // ============================================================
 // Escape user input before using it inside MongoDB regex
 // ============================================================
 
-function escapeRegex(value: string) {
+function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
 
 // ============================================================
 // GET /api/admin/customers
@@ -40,7 +57,6 @@ export async function GET(request: Request) {
       );
     }
 
-
     // ----------------------------------------------------------
     // URL parameters
     // ----------------------------------------------------------
@@ -50,7 +66,6 @@ export async function GET(request: Request) {
     const rawPage = searchParams.get("page");
     const rawLimit = searchParams.get("limit");
     const rawSearch = searchParams.get("search");
-
 
     // ----------------------------------------------------------
     // Pagination validation
@@ -71,7 +86,6 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit;
 
-
     // ----------------------------------------------------------
     // Search
     // ----------------------------------------------------------
@@ -81,45 +95,32 @@ export async function GET(request: Request) {
         ? rawSearch.trim()
         : "";
 
-    let searchFilter = {};
+    const searchFilter: CustomerSearchFilter = {};
 
     if (search) {
-      /*
-       * IMPORTANT:
-       * Escape special regex characters so that customer
-       * search behaves like normal text search.
-       *
-       * Example:
-       * ".*" will now search for the literal text ".*"
-       * instead of matching every customer.
-       */
-
       const safeSearch = escapeRegex(search);
 
-      searchFilter = {
-        $or: [
-          {
-            name: {
-              $regex: safeSearch,
-              $options: "i",
-            },
+      searchFilter.$or = [
+        {
+          name: {
+            $regex: safeSearch,
+            $options: "i",
           },
-          {
-            email: {
-              $regex: safeSearch,
-              $options: "i",
-            },
+        },
+        {
+          email: {
+            $regex: safeSearch,
+            $options: "i",
           },
-          {
-            phone: {
-              $regex: safeSearch,
-              $options: "i",
-            },
+        },
+        {
+          phone: {
+            $regex: safeSearch,
+            $options: "i",
           },
-        ],
-      };
+        },
+      ];
     }
-
 
     // ----------------------------------------------------------
     // Database
@@ -127,16 +128,15 @@ export async function GET(request: Request) {
 
     await connectDB();
 
-
     // ----------------------------------------------------------
     // Customer filter
+    // Keep role as a literal type, not a general string.
     // ----------------------------------------------------------
 
     const customerFilter = {
-      role: "customer",
+      role: "customer" as const,
       ...searchFilter,
     };
-
 
     // ----------------------------------------------------------
     // Get total customer count
@@ -145,7 +145,6 @@ export async function GET(request: Request) {
     const total = await User.countDocuments(
       customerFilter
     );
-
 
     // ----------------------------------------------------------
     // Get customers
@@ -164,7 +163,6 @@ export async function GET(request: Request) {
       .limit(limit)
       .lean();
 
-
     // ----------------------------------------------------------
     // Get order statistics for current customers
     // ----------------------------------------------------------
@@ -173,14 +171,12 @@ export async function GET(request: Request) {
       (customer) => customer._id
     );
 
-
     let orderStats: Array<{
-      _id: string;
+      _id: mongoose.Types.ObjectId;
       orderCount: number;
       totalSpent: number;
       latestOrderDate: Date | null;
     }> = [];
-
 
     if (customerIds.length > 0) {
       orderStats = await Order.aggregate([
@@ -191,7 +187,6 @@ export async function GET(request: Request) {
             },
           },
         },
-
         {
           $group: {
             _id: "$userId",
@@ -223,7 +218,6 @@ export async function GET(request: Request) {
       ]);
     }
 
-
     // ----------------------------------------------------------
     // Create quick lookup for order statistics
     // ----------------------------------------------------------
@@ -237,7 +231,6 @@ export async function GET(request: Request) {
       }
     >();
 
-
     for (const stats of orderStats) {
       orderStatsMap.set(
         stats._id.toString(),
@@ -249,7 +242,6 @@ export async function GET(request: Request) {
         }
       );
     }
-
 
     // ----------------------------------------------------------
     // Format customers
@@ -282,16 +274,9 @@ export async function GET(request: Request) {
 
           role: customer.role,
 
-          /*
-           * Older users may not have accountStatus
-           * because the field was added later.
-           *
-           * Treat missing status as active.
-           */
-
+          // Older users without accountStatus are treated as active.
           accountStatus:
-            customer.accountStatus ||
-            "active",
+            customer.accountStatus || "active",
 
           createdAt:
             customer.createdAt.toISOString(),
@@ -313,39 +298,42 @@ export async function GET(request: Request) {
       }
     );
 
-
     // ----------------------------------------------------------
     // Pagination
     // ----------------------------------------------------------
 
-    const totalPages =
-      Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit);
 
-    const hasNextPage =
-      page < totalPages;
+    const hasNextPage = page < totalPages;
 
-    const hasPreviousPage =
-      page > 1;
-
+    const hasPreviousPage = page > 1;
 
     // ----------------------------------------------------------
     // Response
     // ----------------------------------------------------------
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json(
+      {
+        success: true,
 
-      customers: formattedCustomers,
+        customers: formattedCustomers,
 
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage,
-        hasPreviousPage,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage,
+          hasPreviousPage,
+        },
       },
-    });
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error(
       "Admin customers API error:",
@@ -355,8 +343,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        message:
-          "Unable to load customers.",
+        message: "Unable to load customers.",
       },
       {
         status: 500,

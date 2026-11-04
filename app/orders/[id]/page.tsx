@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { Icon } from "@iconify/react";
 
 import Navbar from "@/components/Navbar";
@@ -20,31 +19,21 @@ interface OrderItem {
 
 interface Order {
   _id: string;
-
   items: OrderItem[];
-
   customer: {
     name: string;
     email: string;
     phone: string;
   };
-
   shippingAddress: {
     address: string;
     city: string;
     state: string;
     pincode: string;
   };
-
   deliveryMethod: string;
-
   paymentMethod: "cod" | "online";
-
-  paymentStatus:
-    | "pending"
-    | "paid"
-    | "failed";
-
+  paymentStatus: "pending" | "paid" | "failed";
   orderStatus:
     | "pending"
     | "confirmed"
@@ -52,1819 +41,574 @@ interface Order {
     | "shipped"
     | "delivered"
     | "cancelled";
-
   subtotal: number;
   shipping: number;
   total: number;
-
   createdAt: string;
   updatedAt: string;
+  courierName?: string;
+  awbCode?: string;
+  trackingUrl?: string;
+  shipmentStatus?: string;
 }
 
-const trackingSteps = [
-  {
-    status: "pending",
-    title: "Order Placed",
-    description:
-      "Your order has been successfully placed.",
-    icon: "solar:bag-4-bold",
-  },
-  {
-    status: "confirmed",
-    title: "Order Confirmed",
-    description:
-      "Your order has been confirmed.",
-    icon: "solar:check-circle-bold",
-  },
-  {
-    status: "processing",
-    title: "Processing",
-    description:
-      "Your order is being prepared.",
-    icon: "solar:box-bold",
-  },
-  {
-    status: "shipped",
-    title: "Shipped",
-    description:
-      "Your order has been handed over to the courier.",
-    icon: "solar:delivery-bold",
-  },
-  {
-    status: "delivered",
-    title: "Delivered",
-    description:
-      "Your order has been delivered successfully.",
-    icon: "solar:home-2-bold",
-  },
+interface OrdersApiResponse {
+  success?: boolean;
+  message?: string;
+  orders?: Order[];
+}
+
+type OrderFilter = "all" | Order["orderStatus"];
+
+const FILTERS: { value: OrderFilter; label: string }[] = [
+  { value: "all", label: "All orders" },
+  { value: "pending", label: "Placed" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "processing", label: "Processing" },
+  { value: "shipped", label: "Shipped" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
-const statusOrder = [
-  "pending",
-  "confirmed",
-  "processing",
-  "shipped",
-  "delivered",
-];
+const STATUS_LABELS: Record<Order["orderStatus"], string> = {
+  pending: "Order placed",
+  confirmed: "Confirmed",
+  processing: "Preparing order",
+  shipped: "On the way",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
 
-export default function OrderDetailsPage() {
-  const params = useParams();
+const STATUS_ICONS: Record<Order["orderStatus"], string> = {
+  pending: "solar:clock-circle-linear",
+  confirmed: "solar:check-circle-linear",
+  processing: "solar:box-linear",
+  shipped: "solar:delivery-linear",
+  delivered: "solar:verified-check-linear",
+  cancelled: "solar:close-circle-linear",
+};
 
-  const orderId = params.id as string;
+function formatPrice(value: number) {
+  return Number(value || 0).toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+  });
+}
 
-  const [order, setOrder] =
-    useState<Order | null>(null);
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-  const [loading, setLoading] =
-    useState(true);
+function getPaymentLabel(order: Order) {
+  if (order.paymentMethod === "cod") {
+    return order.paymentStatus === "paid" ? "Paid" : "Cash on delivery";
+  }
 
-  const [error, setError] =
-    useState("");
+  if (order.paymentStatus === "paid") return "Paid online";
+  if (order.paymentStatus === "failed") return "Payment failed";
+  return "Payment pending";
+}
 
-  /* =========================================
-     FETCH ORDER
-  ========================================= */
+function getOrderReference(id: string) {
+  return id.slice(-8).toUpperCase();
+}
 
-  useEffect(() => {
-    if (orderId) {
-      fetchOrder();
-    }
-  }, [orderId]);
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [activeFilter, setActiveFilter] = useState<OrderFilter>("all");
+  const [search, setSearch] = useState("");
 
-  const fetchOrder = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `/api/orders/${orderId}`,
-        {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        }
-      );
+      const response = await fetch("/api/orders", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
 
-      const data =
-        await response.json();
+      const responseText = await response.text();
+      let data: OrdersApiResponse = {};
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText) as OrdersApiResponse;
+        } catch {
+          throw new Error(
+            `The server returned an invalid response (${response.status}). Please try again.`
+          );
+        }
+      }
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            data.message || "Your session has expired. Please log in again."
+          );
+        }
         throw new Error(
-          data.message ||
-            "Unable to load order."
+          data.message || `Unable to load orders. Server status: ${response.status}.`
         );
       }
 
-      setOrder(data.order);
-    } catch (error) {
-      console.error(
-        "FETCH ORDER ERROR:",
-        error
-      );
+      if (!Array.isArray(data.orders)) {
+        throw new Error(data.message || "The server did not return a valid order list.");
+      }
 
+      setOrders(data.orders);
+    } catch (fetchError) {
+      console.error("Fetch orders error:", fetchError);
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load order."
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Unable to load your orders. Please try again."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  /* =========================================
-     FORMAT DATE
-  ========================================= */
+  useEffect(() => {
+    void fetchOrders();
+  }, [fetchOrders]);
 
-  const formatDate = (
-    date: string
-  ) => {
-    return new Date(
-      date
-    ).toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }
-    );
-  };
+  const counts = useMemo(() => {
+    const result: Record<OrderFilter, number> = {
+      all: orders.length,
+      pending: 0,
+      confirmed: 0,
+      processing: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0,
+    };
+    orders.forEach((order) => {
+      result[order.orderStatus] += 1;
+    });
+    return result;
+  }, [orders]);
 
-  /* =========================================
-     FORMAT PRICE
-  ========================================= */
-
-  const formatPrice = (
-    price: number
-  ) => {
-    return Number(
-      price || 0
-    ).toLocaleString("en-IN");
-  };
-
-  /* =========================================
-     STATUS LABEL
-  ========================================= */
-
-  const getStatusLabel = (
-    status: string
-  ) => {
-    switch (status) {
-      case "pending":
-        return "Order Placed";
-
-      case "confirmed":
-        return "Confirmed";
-
-      case "processing":
-        return "Processing";
-
-      case "shipped":
-        return "Shipped";
-
-      case "delivered":
-        return "Delivered";
-
-      case "cancelled":
-        return "Cancelled";
-
-      default:
-        return status;
-    }
-  };
-
-  /* =========================================
-     STATUS ICON
-  ========================================= */
-
-  const getStatusIcon = (
-    status: string
-  ) => {
-    switch (status) {
-      case "delivered":
-        return "solar:check-circle-bold";
-
-      case "shipped":
-        return "solar:delivery-bold";
-
-      case "processing":
-        return "solar:box-bold";
-
-      case "confirmed":
-        return "solar:check-circle-bold";
-
-      case "cancelled":
-        return "solar:close-circle-bold";
-
-      default:
-        return "solar:clock-circle-bold";
-    }
-  };
-
-  /* =========================================
-     TRACKING STEP STATE
-  ========================================= */
-
-  const getStepState = (
-    status: string
-  ) => {
-    if (!order) {
-      return "upcoming";
-    }
-
-    if (
-      order.orderStatus ===
-      "cancelled"
-    ) {
-      return "cancelled";
-    }
-
-    const currentIndex =
-      statusOrder.indexOf(
-        order.orderStatus
+  const visibleOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return [...orders]
+      .filter((order) => activeFilter === "all" || order.orderStatus === activeFilter)
+      .filter((order) => {
+        if (!query) return true;
+        const searchable = [
+          order._id,
+          getOrderReference(order._id),
+          ...order.items.map((item) => item.name),
+          order.orderStatus,
+          order.courierName || "",
+          order.awbCode || "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return searchable.includes(query);
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
+  }, [orders, activeFilter, search]);
 
-    const stepIndex =
-      statusOrder.indexOf(status);
+  const activeOrders = orders.filter((order) =>
+    ["pending", "confirmed", "processing", "shipped"].includes(order.orderStatus)
+  ).length;
+  const deliveredOrders = counts.delivered;
+  const totalOrderValue = orders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0
+  );
 
-    if (
-      stepIndex <= currentIndex
-    ) {
-      return "completed";
-    }
-
-    return "upcoming";
-  };
-
-  /* =========================================
-     LOADING
-  ========================================= */
-
-  if (loading) {
-    return (
-      <>
-        <Navbar />
-
-        <main
-          className="order-loading"
-          style={{
-            minHeight: "70vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent:
-              "center",
-            background: "#f7f7f5",
-            padding: "60px 20px",
-          }}
-        >
-          <div
-            style={{
-              textAlign: "center",
-            }}
-          >
-            <Icon
-              icon="solar:refresh-circle-bold"
-              width="42"
-              height="42"
-              style={{
-                animation:
-                  "spin 1s linear infinite",
-              }}
-            />
-
-            <p
-              style={{
-                marginTop: "15px",
-                color: "#777",
-                fontSize: "13px",
-              }}
-            >
-              Loading order...
-            </p>
-          </div>
-        </main>
-
-        <style jsx>{`
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
-
-        <Footer />
-      </>
-    );
-  }
-
-  /* =========================================
-     ERROR / NOT FOUND
-  ========================================= */
-
-  if (error || !order) {
-    return (
-      <>
-        <Navbar />
-
-        <main
-          style={{
-            minHeight: "70vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent:
-              "center",
-            padding: "60px 20px",
-            background: "#f7f7f5",
-          }}
-        >
-          <div
-            className="error-card"
-            style={{
-              width: "100%",
-              maxWidth: "500px",
-              background: "#ffffff",
-              borderRadius: "20px",
-              padding:
-                "50px 25px",
-              textAlign: "center",
-              boxShadow:
-                "0 10px 35px rgba(0,0,0,0.05)",
-            }}
-          >
-            <div
-              style={{
-                width: "65px",
-                height: "65px",
-                margin: "0 auto",
-                borderRadius:
-                  "50%",
-                background:
-                  "#f2f2f2",
-                display: "flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-              }}
-            >
-              <Icon
-                icon="solar:danger-circle-bold"
-                width="34"
-                height="34"
-              />
-            </div>
-
-            <h2
-              style={{
-                fontSize: "24px",
-                marginTop: "20px",
-                marginBottom:
-                  "10px",
-                color: "#111",
-              }}
-            >
-              Order Not Found
-            </h2>
-
-            <p
-              style={{
-                color: "#777",
-                fontSize: "13px",
-                lineHeight: 1.7,
-                marginBottom:
-                  "25px",
-              }}
-            >
-              {error ||
-                "We couldn't find this order."}
-            </p>
-
-            <Link
-              href="/orders"
-              style={{
-                display:
-                  "inline-flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-                gap: "8px",
-                background: "#111",
-                color: "#fff",
-                padding:
-                  "13px 22px",
-                borderRadius:
-                  "999px",
-                textDecoration:
-                  "none",
-                fontSize: "12px",
-                fontWeight: 600,
-              }}
-            >
-              <Icon
-                icon="solar:arrow-left-linear"
-                width="17"
-              />
-
-              Back to Orders
-            </Link>
-          </div>
-        </main>
-
-        <Footer />
-      </>
-    );
-  }
-
-  /* =========================================
-     MAIN PAGE
-  ========================================= */
-
-  return (
+  const renderPageShell = (content: ReactNode) => (
     <>
       <Navbar />
+      {content}
+      <Footer />
+    </>
+  );
 
-      <main
-        className="order-details-page"
-        style={{
-          minHeight: "70vh",
-          background: "#f7f7f5",
-          padding:
-            "60px 20px 100px",
-        }}
-      >
-        <div
-          className="order-details-container"
-          style={{
-            width: "100%",
-            maxWidth: "1100px",
-            margin: "0 auto",
-          }}
-        >
-          {/* =================================
-              BACK
-          ================================= */}
+  if (loading) {
+    return renderPageShell(
+      <main className="orive-orders-page">
+        <div className="orive-orders-wrap">
+          <div className="orive-loading-card">
+            <span className="orive-loader" />
+            <p>Gathering your order history</p>
+            <span>Just a moment...</span>
+          </div>
+        </div>
+        <OrdersStyles />
+      </main>
+    );
+  }
 
-          <Link
-            href="/orders"
-            style={{
-              display:
-                "inline-flex",
-              alignItems:
-                "center",
-              gap: "7px",
-              color: "#666",
-              textDecoration:
-                "none",
-              fontSize: "12px",
-              marginBottom:
-                "25px",
-            }}
-          >
-            <Icon
-              icon="solar:arrow-left-linear"
-              width="17"
-            />
-
-            Back to Orders
-          </Link>
-
-          {/* =================================
-              ORDER HEADER
-          ================================= */}
-
-          <section
-            className="order-main-header"
-            style={{
-              background: "#fff",
-              borderRadius:
-                "20px",
-              padding: "30px",
-              marginBottom:
-                "20px",
-              boxShadow:
-                "0 8px 30px rgba(0,0,0,0.04)",
-            }}
-          >
-            <div
-              className="order-header-content"
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems:
-                  "flex-start",
-                gap: "20px",
-              }}
-            >
-              <div
-                style={{
-                  minWidth: 0,
-                }}
-              >
-                <span
-                  style={{
-                    display:
-                      "block",
-                    fontSize: "9px",
-                    fontWeight: 600,
-                    letterSpacing:
-                      "0.18em",
-                    textTransform:
-                      "uppercase",
-                    color: "#999",
-                  }}
-                >
-                  Order
-                </span>
-
-                <h1
-                  style={{
-                    margin:
-                      "8px 0",
-                    fontSize:
-                      "clamp(22px, 4vw, 30px)",
-                    fontWeight: 600,
-                    letterSpacing:
-                      "-0.03em",
-                    color: "#111",
-                    wordBreak:
-                      "break-all",
-                  }}
-                >
-                  #{order._id}
-                </h1>
-
-                <p
-                  style={{
-                    margin: 0,
-                    color: "#777",
-                    fontSize: "12px",
-                  }}
-                >
-                  Placed on{" "}
-                  {formatDate(
-                    order.createdAt
-                  )}
-                </p>
-              </div>
-
-              <div
-                className={`order-status status-${order.orderStatus}`}
-                style={{
-                  display:
-                    "inline-flex",
-                  alignItems:
-                    "center",
-                  gap: "7px",
-                  padding:
-                    "9px 14px",
-                  borderRadius:
-                    "999px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  whiteSpace:
-                    "nowrap",
-                }}
-              >
-                <Icon
-                  icon={getStatusIcon(
-                    order.orderStatus
-                  )}
-                  width="17"
-                />
-
-                {getStatusLabel(
-                  order.orderStatus
-                )}
-              </div>
+  if (error) {
+    const needsLogin = /session|login/i.test(error);
+    return renderPageShell(
+      <main className="orive-orders-page">
+        <div className="orive-orders-wrap">
+          <div className="orive-state-card">
+            <div className="orive-state-icon">
+              <Icon icon={needsLogin ? "solar:lock-keyhole-linear" : "solar:danger-triangle-linear"} />
             </div>
-          </section>
-
-          {/* =================================
-              ORDER TRACKING
-          ================================= */}
-
-          <section
-            className="tracking-card"
-            style={{
-              background: "#fff",
-              borderRadius:
-                "20px",
-              padding: "30px",
-              marginBottom:
-                "20px",
-              boxShadow:
-                "0 8px 30px rgba(0,0,0,0.04)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems:
-                  "center",
-                gap: "10px",
-                marginBottom:
-                  "30px",
-              }}
-            >
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius:
-                    "12px",
-                  background:
-                    "#f3f3f3",
-                  display: "flex",
-                  alignItems:
-                    "center",
-                  justifyContent:
-                    "center",
-                }}
-              >
-                <Icon
-                  icon="solar:map-arrow-right-linear"
-                  width="21"
-                />
-              </div>
-
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: "20px",
-                  fontWeight: 600,
-                  color: "#111",
-                }}
-              >
-                Order Tracking
-              </h2>
-            </div>
-
-            {order.orderStatus ===
-            "cancelled" ? (
-              <div
-                className="cancelled-box"
-                style={{
-                  display: "flex",
-                  alignItems:
-                    "center",
-                  gap: "14px",
-                  padding: "20px",
-                  borderRadius:
-                    "12px",
-                  background:
-                    "#f5f5f5",
-                }}
-              >
-                <div
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    minWidth: "42px",
-                    borderRadius:
-                      "50%",
-                    background:
-                      "#e8e8e8",
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    justifyContent:
-                      "center",
-                  }}
-                >
-                  <Icon
-                    icon="solar:close-circle-bold"
-                    width="22"
-                  />
-                </div>
-
-                <div>
-                  <strong
-                    style={{
-                      fontSize:
-                        "14px",
-                      color:
-                        "#111",
-                    }}
-                  >
-                    Order Cancelled
-                  </strong>
-
-                  <p
-                    style={{
-                      margin:
-                        "5px 0 0",
-                      color:
-                        "#777",
-                      fontSize:
-                        "12px",
-                      lineHeight:
-                        1.5,
-                    }}
-                  >
-                    This order has
-                    been cancelled.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="tracking-list">
-                {trackingSteps.map(
-                  (
-                    step,
-                    index
-                  ) => {
-                    const state =
-                      getStepState(
-                        step.status
-                      );
-
-                    return (
-                      <div
-                        key={
-                          step.status
-                        }
-                        className="tracking-step"
-                        style={{
-                          display:
-                            "flex",
-                          gap: "16px",
-                          position:
-                            "relative",
-                          paddingBottom:
-                            index ===
-                            trackingSteps.length -
-                              1
-                              ? "0"
-                              : "28px",
-                        }}
-                      >
-                        {/* CONNECTING LINE */}
-
-                        {index !==
-                          trackingSteps.length -
-                            1 && (
-                          <div
-                            className={
-                              state ===
-                              "completed"
-                                ? "tracking-line active"
-                                : "tracking-line"
-                            }
-                          />
-                        )}
-
-                        {/* ICON */}
-
-                        <div
-                          className={`tracking-icon ${
-                            state ===
-                            "completed"
-                              ? "completed"
-                              : ""
-                          }`}
-                        >
-                          <Icon
-                            icon={
-                              step.icon
-                            }
-                            width="18"
-                            height="18"
-                          />
-                        </div>
-
-                        {/* CONTENT */}
-
-                        <div
-                          style={{
-                            paddingTop:
-                              "2px",
-                          }}
-                        >
-                          <strong
-                            style={{
-                              display:
-                                "block",
-                              fontSize:
-                                "14px",
-                              color:
-                                state ===
-                                "completed"
-                                  ? "#111"
-                                  : "#999",
-                            }}
-                          >
-                            {
-                              step.title
-                            }
-                          </strong>
-
-                          <p
-                            style={{
-                              margin:
-                                "5px 0 0",
-                              color:
-                                "#888",
-                              fontSize:
-                                "12px",
-                              lineHeight:
-                                1.6,
-                            }}
-                          >
-                            {
-                              step.description
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* =================================
-              MAIN GRID
-          ================================= */}
-
-          <div
-            className="order-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "minmax(0, 1.5fr) minmax(280px, 1fr)",
-              gap: "20px",
-            }}
-          >
-            {/* =================================
-                ITEMS
-            ================================= */}
-
-            <section
-              className="items-card"
-              style={{
-                background: "#fff",
-                borderRadius:
-                  "20px",
-                padding: "25px",
-                boxShadow:
-                  "0 8px 30px rgba(0,0,0,0.04)",
-              }}
-            >
-              <div
-                style={{
-                  display:
-                    "flex",
-                  alignItems:
-                    "center",
-                  justifyContent:
-                    "space-between",
-                  marginBottom:
-                    "20px",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize:
-                      "20px",
-                    fontWeight:
-                      600,
-                  }}
-                >
-                  Items
-                </h2>
-
-                <span
-                  style={{
-                    fontSize:
-                      "11px",
-                    color:
-                      "#888",
-                  }}
-                >
-                  {order.items.length}{" "}
-                  {order.items.length ===
-                  1
-                    ? "item"
-                    : "items"}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  display:
-                    "grid",
-                  gap: "18px",
-                }}
-              >
-                {order.items.map(
-                  (
-                    item,
-                    index
-                  ) => (
-                    <div
-                      key={`${item.productId}-${index}`}
-                      className="detail-item"
-                      style={{
-                        display:
-                          "flex",
-                        gap: "15px",
-                        paddingBottom:
-                          index ===
-                          order.items
-                            .length -
-                            1
-                            ? "0"
-                            : "18px",
-                        borderBottom:
-                          index ===
-                          order.items
-                            .length -
-                            1
-                            ? "none"
-                            : "1px solid #eee",
-                      }}
-                    >
-                      {/* IMAGE */}
-
-                      <div
-                        className="detail-item-image"
-                        style={{
-                          width:
-                            "85px",
-                          height:
-                            "95px",
-                          flexShrink:
-                            0,
-                          borderRadius:
-                            "10px",
-                          overflow:
-                            "hidden",
-                          background:
-                            "#f4f4f4",
-                        }}
-                      >
-                        {item.image ? (
-                          <img
-                            src={
-                              item.image
-                            }
-                            alt={
-                              item.name
-                            }
-                            style={{
-                              width:
-                                "100%",
-                              height:
-                                "100%",
-                              objectFit:
-                                "cover",
-                              display:
-                                "block",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width:
-                                "100%",
-                              height:
-                                "100%",
-                              display:
-                                "flex",
-                              alignItems:
-                                "center",
-                              justifyContent:
-                                "center",
-                            }}
-                          >
-                            <Icon
-                              icon="solar:gallery-linear"
-                              width="25"
-                              color="#aaa"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* INFO */}
-
-                      <div
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                        }}
-                      >
-                        <h3
-                          style={{
-                            fontSize:
-                              "14px",
-                            fontWeight:
-                              600,
-                            margin:
-                              "0 0 7px",
-                            color:
-                              "#111",
-                          }}
-                        >
-                          {
-                            item.name
-                          }
-                        </h3>
-
-                        <p
-                          style={{
-                            margin:
-                              "0 0 5px",
-                            color:
-                              "#777",
-                            fontSize:
-                              "12px",
-                          }}
-                        >
-                          Quantity:{" "}
-                          {
-                            item.quantity
-                          }
-                        </p>
-
-                        {item.size && (
-                          <p
-                            style={{
-                              margin:
-                                "0 0 5px",
-                              color:
-                                "#777",
-                              fontSize:
-                                "12px",
-                            }}
-                          >
-                            Size:{" "}
-                            {
-                              item.size
-                            }
-                          </p>
-                        )}
-
-                        {item.color && (
-                          <p
-                            style={{
-                              margin:
-                                0,
-                              color:
-                                "#777",
-                              fontSize:
-                                "12px",
-                            }}
-                          >
-                            Color:{" "}
-                            {
-                              item.color
-                            }
-                          </p>
-                        )}
-                      </div>
-
-                      {/* PRICE */}
-
-                      <strong
-                        style={{
-                          fontSize:
-                            "13px",
-                          whiteSpace:
-                            "nowrap",
-                          color:
-                            "#111",
-                        }}
-                      >
-                        ₹
-                        {formatPrice(
-                          item.price *
-                            item.quantity
-                        )}
-                      </strong>
-                    </div>
-                  )
-                )}
-              </div>
-            </section>
-
-            {/* =================================
-                RIGHT COLUMN
-            ================================= */}
-
-            <div
-              style={{
-                display: "grid",
-                gap: "20px",
-                alignContent:
-                  "start",
-              }}
-            >
-              {/* =================================
-                  ORDER SUMMARY
-              ================================= */}
-
-              <section
-                className="side-card"
-                style={{
-                  background:
-                    "#fff",
-                  borderRadius:
-                    "20px",
-                  padding:
-                    "25px",
-                  boxShadow:
-                    "0 8px 30px rgba(0,0,0,0.04)",
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize:
-                      "19px",
-                    margin:
-                      "0 0 20px",
-                    fontWeight:
-                      600,
-                  }}
-                >
-                  Order Summary
-                </h2>
-
-                <div
-                  style={{
-                    display:
-                      "grid",
-                    gap: "12px",
-                  }}
-                >
-                  <div className="summary-row">
-                    <span>
-                      Subtotal
-                    </span>
-
-                    <span>
-                      ₹
-                      {formatPrice(
-                        order.subtotal
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="summary-row">
-                    <span>
-                      Shipping
-                    </span>
-
-                    <span>
-                      {order.shipping ===
-                      0
-                        ? "FREE"
-                        : `₹${formatPrice(
-                            order.shipping
-                          )}`}
-                    </span>
-                  </div>
-
-                  <div
-                    className="summary-total"
-                  >
-                    <span>
-                      Total
-                    </span>
-
-                    <span>
-                      ₹
-                      {formatPrice(
-                        order.total
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </section>
-
-              {/* =================================
-                  DELIVERY ADDRESS
-              ================================= */}
-
-              <section
-                className="side-card"
-                style={{
-                  background:
-                    "#fff",
-                  borderRadius:
-                    "20px",
-                  padding:
-                    "25px",
-                  boxShadow:
-                    "0 8px 30px rgba(0,0,0,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    gap: "9px",
-                    marginBottom:
-                      "20px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width:
-                        "38px",
-                      height:
-                        "38px",
-                      borderRadius:
-                        "10px",
-                      background:
-                        "#f3f3f3",
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                    }}
-                  >
-                    <Icon
-                      icon="solar:map-point-linear"
-                      width="19"
-                    />
-                  </div>
-
-                  <h2
-                    style={{
-                      fontSize:
-                        "19px",
-                      margin: 0,
-                      fontWeight:
-                        600,
-                    }}
-                  >
-                    Delivery Address
-                  </h2>
-                </div>
-
-                <p
-                  style={{
-                    margin:
-                      "0 0 5px",
-                    fontWeight:
-                      600,
-                    fontSize:
-                      "13px",
-                    color:
-                      "#111",
-                  }}
-                >
-                  {
-                    order.customer
-                      .name
-                  }
-                </p>
-
-                <p
-                  style={{
-                    margin: 0,
-                    color:
-                      "#666",
-                    fontSize:
-                      "12px",
-                    lineHeight:
-                      1.8,
-                  }}
-                >
-                  {
-                    order
-                      .shippingAddress
-                      .address
-                  }
-                  <br />
-
-                  {
-                    order
-                      .shippingAddress
-                      .city
-                  }
-                  ,{" "}
-                  {
-                    order
-                      .shippingAddress
-                      .state
-                  }
-                  <br />
-
-                  PIN:{" "}
-                  {
-                    order
-                      .shippingAddress
-                      .pincode
-                  }
-                </p>
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    gap: "7px",
-                    marginTop:
-                      "14px",
-                    paddingTop:
-                      "14px",
-                    borderTop:
-                      "1px solid #eee",
-                  }}
-                >
-                  <Icon
-                    icon="solar:phone-linear"
-                    width="16"
-                    color="#777"
-                  />
-
-                  <span
-                    style={{
-                      fontSize:
-                        "12px",
-                      color:
-                        "#666",
-                    }}
-                  >
-                    {
-                      order.customer
-                        .phone
-                    }
-                  </span>
-                </div>
-              </section>
-
-              {/* =================================
-                  PAYMENT
-              ================================= */}
-
-              <section
-                className="side-card"
-                style={{
-                  background:
-                    "#fff",
-                  borderRadius:
-                    "20px",
-                  padding:
-                    "25px",
-                  boxShadow:
-                    "0 8px 30px rgba(0,0,0,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    gap: "9px",
-                    marginBottom:
-                      "18px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width:
-                        "38px",
-                      height:
-                        "38px",
-                      borderRadius:
-                        "10px",
-                      background:
-                        "#f3f3f3",
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                    }}
-                  >
-                    <Icon
-                      icon={
-                        order.paymentMethod ===
-                        "cod"
-                          ? "solar:hand-money-linear"
-                          : "solar:card-linear"
-                      }
-                      width="19"
-                    />
-                  </div>
-
-                  <h2
-                    style={{
-                      fontSize:
-                        "19px",
-                      margin: 0,
-                      fontWeight:
-                        600,
-                    }}
-                  >
-                    Payment
-                  </h2>
-                </div>
-
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize:
-                      "13px",
-                    fontWeight:
-                      600,
-                    color:
-                      "#111",
-                  }}
-                >
-                  {order.paymentMethod ===
-                  "cod"
-                    ? "Cash on Delivery"
-                    : "Online Payment"}
-                </p>
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    justifyContent:
-                      "space-between",
-                    gap: "10px",
-                    marginTop:
-                      "12px",
-                    paddingTop:
-                      "12px",
-                    borderTop:
-                      "1px solid #eee",
-                  }}
-                >
-                  <span
-                    style={{
-                      color:
-                        "#777",
-                      fontSize:
-                        "11px",
-                    }}
-                  >
-                    Payment Status
-                  </span>
-
-                  <span
-                    className={`payment-status payment-${order.paymentStatus}`}
-                  >
-                    {order.paymentStatus
-                      .charAt(0)
-                      .toUpperCase() +
-                      order.paymentStatus.slice(
-                        1
-                      )}
-                  </span>
-                </div>
-              </section>
-
-              {/* =================================
-                  DELIVERY METHOD
-              ================================= */}
-
-              <section
-                className="side-card"
-                style={{
-                  background:
-                    "#fff",
-                  borderRadius:
-                    "20px",
-                  padding:
-                    "25px",
-                  boxShadow:
-                    "0 8px 30px rgba(0,0,0,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    gap: "9px",
-                    marginBottom:
-                      "15px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width:
-                        "38px",
-                      height:
-                        "38px",
-                      borderRadius:
-                        "10px",
-                      background:
-                        "#f3f3f3",
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                    }}
-                  >
-                    <Icon
-                      icon="solar:delivery-linear"
-                      width="19"
-                    />
-                  </div>
-
-                  <h2
-                    style={{
-                      fontSize:
-                        "19px",
-                      margin: 0,
-                      fontWeight:
-                        600,
-                    }}
-                  >
-                    Delivery
-                  </h2>
-                </div>
-
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize:
-                      "13px",
-                    color:
-                      "#666",
-                  }}
-                >
-                  {order.deliveryMethod ||
-                    "Standard Delivery"}
-                </p>
-              </section>
+            <p className="orive-eyebrow">HOUSE OF ORIVE · ACCOUNT</p>
+            <h1>{needsLogin ? "Please sign in" : "We couldn't load your orders"}</h1>
+            <p className="orive-state-copy">{error}</p>
+            <div className="orive-state-actions">
+              <button className="orive-button orive-button-dark" onClick={() => void fetchOrders()} type="button">
+                Try again <Icon icon="solar:refresh-linear" />
+              </button>
+              {needsLogin && (
+                <Link className="orive-button orive-button-light" href="/login?redirect=/orders">
+                  Sign in <Icon icon="solar:arrow-up-right-linear" />
+                </Link>
+              )}
             </div>
           </div>
         </div>
+        <OrdersStyles />
       </main>
+    );
+  }
 
-      <Footer />
+  return renderPageShell(
+    <main className="orive-orders-page">
+      <div className="orive-orders-wrap">
+        <div className="orive-breadcrumb">
+          <Link href="/account"><Icon icon="solar:alt-arrow-left-linear" /> My account</Link>
+          <span>/</span>
+          <span>Orders</span>
+        </div>
 
-      {/* =========================================
-          STYLES
-      ========================================= */}
+        <header className="orive-orders-hero">
+          <div>
+            <p className="orive-eyebrow">YOUR HOUSE OF ORIVE ACCOUNT</p>
+            <h1>My <em>orders.</em></h1>
+            <p className="orive-hero-copy">Every order, thoughtfully kept in one place. Follow your purchases from checkout to your door.</p>
+          </div>
+          <div className="orive-hero-mark" aria-hidden="true">
+            <span>H</span>
+            <small>ORIVE / 01</small>
+          </div>
+        </header>
 
-      <style jsx>{`
-        .status-pending {
-          background: #f1f1f1;
-          color: #555;
-        }
+        <section className="orive-order-stats" aria-label="Order overview">
+          <article className="orive-stat-card">
+            <span className="orive-stat-label">TOTAL ORDERS</span>
+            <strong>{orders.length.toString().padStart(2, "0")}</strong>
+            <span className="orive-stat-foot">Your purchase history</span>
+          </article>
+          <article className="orive-stat-card">
+            <span className="orive-stat-label">IN PROGRESS</span>
+            <strong>{activeOrders.toString().padStart(2, "0")}</strong>
+            <span className="orive-stat-foot">Orders being fulfilled</span>
+          </article>
+          <article className="orive-stat-card">
+            <span className="orive-stat-label">DELIVERED</span>
+            <strong>{deliveredOrders.toString().padStart(2, "0")}</strong>
+            <span className="orive-stat-foot">Successfully received</span>
+          </article>
+          <article className="orive-stat-card orive-stat-spend">
+            <span className="orive-stat-label">ORDER VALUE</span>
+            <strong>₹{formatPrice(totalOrderValue)}</strong>
+            <span className="orive-stat-foot">Combined value of all orders</span>
+          </article>
+        </section>
 
-        .status-confirmed {
-          background: #eaeaea;
-          color: #222;
-        }
+        <section className="orive-orders-section">
+          <div className="orive-list-heading">
+            <div>
+              <p className="orive-eyebrow">THE DETAILS</p>
+              <h2>Order history <span>({orders.length})</span></h2>
+            </div>
+            <label className="orive-search">
+              <Icon icon="solar:magnifer-linear" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search order or product"
+                aria-label="Search orders by order number or product"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
+                  <Icon icon="solar:close-circle-linear" />
+                </button>
+              )}
+            </label>
+          </div>
 
-        .status-processing {
-          background: #e7e7e7;
-          color: #222;
-        }
+          <div className="orive-filter-row" role="tablist" aria-label="Filter orders by status">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                role="tab"
+                aria-selected={activeFilter === filter.value}
+                className={`orive-filter ${activeFilter === filter.value ? "is-active" : ""}`}
+                onClick={() => setActiveFilter(filter.value)}
+              >
+                {filter.label}
+                <span>{counts[filter.value]}</span>
+              </button>
+            ))}
+          </div>
 
-        .status-shipped {
-          background: #e4e4e4;
-          color: #111;
-        }
+          {orders.length === 0 ? (
+            <div className="orive-empty-card">
+              <div className="orive-empty-symbol"><Icon icon="solar:bag-4-linear" /></div>
+              <p className="orive-eyebrow">A NEW CHAPTER</p>
+              <h2>Your story starts here.</h2>
+              <p>You haven't placed an order yet. Discover pieces selected for your everyday wardrobe.</p>
+              <Link href="/products" className="orive-button orive-button-dark">Explore the collection <Icon icon="solar:arrow-right-linear" /></Link>
+            </div>
+          ) : visibleOrders.length === 0 ? (
+            <div className="orive-no-results">
+              <Icon icon="solar:magnifer-linear" />
+              <h3>No matching orders</h3>
+              <p>Try another search term or select a different order status.</p>
+              <button type="button" onClick={() => { setSearch(""); setActiveFilter("all"); }}>Clear filters</button>
+            </div>
+          ) : (
+            <div className="orive-order-list">
+              {visibleOrders.map((order) => {
+                const itemCount = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+                const previewItems = order.items.slice(0, 3);
+                return (
+                  <article className="orive-order-card" key={order._id}>
+                    <div className="orive-order-card-top">
+                      <div>
+                        <span className="orive-card-kicker">ORDER REFERENCE</span>
+                        <h3>#{getOrderReference(order._id)}</h3>
+                        <p>Placed on {formatDate(order.createdAt)}</p>
+                      </div>
+                      <span className={`orive-status status-${order.orderStatus}`}>
+                        <Icon icon={STATUS_ICONS[order.orderStatus]} />
+                        {STATUS_LABELS[order.orderStatus]}
+                      </span>
+                    </div>
 
-        .status-delivered {
-          background: #dedede;
-          color: #111;
-        }
+                    <div className="orive-order-card-middle">
+                      <div className="orive-product-preview">
+                        <div className="orive-thumb-stack">
+                          {previewItems.map((item, index) => (
+                            <div className="orive-thumb" key={`${order._id}-${item.productId}-${index}`} style={{ zIndex: previewItems.length - index }}>
+                              {item.image ? <img src={item.image} alt={item.name} /> : <Icon icon="solar:gallery-linear" />}
+                            </div>
+                          ))}
+                          {order.items.length > 3 && <span className="orive-thumb-more">+{order.items.length - 3}</span>}
+                        </div>
+                        <div className="orive-product-summary">
+                          <strong>{order.items[0]?.name || "Your order"}</strong>
+                          {order.items.length > 1 && <span>and {order.items.length - 1} other {order.items.length === 2 ? "item" : "items"}</span>}
+                          <small>{itemCount} {itemCount === 1 ? "piece" : "pieces"} in this order</small>
+                        </div>
+                      </div>
+                      <div className="orive-card-meta">
+                        <span>PAYMENT</span>
+                        <strong>{getPaymentLabel(order)}</strong>
+                        <small>{order.paymentMethod === "cod" ? "Cash on delivery" : "Online payment"}</small>
+                      </div>
+                      <div className="orive-card-total">
+                        <span>ORDER TOTAL</span>
+                        <strong>₹{formatPrice(order.total)}</strong>
+                        <small>{order.shipping === 0 ? "Complimentary shipping" : `Shipping ₹${formatPrice(order.shipping)}`}</small>
+                      </div>
+                    </div>
 
-        .status-cancelled {
-          background: #eeeeee;
-          color: #777;
-        }
+                    <div className="orive-order-card-bottom">
+                      <div className="orive-delivery-hint">
+                        <Icon icon="solar:map-point-linear" />
+                        <span>{[order.shippingAddress?.city, order.shippingAddress?.state].filter(Boolean).join(", ") || "Delivery address on file"}</span>
+                        {order.awbCode && <small>AWB {order.awbCode}</small>}
+                      </div>
+                      <Link href={`/orders/${order._id}`} className="orive-view-order">
+                        View order <Icon icon="solar:arrow-up-right-linear" />
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-        .tracking-step {
-          min-height: 35px;
-        }
+        <div className="orive-help-strip">
+          <div className="orive-help-icon"><Icon icon="solar:chat-round-line-linear" /></div>
+          <div><strong>Need a hand with an order?</strong><span>Our team is happy to help with delivery, payment or product questions.</span></div>
+          <Link href="/contact">Contact us <Icon icon="solar:arrow-up-right-linear" /></Link>
+        </div>
+      </div>
+      <OrdersStyles />
+    </main>
+  );
+}
 
-        .tracking-line {
-          position: absolute;
-          left: 17px;
-          top: 35px;
-          bottom: 0;
-          width: 1px;
-          background: #dddddd;
-        }
-
-        .tracking-line.active {
-          background: #111111;
-        }
-
-        .tracking-icon {
-          width: 35px;
-          height: 35px;
-          min-width: 35px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #eeeeee;
-          color: #999999;
-          position: relative;
-          z-index: 1;
-        }
-
-        .tracking-icon.completed {
-          background: #111111;
-          color: #ffffff;
-        }
-
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
-          gap: 15px;
-          font-size: 13px;
-          color: #666666;
-        }
-
-        .summary-total {
-          border-top: 1px solid #eeeeee;
-          padding-top: 15px;
-          margin-top: 5px;
-          display: flex;
-          justify-content: space-between;
-          gap: 15px;
-          font-size: 18px;
-          font-weight: 600;
-          color: #111111;
-        }
-
-        .payment-status {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 5px 9px;
-          border-radius: 999px;
-          font-size: 10px;
-          font-weight: 600;
-        }
-
-        .payment-pending {
-          background: #f1f1f1;
-          color: #666666;
-        }
-
-        .payment-paid {
-          background: #e8e8e8;
-          color: #111111;
-        }
-
-        .payment-failed {
-          background: #ededed;
-          color: #777777;
-        }
-
-        @media (max-width: 800px) {
-          .order-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-
-        @media (max-width: 600px) {
-          .order-details-page {
-            padding:
-              45px 15px 70px !important;
-          }
-
-          .order-main-header,
-          .tracking-card,
-          .items-card,
-          .side-card {
-            border-radius:
-              16px !important;
-          }
-
-          .order-main-header {
-            padding: 22px !important;
-          }
-
-          .tracking-card,
-          .items-card,
-          .side-card {
-            padding: 20px !important;
-          }
-
-          .order-header-content {
-            flex-direction: column !important;
-          }
-
-          .order-status {
-            align-self: flex-start;
-          }
-
-          .detail-item {
-            gap: 12px !important;
-          }
-
-          .detail-item-image {
-            width: 70px !important;
-            height: 80px !important;
-          }
-
-          .detail-item h3 {
-            font-size: 13px !important;
-          }
-
-          .detail-item p {
-            font-size: 11px !important;
-          }
-
-          .tracking-card {
-            padding:
-              22px 18px !important;
-          }
-
-          .cancelled-box {
-            align-items:
-              flex-start !important;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .order-details-page {
-            padding:
-              40px 12px 60px !important;
-          }
-
-          .order-main-header,
-          .tracking-card,
-          .items-card,
-          .side-card {
-            padding: 17px !important;
-          }
-
-          .detail-item {
-            display: grid !important;
-            grid-template-columns:
-              60px minmax(0, 1fr) !important;
-          }
-
-          .detail-item-image {
-            width: 60px !important;
-            height: 70px !important;
-          }
-
-          .detail-item > strong {
-            grid-column: 2;
-            grid-row: 2;
-            margin-top: -8px;
-          }
-
-          .tracking-step {
-            gap: 12px !important;
-          }
-        }
-
-        @media (max-width: 359px) {
-          .order-details-page {
-            padding:
-              35px 10px 55px !important;
-          }
-
-          .order-main-header,
-          .tracking-card,
-          .items-card,
-          .side-card {
-            padding: 15px !important;
-          }
-
-          .order-main-header h1 {
-            font-size: 20px !important;
-          }
-
-          .tracking-card h2,
-          .items-card h2,
-          .side-card h2 {
-            font-size: 17px !important;
-          }
-        }
-      `}</style>
-    </>
+function OrdersStyles() {
+  return (
+    <style jsx global>{`
+      .orive-orders-page { background: #f7f6f3; color: #171715; min-height: 72vh; padding: 38px 24px 100px; }
+      .orive-orders-wrap { width: min(1180px, 100%); margin: 0 auto; }
+      .orive-breadcrumb { display:flex; align-items:center; gap:10px; color:#99958e; font-size:11px; letter-spacing:.03em; margin-bottom:38px; }
+      .orive-breadcrumb a { display:inline-flex; align-items:center; gap:7px; color:#77736d; text-decoration:none; transition:color .2s; }
+      .orive-breadcrumb a:hover { color:#111; }
+      .orive-breadcrumb svg { font-size:15px; }
+      .orive-orders-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:30px; padding:0 0 38px; border-bottom:1px solid #dedbd5; }
+      .orive-eyebrow { margin:0; color:#89847b; font-size:9px; font-weight:700; letter-spacing:.22em; line-height:1.5; }
+      .orive-orders-hero h1 { margin:14px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:clamp(48px, 7vw, 78px); font-weight:400; letter-spacing:-.065em; line-height:.95; }
+      .orive-orders-hero h1 em { font-weight:400; color:#8b8174; }
+      .orive-hero-copy { max-width:490px; margin:18px 0 0; color:#77736d; font-size:13px; line-height:1.8; }
+      .orive-hero-mark { width:104px; height:104px; border:1px solid #d8d4cd; border-radius:50%; display:flex; flex-direction:column; justify-content:center; align-items:center; flex-shrink:0; color:#777167; }
+      .orive-hero-mark span { font-family:Georgia,serif; font-size:49px; line-height:1; }
+      .orive-hero-mark small { margin-top:5px; font-size:7px; letter-spacing:.18em; }
+      .orive-order-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:24px 0 66px; }
+      .orive-stat-card { min-height:126px; padding:20px 22px; background:#fff; border:1px solid #ebe8e2; }
+      .orive-stat-label { display:block; color:#969087; font-size:8px; letter-spacing:.17em; font-weight:700; }
+      .orive-stat-card strong { display:block; margin-top:13px; font-family:Georgia,serif; font-size:32px; font-weight:400; letter-spacing:-.04em; line-height:1; }
+      .orive-stat-spend strong { font-size:28px; }
+      .orive-stat-foot { display:block; margin-top:9px; color:#99948c; font-size:10px; }
+      .orive-orders-section { min-width:0; }
+      .orive-list-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:23px; }
+      .orive-list-heading h2 { margin:8px 0 0; font-family:Georgia,serif; font-size:32px; font-weight:400; letter-spacing:-.04em; }
+      .orive-list-heading h2 span { color:#aaa49a; font-family:Arial,sans-serif; font-size:13px; letter-spacing:0; }
+      .orive-search { width:min(330px,100%); height:46px; padding:0 14px; display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #e4e0d9; }
+      .orive-search > svg { color:#8d887f; font-size:17px; flex-shrink:0; }
+      .orive-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:#222; font-size:11px; }
+      .orive-search input::placeholder { color:#a8a39a; }
+      .orive-search button { display:grid; place-items:center; padding:2px; border:0; background:transparent; color:#888; cursor:pointer; font-size:17px; }
+      .orive-filter-row { display:flex; align-items:center; gap:7px; overflow-x:auto; padding:0 0 13px; margin-bottom:14px; scrollbar-width:thin; }
+      .orive-filter { white-space:nowrap; display:inline-flex; align-items:center; gap:9px; min-height:36px; padding:0 13px; border:1px solid #e3dfd8; border-radius:999px; background:transparent; color:#77736d; font-size:10px; cursor:pointer; transition:all .2s; }
+      .orive-filter span { display:grid; place-items:center; min-width:18px; height:18px; padding:0 4px; background:#ece9e3; border-radius:20px; color:#6d685f; font-size:9px; }
+      .orive-filter:hover { border-color:#aaa39a; color:#171715; }
+      .orive-filter.is-active { background:#171715; border-color:#171715; color:#fff; }
+      .orive-filter.is-active span { background:#44413c; color:#fff; }
+      .orive-order-list { display:grid; gap:12px; }
+      .orive-order-card { padding:23px 25px 0; background:#fff; border:1px solid #eae7e1; transition:border-color .2s, transform .2s; }
+      .orive-order-card:hover { border-color:#c9c3b9; transform:translateY(-1px); }
+      .orive-order-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; padding-bottom:19px; border-bottom:1px solid #efede8; }
+      .orive-card-kicker { color:#9a958c; font-size:8px; font-weight:700; letter-spacing:.18em; }
+      .orive-order-card-top h3 { margin:6px 0 4px; font-size:14px; font-weight:700; letter-spacing:.04em; }
+      .orive-order-card-top p { margin:0; color:#99948c; font-size:10px; }
+      .orive-status { display:inline-flex; align-items:center; gap:7px; padding:8px 11px; border-radius:2px; font-size:9px; font-weight:700; letter-spacing:.02em; white-space:nowrap; }
+      .orive-status svg { font-size:14px; }
+      .status-pending { background:#f2eee7; color:#78664c; }
+      .status-confirmed { background:#eeefe9; color:#5e694e; }
+      .status-processing { background:#f0eee8; color:#776747; }
+      .status-shipped { background:#edf0f2; color:#536575; }
+      .status-delivered { background:#eaf0e9; color:#536c51; }
+      .status-cancelled { background:#f3eaea; color:#8c5c5c; }
+      .orive-order-card-middle { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(145px,.8fr) minmax(140px,.7fr); align-items:center; gap:22px; padding:20px 0; }
+      .orive-product-preview { min-width:0; display:flex; align-items:center; gap:16px; }
+      .orive-thumb-stack { display:flex; align-items:center; padding-left:0; flex-shrink:0; }
+      .orive-thumb { position:relative; display:grid; place-items:center; width:51px; height:59px; margin-left:-9px; overflow:hidden; border:2px solid #fff; background:#f1efeb; color:#a6a095; }
+      .orive-thumb:first-child { margin-left:0; }
+      .orive-thumb img { width:100%; height:100%; object-fit:cover; }
+      .orive-thumb svg { font-size:20px; }
+      .orive-thumb-more { display:grid; place-items:center; width:39px; height:49px; margin-left:-9px; border:2px solid #fff; background:#e9e6df; color:#5e5a53; font-size:10px; font-weight:700; z-index:5; }
+      .orive-product-summary { min-width:0; display:grid; gap:5px; }
+      .orive-product-summary strong { overflow:hidden; color:#292824; font-size:12px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+      .orive-product-summary span { color:#77736b; font-size:10px; }
+      .orive-product-summary small { color:#a29c92; font-size:9px; }
+      .orive-card-meta, .orive-card-total { min-width:0; display:grid; gap:6px; padding-left:20px; border-left:1px solid #efede8; }
+      .orive-card-meta > span, .orive-card-total > span { color:#a09a91; font-size:8px; font-weight:700; letter-spacing:.16em; }
+      .orive-card-meta strong { color:#393731; font-size:11px; font-weight:600; }
+      .orive-card-meta small, .orive-card-total small { overflow:hidden; color:#a09a91; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+      .orive-card-total strong { font-family:Georgia,serif; font-size:23px; font-weight:400; letter-spacing:-.03em; }
+      .orive-order-card-bottom { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:52px; border-top:1px solid #efede8; }
+      .orive-delivery-hint { min-width:0; display:flex; align-items:center; gap:8px; color:#858077; font-size:9px; }
+      .orive-delivery-hint svg { flex-shrink:0; font-size:15px; }
+      .orive-delivery-hint span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .orive-delivery-hint small { margin-left:8px; color:#aaa39a; font-size:8px; white-space:nowrap; }
+      .orive-view-order { flex-shrink:0; display:inline-flex; align-items:center; gap:7px; color:#171715; text-decoration:none; font-size:10px; font-weight:700; transition:gap .2s; }
+      .orive-view-order:hover { gap:11px; }
+      .orive-view-order svg { font-size:15px; }
+      .orive-empty-card, .orive-no-results, .orive-state-card, .orive-loading-card { background:#fff; border:1px solid #eae7e1; text-align:center; }
+      .orive-empty-card { padding:76px 24px; }
+      .orive-empty-symbol, .orive-state-icon { display:grid; place-items:center; width:67px; height:67px; margin:0 auto 25px; border:1px solid #e5e0d8; border-radius:50%; color:#746e63; font-size:28px; }
+      .orive-empty-card h2, .orive-state-card h1 { margin:12px 0 10px; font-family:Georgia,serif; font-size:34px; font-weight:400; letter-spacing:-.04em; }
+      .orive-empty-card > p:not(.orive-eyebrow), .orive-state-copy { max-width:410px; margin:0 auto; color:#858077; font-size:11px; line-height:1.8; }
+      .orive-button { min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:12px; padding:0 19px; border:1px solid #171715; text-decoration:none; font-size:10px; font-weight:700; cursor:pointer; transition:background .2s, color .2s; }
+      .orive-button svg { font-size:16px; }
+      .orive-button-dark { margin-top:24px; background:#171715; color:#fff; }
+      .orive-button-dark:hover { background:#393731; }
+      .orive-button-light { background:#fff; color:#171715; }
+      .orive-button-light:hover { background:#f1efeb; }
+      .orive-no-results { padding:54px 20px; color:#77736d; }
+      .orive-no-results > svg { font-size:25px; }
+      .orive-no-results h3 { margin:13px 0 7px; color:#25241f; font-family:Georgia,serif; font-size:25px; font-weight:400; }
+      .orive-no-results p { margin:0; font-size:11px; }
+      .orive-no-results button { margin-top:18px; padding:8px 0; border:0; border-bottom:1px solid #171715; background:transparent; color:#171715; font-size:10px; font-weight:700; cursor:pointer; }
+      .orive-help-strip { display:flex; align-items:center; gap:15px; margin-top:48px; padding:19px 22px; border:1px solid #e1ddd5; }
+      .orive-help-icon { display:grid; place-items:center; width:39px; height:39px; background:#e9e6df; color:#5f5a50; font-size:19px; }
+      .orive-help-strip > div:nth-child(2) { display:grid; gap:4px; flex:1; }
+      .orive-help-strip strong { font-size:10px; }
+      .orive-help-strip span { color:#888279; font-size:9px; }
+      .orive-help-strip a { display:inline-flex; align-items:center; gap:6px; color:#171715; text-decoration:none; font-size:9px; font-weight:700; white-space:nowrap; }
+      .orive-help-strip a svg { font-size:14px; }
+      .orive-loading-card { width:min(390px,100%); margin:45px auto; padding:52px 20px; }
+      .orive-loading-card p { margin:18px 0 5px; font-family:Georgia,serif; font-size:23px; }
+      .orive-loading-card > span:last-child { color:#99948c; font-size:10px; }
+      .orive-loader { display:block; width:28px; height:28px; margin:auto; border:1px solid #d3cec5; border-top-color:#171715; border-radius:50%; animation:orive-spin .8s linear infinite; }
+      @keyframes orive-spin { to { transform:rotate(360deg); } }
+      .orive-state-card { width:min(500px,100%); margin:35px auto; padding:55px 28px; }
+      .orive-state-card h1 { font-size:31px; }
+      .orive-state-actions { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; }
+      .orive-state-actions .orive-button-dark { margin-top:23px; }
+      @media (max-width:900px) {
+        .orive-order-card-middle { grid-template-columns:minmax(0,1.4fr) minmax(130px,.8fr); }
+        .orive-card-total { grid-column:2; grid-row:2; padding-top:4px; }
+      }
+      @media (max-width:650px) {
+        .orive-orders-page { padding:25px 15px 65px; }
+        .orive-breadcrumb { margin-bottom:28px; }
+        .orive-orders-hero { padding-bottom:27px; }
+        .orive-orders-hero h1 { font-size:55px; }
+        .orive-hero-mark { width:72px; height:72px; }
+        .orive-hero-mark span { font-size:35px; }
+        .orive-hero-mark small { font-size:6px; }
+        .orive-order-stats { grid-template-columns:repeat(2,minmax(0,1fr)); margin:17px 0 47px; gap:8px; }
+        .orive-stat-card { min-height:107px; padding:15px; }
+        .orive-stat-card strong { font-size:27px; }
+        .orive-stat-spend strong { font-size:24px; }
+        .orive-list-heading { display:grid; align-items:stretch; gap:16px; }
+        .orive-search { width:100%; box-sizing:border-box; }
+        .orive-order-card { padding:18px 16px 0; }
+        .orive-order-card-top { gap:10px; }
+        .orive-order-card-top h3 { font-size:12px; }
+        .orive-status { padding:7px 8px; font-size:8px; }
+        .orive-order-card-middle { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:15px 10px; }
+        .orive-product-preview { grid-column:1 / -1; }
+        .orive-card-meta, .orive-card-total { padding-left:12px; }
+        .orive-card-total { grid-column:auto; grid-row:auto; }
+        .orive-thumb { width:45px; height:53px; }
+        .orive-product-summary strong { white-space:normal; }
+        .orive-order-card-bottom { min-height:58px; }
+        .orive-delivery-hint { flex-wrap:wrap; gap:5px; }
+        .orive-delivery-hint small { margin-left:0; }
+        .orive-help-strip { align-items:flex-start; flex-wrap:wrap; margin-top:32px; padding:16px; }
+        .orive-help-strip > div:nth-child(2) { min-width:calc(100% - 58px); }
+        .orive-help-strip a { margin-left:54px; }
+      }
+      @media (max-width:390px) {
+        .orive-orders-hero h1 { font-size:47px; }
+        .orive-hero-mark { display:none; }
+        .orive-order-card-top { display:grid; }
+        .orive-status { justify-self:start; }
+        .orive-order-card-bottom { align-items:flex-start; flex-direction:column; padding:12px 0; }
+        .orive-view-order { align-self:flex-end; }
+      }
+    `}</style>
   );
 }

@@ -33,6 +33,38 @@ type Order = {
   deliveryMethod: string;
   paymentMethod: "cod" | "online";
   paymentStatus: "pending" | "paid" | "failed";
+  parcelDetails?: {
+    length: number;
+    breadth: number;
+    height: number;
+    weight: number;
+  };
+  shiprocketOrderReference?: string;
+  shiprocketOrderId?: number;
+  shiprocketShipmentId?: number;
+  awbCode?: string;
+  courierCompanyId?: number;
+  courierName?: string;
+  trackingUrl?: string;
+  shipmentStatus?: string;
+  shipmentStatusCode?: string;
+  pickupScheduledAt?: string;
+  pickupTokenNumber?: string;
+  shippingLabelUrl?: string;
+  shippingLabelGeneratedAt?: string;
+  shippingLabelSimulated?: boolean;
+  shiprocketManifestId?: number;
+  manifestUrl?: string;
+  manifestGeneratedAt?: string;
+  manifestSimulated?: boolean;
+  shipmentCreatedAt?: string;
+  shipmentEvents?: Array<{
+    status: string;
+    statusCode?: string;
+    location?: string;
+    description?: string;
+    eventDate?: string;
+  }>;
   orderStatus:
     | "pending"
     | "confirmed"
@@ -128,6 +160,15 @@ const statusOptions: {
 
 type PaymentStatus = Order["paymentStatus"];
 
+type CourierOption = {
+  courierId: number;
+  courierName: string;
+  freightCharge?: number;
+  estimatedDeliveryDays?: string;
+  rating?: number;
+  etd?: string;
+};
+
 const paymentStatusOptions: {
   value: PaymentStatus;
   label: string;
@@ -186,6 +227,52 @@ export default function AdminOrderDetailPage() {
   const [paymentError, setPaymentError] =
     useState("");
 
+  const [parcelDetails, setParcelDetails] = useState({
+    length: "",
+    breadth: "",
+    height: "",
+    weight: "",
+  });
+  const [creatingShipment, setCreatingShipment] = useState(false);
+  const [shipmentMessage, setShipmentMessage] = useState("");
+  const [shipmentError, setShipmentError] = useState("");
+  const [courierOptions, setCourierOptions] = useState<CourierOption[]>([]);
+  const [selectedCourierId, setSelectedCourierId] = useState("");
+  const [loadingCouriers, setLoadingCouriers] = useState(false);
+  const [assigningAwb, setAssigningAwb] = useState(false);
+  const [schedulingPickup, setSchedulingPickup] = useState(false);
+  const [generatingLabel, setGeneratingLabel] = useState(false);
+  const [generatingManifest, setGeneratingManifest] = useState(false);
+  const [shiprocketMode, setShiprocketMode] = useState<"loading" | "test" | "live" | "unavailable">("loading");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadShiprocketMode = async () => {
+      try {
+        const response = await fetch("/api/admin/shiprocket/mode", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success || (data.mode !== "test" && data.mode !== "live")) {
+          throw new Error(data.message || "Unable to determine Shiprocket mode.");
+        }
+        if (active) setShiprocketMode(data.mode);
+      } catch (error) {
+        if (active) {
+          setShiprocketMode("unavailable");
+          setShipmentError(error instanceof Error ? error.message : "Unable to determine Shiprocket mode. Shipment actions are disabled.");
+        }
+      }
+    };
+
+    void loadShiprocketMode();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!orderId) return;
 
@@ -226,6 +313,15 @@ export default function AdminOrderDetailPage() {
 
         setOrder(foundOrder);
 
+        if (foundOrder.parcelDetails) {
+          setParcelDetails({
+            length: String(foundOrder.parcelDetails.length ?? ""),
+            breadth: String(foundOrder.parcelDetails.breadth ?? ""),
+            height: String(foundOrder.parcelDetails.height ?? ""),
+            weight: String(foundOrder.parcelDetails.weight ?? ""),
+          });
+        }
+
         setSelectedStatus(
           foundOrder.orderStatus
         );
@@ -251,6 +347,312 @@ export default function AdminOrderDetailPage() {
 
     fetchOrder();
   }, [orderId]);
+
+  useEffect(() => {
+    if (!order?._id || !order.shiprocketShipmentId || order.awbCode) {
+      return;
+    }
+
+    let active = true;
+
+    const loadCouriers = async () => {
+      setLoadingCouriers(true);
+      setShipmentError("");
+
+      try {
+        const response = await fetch(
+          `/api/admin/orders/${order._id}/shiprocket`,
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Unable to load available couriers.");
+        }
+
+        if (active) {
+          const options: CourierOption[] = Array.isArray(data.couriers)
+            ? data.couriers
+            : [];
+          setCourierOptions(options);
+          setSelectedCourierId((current) =>
+            current || (options[0]?.courierId ? String(options[0].courierId) : "")
+          );
+        }
+      } catch (error) {
+        if (active) {
+          setShipmentError(
+            error instanceof Error ? error.message : "Unable to load available couriers."
+          );
+        }
+      } finally {
+        if (active) setLoadingCouriers(false);
+      }
+    };
+
+    void loadCouriers();
+
+    return () => {
+      active = false;
+    };
+  }, [order?._id, order?.shiprocketShipmentId, order?.awbCode]);
+
+  const handleCreateShipment = async () => {
+    if (!order) return;
+
+    const dimensions = {
+      length: Number(parcelDetails.length),
+      breadth: Number(parcelDetails.breadth),
+      height: Number(parcelDetails.height),
+      weight: Number(parcelDetails.weight),
+    };
+
+    if (
+      !Number.isFinite(dimensions.length) || dimensions.length <= 0.5 ||
+      !Number.isFinite(dimensions.breadth) || dimensions.breadth <= 0.5 ||
+      !Number.isFinite(dimensions.height) || dimensions.height <= 0.5 ||
+      !Number.isFinite(dimensions.weight) || dimensions.weight <= 0
+    ) {
+      setShipmentError("Enter the final packed parcel dimensions in cm and weight in kg. Dimensions must be above 0.5 cm.");
+      setShipmentMessage("");
+      return;
+    }
+
+    const canCreate =
+      (order.orderStatus === "confirmed" || order.orderStatus === "processing") &&
+      (order.paymentMethod === "cod" || order.paymentStatus === "paid");
+
+    if (!canCreate) {
+      setShipmentError(
+        order.paymentMethod === "online" && order.paymentStatus !== "paid"
+          ? "Online payment must be marked as paid before creating a shipment."
+          : "Confirm or move this order to Processing before creating a shipment."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      shiprocketMode === "test"
+        ? "TEST MODE: Simulate this shipment using the entered parcel dimensions? No request will be sent to Shiprocket and nothing will be saved to the order. The demo data disappears when you refresh."
+        : "LIVE MODE: Create this order in your real Shiprocket account? This creates a real Shiprocket order. It will not assign a courier or request pickup yet."
+    );
+    if (!confirmed) return;
+
+    try {
+      setCreatingShipment(true);
+      setShipmentError("");
+      setShipmentMessage("");
+
+      const response = await fetch(
+        `/api/admin/orders/${order._id}/shiprocket`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(dimensions),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to create Shiprocket shipment.");
+      }
+
+      setOrder((previous) => previous ? { ...previous, ...data.order } : previous);
+      setCourierOptions(Array.isArray(data.couriers) ? data.couriers : []);
+      setSelectedCourierId(data.couriers?.[0]?.courierId ? String(data.couriers[0].courierId) : "");
+      setShipmentMessage(data.message || "Shiprocket order created. Choose a courier to generate the AWB.");
+      if (data.courierWarning) setShipmentError(data.courierWarning);
+    } catch (error) {
+      setShipmentError(
+        error instanceof Error ? error.message : "Unable to create Shiprocket shipment."
+      );
+    } finally {
+      setCreatingShipment(false);
+    }
+  };
+
+  const handleAssignAwb = async () => {
+    if (!order?.shiprocketShipmentId) return;
+    if (!selectedCourierId) {
+      setShipmentError("Select an available courier first.");
+      return;
+    }
+
+    const selectedCourier = courierOptions.find(
+      (courier) => String(courier.courierId) === selectedCourierId
+    );
+    const confirmed = window.confirm(
+      shiprocketMode === "test"
+        ? `TEST MODE: Simulate ${selectedCourier?.courierName || "the selected demo courier"} and a fake AWB? No courier will be booked.`
+        : `LIVE MODE: Assign ${selectedCourier?.courierName || "the selected courier"} and generate a real AWB in Shiprocket?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setAssigningAwb(true);
+      setShipmentError("");
+      setShipmentMessage("");
+
+      const response = await fetch(
+        `/api/admin/orders/${order._id}/shiprocket/awb`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ courierId: Number(selectedCourierId) }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to assign courier and generate AWB.");
+      }
+
+      setOrder((previous) => previous ? { ...previous, ...data.order } : previous);
+      setShipmentMessage(data.message || "Courier assigned and AWB generated successfully.");
+    } catch (error) {
+      setShipmentError(
+        error instanceof Error ? error.message : "Unable to assign courier."
+      );
+    } finally {
+      setAssigningAwb(false);
+    }
+  };
+
+  const handleSchedulePickup = async () => {
+    if (!order?.shiprocketShipmentId || !order.awbCode) return;
+
+    const confirmed = window.confirm(
+      shiprocketMode === "test"
+        ? "TEST MODE: Simulate a pickup request? No courier will visit and no pickup will be booked."
+        : "LIVE MODE: Request a real courier pickup from your Shiprocket pickup address?"
+    );
+    if (!confirmed) return;
+
+    try {
+      setSchedulingPickup(true);
+      setShipmentError("");
+      setShipmentMessage("");
+
+      const response = await fetch(
+        `/api/admin/orders/${order._id}/shiprocket/pickup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ awbCode: order.awbCode }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to schedule pickup.");
+      }
+
+      setOrder((previous) => previous ? { ...previous, ...data.order } : previous);
+      setShipmentMessage(data.message || "Pickup request submitted to Shiprocket.");
+    } catch (error) {
+      setShipmentError(
+        error instanceof Error ? error.message : "Unable to schedule pickup."
+      );
+    } finally {
+      setSchedulingPickup(false);
+    }
+  };
+
+  const handleGenerateShippingLabel = async () => {
+    if (!order?.shiprocketShipmentId || !order.awbCode) return;
+
+    const confirmed = window.confirm(
+      shiprocketMode === "test"
+        ? "TEST MODE: Simulate shipping-label generation? No PDF will be created and no request will be sent to Shiprocket."
+        : "LIVE MODE: Generate a real shipping-label PDF in Shiprocket? The label will be saved to this order."
+    );
+    if (!confirmed) return;
+
+    try {
+      setGeneratingLabel(true);
+      setShipmentError("");
+      setShipmentMessage("");
+
+      const response = await fetch(
+        `/api/admin/orders/${order._id}/shiprocket/label`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            shipmentId: order.shiprocketShipmentId,
+            awbCode: order.awbCode,
+          }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to generate shipping label.");
+      }
+
+      setOrder((previous) => previous ? { ...previous, ...data.order } : previous);
+      setShipmentMessage(data.message || "Shipping label generated.");
+    } catch (error) {
+      setShipmentError(
+        error instanceof Error ? error.message : "Unable to generate shipping label."
+      );
+    } finally {
+      setGeneratingLabel(false);
+    }
+  };
+
+  const handleGenerateManifest = async () => {
+    if (!order?.shiprocketShipmentId || !order.awbCode || !order.pickupScheduledAt) return;
+
+    const confirmed = window.confirm(
+      shiprocketMode === "test"
+        ? "TEST MODE: Simulate manifest generation? No PDF will be created and no request will be sent to Shiprocket."
+        : "LIVE MODE: Generate the real pickup manifest in Shiprocket? This requires a successful pickup request."
+    );
+    if (!confirmed) return;
+
+    try {
+      setGeneratingManifest(true);
+      setShipmentError("");
+      setShipmentMessage("");
+
+      const response = await fetch(
+        `/api/admin/orders/${order._id}/shiprocket/manifest`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            shipmentId: order.shiprocketShipmentId,
+            awbCode: order.awbCode,
+            pickupScheduledAt: order.pickupScheduledAt,
+          }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to generate shipment manifest.");
+      }
+
+      setOrder((previous) => previous ? { ...previous, ...data.order } : previous);
+      setShipmentMessage(data.message || "Shipment manifest generated.");
+    } catch (error) {
+      setShipmentError(
+        error instanceof Error ? error.message : "Unable to generate shipment manifest."
+      );
+    } finally {
+      setGeneratingManifest(false);
+    }
+  };
 
   const formatCurrency = (
     amount: number
@@ -1006,6 +1408,306 @@ export default function AdminOrderDetailPage() {
         )}
       </div>
 
+      {/* SHIPROCKET SHIPMENT */}
+
+      <div className="section-card shipment-card">
+        <div className="section-header">
+          <div>
+            <h2>Shiprocket Shipment</h2>
+            <p>Create the shipping record, select a courier and schedule pickup.</p>
+          </div>
+          <div className="section-icon">
+            <Icon icon="solar:delivery-bold" width="20" />
+          </div>
+        </div>
+
+        <div className={`shipment-mode-banner ${shiprocketMode}`}>
+          {shiprocketMode === "loading" && "Checking shipment mode… shipment actions are temporarily disabled."}
+          {shiprocketMode === "test" && <><strong>TEST MODE</strong> — simulated data only. No shipment, AWB or pickup request is sent to Shiprocket. Test results are temporary and disappear when you refresh this page.</>}
+          {shiprocketMode === "live" && <><strong>LIVE MODE</strong> — actions here create real Shiprocket orders, AWBs and pickup requests.</>}
+          {shiprocketMode === "unavailable" && <><strong>MODE CHECK FAILED</strong> — shipment actions are disabled because the server mode could not be verified.</>}
+        </div>
+
+        {!order.shiprocketShipmentId ? (
+          <>
+            <div className="shipment-note">
+              Enter the dimensions and actual weight of the final packed parcel. Do not use garment measurements.
+            </div>
+
+            <div className="parcel-form-grid">
+              <label>
+                <span>Length (cm)</span>
+                <input
+                  type="number"
+                  min="0.6"
+                  step="0.1"
+                  value={parcelDetails.length}
+                  onChange={(event) => setParcelDetails((previous) => ({ ...previous, length: event.target.value }))}
+                  placeholder="e.g. 30"
+                  disabled={creatingShipment}
+                />
+              </label>
+              <label>
+                <span>Breadth (cm)</span>
+                <input
+                  type="number"
+                  min="0.6"
+                  step="0.1"
+                  value={parcelDetails.breadth}
+                  onChange={(event) => setParcelDetails((previous) => ({ ...previous, breadth: event.target.value }))}
+                  placeholder="e.g. 25"
+                  disabled={creatingShipment}
+                />
+              </label>
+              <label>
+                <span>Height (cm)</span>
+                <input
+                  type="number"
+                  min="0.6"
+                  step="0.1"
+                  value={parcelDetails.height}
+                  onChange={(event) => setParcelDetails((previous) => ({ ...previous, height: event.target.value }))}
+                  placeholder="e.g. 8"
+                  disabled={creatingShipment}
+                />
+              </label>
+              <label>
+                <span>Weight (kg)</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={parcelDetails.weight}
+                  onChange={(event) => setParcelDetails((previous) => ({ ...previous, weight: event.target.value }))}
+                  placeholder="e.g. 0.6"
+                  disabled={creatingShipment}
+                />
+              </label>
+            </div>
+
+            <div className="shipment-eligibility">
+              {order.paymentMethod === "online" && order.paymentStatus !== "paid" ? (
+                <span>Online payment must be paid before shipment creation.</span>
+              ) : order.orderStatus !== "confirmed" && order.orderStatus !== "processing" ? (
+                <span>First update the order status to Confirmed or Processing.</span>
+              ) : (
+                <span>{shiprocketMode === "test" ? "Ready to simulate the shipment." : "Ready to create a Shiprocket order."}</span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="shipment-primary-button"
+              onClick={handleCreateShipment}
+              disabled={
+                creatingShipment ||
+                (shiprocketMode !== "test" && shiprocketMode !== "live") ||
+                (order.paymentMethod === "online" && order.paymentStatus !== "paid") ||
+                (order.orderStatus !== "confirmed" && order.orderStatus !== "processing")
+              }
+            >
+              {creatingShipment ? (
+                <><Icon icon="solar:refresh-bold" width="17" className="button-spinner" /> {shiprocketMode === "test" ? "Simulating Shipment..." : "Creating Shiprocket Order..."}</>
+              ) : (
+                <><Icon icon="solar:box-bold" width="17" /> {shiprocketMode === "test" ? "Simulate Shipment (Test Only)" : "Create Shiprocket Order"}</>
+              )}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="shipment-reference-grid">
+              <div><span>{shiprocketMode === "test" ? "Demo Order ID" : "Shiprocket Order ID"}</span><strong>{order.shiprocketOrderId || "—"}</strong></div>
+              <div><span>{shiprocketMode === "test" ? "Demo Shipment ID" : "Shipment ID"}</span><strong>{order.shiprocketShipmentId}</strong></div>
+              <div><span>Shipment Status</span><strong>{order.shipmentStatus || "Order Created"}</strong></div>
+              <div><span>Package</span><strong>{order.parcelDetails ? `${order.parcelDetails.length} × ${order.parcelDetails.breadth} × ${order.parcelDetails.height} cm` : "—"}</strong></div>
+              <div><span>Actual Weight</span><strong>{order.parcelDetails?.weight ? `${order.parcelDetails.weight} kg` : "—"}</strong></div>
+            </div>
+
+            {order.awbCode ? (
+              <div className="awb-details">
+                <div>
+                  <span>AWB Number</span>
+                  <strong>{order.awbCode}</strong>
+                </div>
+                <div>
+                  <span>Courier</span>
+                  <strong>{order.courierName || "Assigned courier"}</strong>
+                </div>
+                {order.trackingUrl && (
+                  <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" className="shipment-track-link">
+                    Track shipment <Icon icon="solar:arrow-up-right-linear" width="15" />
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="courier-assignment">
+                <div className="courier-heading">
+                  <strong>Choose a courier</strong>
+                  <button
+                    type="button"
+                    className="shipment-text-button"
+                    onClick={async () => {
+                      if (!order) return;
+                      setLoadingCouriers(true);
+                      setShipmentError("");
+                      try {
+                        const response = await fetch(`/api/admin/orders/${order._id}/shiprocket`, { credentials: "include", cache: "no-store" });
+                        const data = await response.json();
+                        if (!response.ok || !data.success) throw new Error(data.message || "Unable to refresh couriers.");
+                        const options: CourierOption[] = Array.isArray(data.couriers) ? data.couriers : [];
+                        setCourierOptions(options);
+                        setSelectedCourierId(options[0]?.courierId ? String(options[0].courierId) : "");
+                      } catch (error) {
+                        setShipmentError(error instanceof Error ? error.message : "Unable to refresh couriers.");
+                      } finally {
+                        setLoadingCouriers(false);
+                      }
+                    }}
+                    disabled={loadingCouriers}
+                  >
+                    {loadingCouriers ? "Checking..." : shiprocketMode === "test" ? "Refresh demo options" : "Refresh options"}
+                  </button>
+                </div>
+
+                {courierOptions.length > 0 ? (
+                  <>
+                    <select
+                      className="courier-select"
+                      value={selectedCourierId}
+                      onChange={(event) => setSelectedCourierId(event.target.value)}
+                      disabled={assigningAwb}
+                    >
+                      {courierOptions.map((courier) => (
+                        <option key={courier.courierId} value={String(courier.courierId)}>
+                          {courier.courierName}{courier.freightCharge != null ? ` · ${formatCurrency(courier.freightCharge)}` : ""}{courier.estimatedDeliveryDays ? ` · ${courier.estimatedDeliveryDays} days` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="shipment-primary-button"
+                      onClick={handleAssignAwb}
+                      disabled={assigningAwb || !selectedCourierId || (shiprocketMode !== "test" && shiprocketMode !== "live")}
+                    >
+                      {assigningAwb ? (shiprocketMode === "test" ? "Simulating AWB..." : "Assigning courier...") : (shiprocketMode === "test" ? "Simulate Courier & AWB" : "Assign Courier & Generate AWB")}
+                    </button>
+                  </>
+                ) : (
+                  <p className="shipment-muted">No courier options are loaded. Check pickup postcode configuration and refresh the options.</p>
+                )}
+              </div>
+            )}
+
+            {order.awbCode && !order.pickupScheduledAt && (
+              <div className="pickup-action">
+                <p>{shiprocketMode === "test" ? "The demo AWB is ready. You can simulate the pickup step." : "The AWB is generated. You can now submit the pickup request to Shiprocket."}</p>
+                <button
+                  type="button"
+                  className="shipment-primary-button"
+                  onClick={handleSchedulePickup}
+                  disabled={schedulingPickup || (shiprocketMode !== "test" && shiprocketMode !== "live")}
+                >
+                  {schedulingPickup ? (shiprocketMode === "test" ? "Simulating pickup..." : "Requesting pickup...") : (shiprocketMode === "test" ? "Simulate Pickup (Test Only)" : "Schedule Courier Pickup")}
+                </button>
+              </div>
+            )}
+
+            {order.pickupScheduledAt && (
+              <div className="pickup-confirmed">
+                <Icon icon="solar:check-circle-bold" width="17" />
+                {shiprocketMode === "test" ? "Simulated pickup:" : "Pickup requested:"} {formatDate(order.pickupScheduledAt)}
+                {order.pickupTokenNumber ? ` · ${order.pickupTokenNumber}` : ""}
+              </div>
+            )}
+
+            {order.awbCode && (
+              <div className="shipment-documents">
+                <div className="shipment-documents-heading">
+                  <div>
+                    <strong>Shipping documents</strong>
+                    <p>Generate and print the parcel label and pickup manifest.</p>
+                  </div>
+                  <Icon icon="solar:documents-linear" width="21" />
+                </div>
+
+                <div className="shipment-document-row">
+                  <div className="shipment-document-copy">
+                    <strong>Shipping label</strong>
+                    <span>
+                      {order.shippingLabelSimulated
+                        ? "Simulated only — no PDF was created."
+                        : order.shippingLabelGeneratedAt
+                          ? `Generated ${formatDate(order.shippingLabelGeneratedAt)}`
+                          : "Required to identify and route the parcel."}
+                    </span>
+                  </div>
+                  {order.shippingLabelUrl ? (
+                    <a
+                      className="shipment-document-link"
+                      href={order.shippingLabelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Icon icon="solar:download-linear" width="16" /> Download label
+                    </a>
+                  ) : order.shippingLabelGeneratedAt ? (
+                    <span className="shipment-document-done">{shiprocketMode === "test" ? "Simulated" : "Generated"}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="shipment-document-button"
+                      onClick={handleGenerateShippingLabel}
+                      disabled={generatingLabel || (shiprocketMode !== "test" && shiprocketMode !== "live")}
+                    >
+                      {generatingLabel ? "Generating..." : shiprocketMode === "test" ? "Simulate label" : "Generate label"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="shipment-document-row">
+                  <div className="shipment-document-copy">
+                    <strong>Pickup manifest</strong>
+                    <span>
+                      {!order.pickupScheduledAt
+                        ? "Available after the pickup request is accepted."
+                        : order.manifestSimulated
+                          ? "Simulated only — no PDF was created."
+                          : order.manifestGeneratedAt
+                            ? `Generated ${formatDate(order.manifestGeneratedAt)}`
+                            : "Pickup handover document for the courier."}
+                    </span>
+                  </div>
+                  {order.manifestUrl ? (
+                    <a
+                      className="shipment-document-link"
+                      href={order.manifestUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Icon icon="solar:download-linear" width="16" /> Download manifest
+                    </a>
+                  ) : order.manifestGeneratedAt ? (
+                    <span className="shipment-document-done">{shiprocketMode === "test" ? "Simulated" : "Generated"}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="shipment-document-button"
+                      onClick={handleGenerateManifest}
+                      disabled={!order.pickupScheduledAt || generatingManifest || (shiprocketMode !== "test" && shiprocketMode !== "live")}
+                    >
+                      {generatingManifest ? "Generating..." : shiprocketMode === "test" ? "Simulate manifest" : "Generate manifest"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {shipmentMessage && <div className="status-success-message"><Icon icon="solar:check-circle-bold" width="17" />{shipmentMessage}</div>}
+        {shipmentError && <div className="status-error-message"><Icon icon="solar:danger-circle-bold" width="17" />{shipmentError}</div>}
+      </div>
+
       {/* TRACKING */}
 
       <div className="section-card tracking-card">
@@ -1756,6 +2458,216 @@ export default function AdminOrderDetailPage() {
           color: #a33a3a;
         }
 
+        .shipment-card {
+          margin-bottom: 18px;
+        }
+
+        .shipment-mode-banner {
+          margin: 0 0 16px;
+          padding: 12px 14px;
+          border-radius: 8px;
+          font-size: 13px;
+          line-height: 1.55;
+          border: 1px solid #d1d5db;
+          background: #f3f4f6;
+          color: #374151;
+        }
+
+        .shipment-mode-banner.test {
+          border-color: #d97706;
+          background: #fffbeb;
+          color: #92400e;
+        }
+
+        .shipment-mode-banner.live {
+          border-color: #dc2626;
+          background: #fef2f2;
+          color: #991b1b;
+        }
+
+        .shipment-mode-banner.unavailable,
+        .shipment-mode-banner.loading {
+          border-color: #9ca3af;
+          background: #f3f4f6;
+          color: #374151;
+        }
+
+        .shipment-note {
+          padding: 11px 13px;
+          margin-bottom: 15px;
+          background: #f7f7f5;
+          color: #666;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .parcel-form-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .parcel-form-grid label {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .parcel-form-grid label span,
+        .shipment-reference-grid span,
+        .awb-details span {
+          color: #888;
+          font-size: 10px;
+        }
+
+        .parcel-form-grid input,
+        .courier-select {
+          width: 100%;
+          min-width: 0;
+          height: 42px;
+          padding: 0 10px;
+          border: 1px solid #dedede;
+          border-radius: 0;
+          background: #fff;
+          color: #111;
+          font-size: 12px;
+          outline: none;
+        }
+
+        .parcel-form-grid input:focus,
+        .courier-select:focus {
+          border-color: #111;
+        }
+
+        .shipment-eligibility,
+        .shipment-muted {
+          margin: 12px 0;
+          color: #777;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .shipment-primary-button {
+          min-height: 42px;
+          padding: 0 16px;
+          border: 1px solid #111;
+          border-radius: 0;
+          background: #111;
+          color: #fff;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .shipment-primary-button:hover:not(:disabled) {
+          background: #333;
+        }
+
+        .shipment-primary-button:disabled {
+          border-color: #ccc;
+          background: #ddd;
+          color: #888;
+          cursor: not-allowed;
+        }
+
+        .shipment-reference-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 13px;
+          padding: 14px 0;
+          border-top: 1px solid #eee;
+          border-bottom: 1px solid #eee;
+        }
+
+        .shipment-reference-grid > div,
+        .awb-details > div {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          min-width: 0;
+        }
+
+        .shipment-reference-grid strong,
+        .awb-details strong {
+          color: #222;
+          font-size: 12px;
+          font-weight: 600;
+          overflow-wrap: anywhere;
+        }
+
+        .courier-assignment,
+        .pickup-action {
+          margin-top: 16px;
+        }
+
+        .courier-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 9px;
+        }
+
+        .courier-heading strong {
+          font-size: 12px;
+        }
+
+        .shipment-text-button {
+          border: 0;
+          background: transparent;
+          color: #555;
+          text-decoration: underline;
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .courier-select {
+          max-width: 480px;
+          margin-bottom: 10px;
+        }
+
+        .awb-details {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 24px;
+          padding: 16px 0;
+          border-bottom: 1px solid #eee;
+        }
+
+        .shipment-track-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #111;
+          font-size: 11px;
+          text-decoration: underline;
+        }
+
+        .pickup-action p {
+          margin: 0 0 10px;
+          color: #777;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .pickup-confirmed {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-top: 15px;
+          padding: 11px 12px;
+          background: #f0f7f2;
+          color: #287a4b;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
         .section-card {
           background: white;
           border: 1px solid #e8e8e8;
@@ -2320,6 +3232,14 @@ export default function AdminOrderDetailPage() {
             flex-direction: column;
           }
 
+          .parcel-form-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .shipment-reference-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .status-select-wrapper {
             width: 100%;
           }
@@ -2496,6 +3416,123 @@ export default function AdminOrderDetailPage() {
           .status-control-icon {
             width: 38px;
             height: 38px;
+          }
+        }
+
+        .shipment-documents {
+          margin-top: 18px;
+          padding: 18px;
+          border: 1px solid #e9e9e7;
+          border-radius: 12px;
+          background: #fbfbfa;
+        }
+
+        .shipment-documents-heading {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+          padding-bottom: 13px;
+          border-bottom: 1px solid #e9e9e7;
+          color: #171717;
+        }
+
+        .shipment-documents-heading strong,
+        .shipment-document-copy strong {
+          display: block;
+          color: #171717;
+          font-size: 13px;
+          font-weight: 650;
+        }
+
+        .shipment-documents-heading p {
+          margin: 5px 0 0;
+          color: #777;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .shipment-document-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 15px 0;
+        }
+
+        .shipment-document-row + .shipment-document-row {
+          border-top: 1px solid #eeeeec;
+        }
+
+        .shipment-document-copy {
+          min-width: 0;
+        }
+
+        .shipment-document-copy span {
+          display: block;
+          margin-top: 5px;
+          color: #777;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .shipment-document-button,
+        .shipment-document-link {
+          min-height: 38px;
+          padding: 0 13px;
+          border: 1px solid #171717;
+          border-radius: 7px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          background: #171717;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 650;
+          text-decoration: none;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: opacity .2s ease, transform .2s ease;
+        }
+
+        .shipment-document-button:hover,
+        .shipment-document-link:hover {
+          opacity: .84;
+          transform: translateY(-1px);
+        }
+
+        .shipment-document-button:disabled {
+          opacity: .45;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .shipment-document-done {
+          padding: 7px 10px;
+          border-radius: 999px;
+          background: #eeeeeb;
+          color: #4d4d49;
+          font-size: 10px;
+          font-weight: 650;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 600px) {
+          .shipment-documents {
+            padding: 13px;
+          }
+
+          .shipment-document-row {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .shipment-document-button,
+          .shipment-document-link {
+            width: 100%;
+            box-sizing: border-box;
           }
         }
 

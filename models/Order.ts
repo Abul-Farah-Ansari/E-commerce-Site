@@ -1,3 +1,4 @@
+
 import mongoose, {
   Schema,
   Document,
@@ -12,6 +13,24 @@ export interface IOrderItem {
   image: string;
   size?: string;
   color?: string;
+}
+
+/**
+ * A normalized shipment event saved from Shiprocket tracking updates.
+ */
+export interface IShipmentEvent {
+  status: string;
+  statusCode?: string;
+  location?: string;
+  description?: string;
+  eventDate?: Date;
+}
+
+export interface IParcelDetails {
+  length: number;
+  breadth: number;
+  height: number;
+  weight: number;
 }
 
 export interface IOrder extends Document {
@@ -38,43 +57,23 @@ export interface IOrder extends Document {
   |--------------------------------------------------------------------------
   | PAYMENT METHOD
   |--------------------------------------------------------------------------
-  |
-  | cod    = Cash on Delivery
-  | online = Online payment through Razorpay
-  |
   */
-
   paymentMethod: "cod" | "online";
 
   /*
   |--------------------------------------------------------------------------
   | PAYMENT STATUS
   |--------------------------------------------------------------------------
-  |
-  | pending = Payment has not been completed yet
-  | paid    = Payment successfully verified
-  | failed  = Payment failed
-  |
   */
-
-  paymentStatus:
-    | "pending"
-    | "paid"
-    | "failed";
+  paymentStatus: "pending" | "paid" | "failed";
 
   /*
   |--------------------------------------------------------------------------
   | RAZORPAY PAYMENT DETAILS
   |--------------------------------------------------------------------------
-  |
-  | These fields are only used for online payments.
-  |
   */
-
   razorpayOrderId?: string;
-
   razorpayPaymentId?: string;
-
   razorpaySignature?: string;
 
   /*
@@ -82,7 +81,6 @@ export interface IOrder extends Document {
   | ORDER STATUS
   |--------------------------------------------------------------------------
   */
-
   orderStatus:
     | "pending"
     | "confirmed"
@@ -93,18 +91,57 @@ export interface IOrder extends Document {
 
   /*
   |--------------------------------------------------------------------------
+  | SHIPROCKET SHIPMENT DETAILS
+  |--------------------------------------------------------------------------
+  */
+  shiprocketOrderReference?: string;
+  shiprocketCreateInProgress?: boolean;
+  parcelDetails?: IParcelDetails;
+
+  shiprocketOrderId?: number;
+  shiprocketShipmentId?: number;
+
+  awbCode?: string;
+  courierCompanyId?: number;
+  courierName?: string;
+  trackingUrl?: string;
+
+  shipmentStatus?: string;
+  shipmentStatusCode?: string;
+
+  pickupScheduledAt?: Date;
+  pickupTokenNumber?: string;
+  shipmentCreatedAt?: Date;
+
+  shipmentEvents?: IShipmentEvent[];
+
+  /*
+  |--------------------------------------------------------------------------
+  | SHIPROCKET SHIPPING LABEL
+  |--------------------------------------------------------------------------
+  */
+  shippingLabelUrl?: string;
+  shippingLabelGeneratedAt?: Date;
+
+  /*
+  |--------------------------------------------------------------------------
+  | SHIPROCKET MANIFEST
+  |--------------------------------------------------------------------------
+  */
+  shiprocketManifestId?: number;
+  manifestUrl?: string;
+  manifestGeneratedAt?: Date;
+
+  /*
+  |--------------------------------------------------------------------------
   | PRICE
   |--------------------------------------------------------------------------
   */
-
   subtotal: number;
-
   shipping: number;
-
   total: number;
 
   createdAt: Date;
-
   updatedAt: Date;
 }
 
@@ -116,26 +153,10 @@ export interface IOrder extends Document {
 
 const OrderItemSchema = new Schema<IOrderItem>(
   {
-    /*
-    |--------------------------------------------------------------------------
-    | MongoDB Product ID
-    |--------------------------------------------------------------------------
-    |
-    | Product IDs are MongoDB ObjectIds converted to strings
-    | when stored inside an order.
-    |
-    */
-
     productId: {
       type: String,
       required: true,
     },
-
-    /*
-    |--------------------------------------------------------------------------
-    | PRODUCT NAME
-    |--------------------------------------------------------------------------
-    */
 
     name: {
       type: String,
@@ -143,23 +164,11 @@ const OrderItemSchema = new Schema<IOrderItem>(
       trim: true,
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | PRODUCT PRICE
-    |--------------------------------------------------------------------------
-    */
-
     price: {
       type: Number,
       required: true,
       min: 0,
     },
-
-    /*
-    |--------------------------------------------------------------------------
-    | QUANTITY
-    |--------------------------------------------------------------------------
-    */
 
     quantity: {
       type: Number,
@@ -167,33 +176,15 @@ const OrderItemSchema = new Schema<IOrderItem>(
       min: 1,
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | PRODUCT IMAGE
-    |--------------------------------------------------------------------------
-    */
-
     image: {
       type: String,
       default: "",
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | SIZE
-    |--------------------------------------------------------------------------
-    */
-
     size: {
       type: String,
       default: undefined,
     },
-
-    /*
-    |--------------------------------------------------------------------------
-    | COLOR
-    |--------------------------------------------------------------------------
-    */
 
     color: {
       type: String,
@@ -201,9 +192,85 @@ const OrderItemSchema = new Schema<IOrderItem>(
     },
   },
   {
-    /*
-    | Order items don't need their own MongoDB _id.
-    */
+    _id: false,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| SHIPMENT EVENT SCHEMA
+|--------------------------------------------------------------------------
+*/
+
+const ShipmentEventSchema = new Schema<IShipmentEvent>(
+  {
+    status: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    statusCode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    location: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    description: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    eventDate: {
+      type: Date,
+      default: undefined,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| PARCEL DETAILS SCHEMA
+|--------------------------------------------------------------------------
+*/
+
+const ParcelDetailsSchema = new Schema<IParcelDetails>(
+  {
+    length: {
+      type: Number,
+      required: true,
+      min: 0.6,
+    },
+
+    breadth: {
+      type: Number,
+      required: true,
+      min: 0.6,
+    },
+
+    height: {
+      type: Number,
+      required: true,
+      min: 0.6,
+    },
+
+    weight: {
+      type: Number,
+      required: true,
+      min: 0.01,
+    },
+  },
+  {
     _id: false,
   }
 );
@@ -216,12 +283,6 @@ const OrderItemSchema = new Schema<IOrderItem>(
 
 const OrderSchema = new Schema<IOrder>(
   {
-    /*
-    |--------------------------------------------------------------------------
-    | CUSTOMER USER
-    |--------------------------------------------------------------------------
-    */
-
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -229,25 +290,16 @@ const OrderSchema = new Schema<IOrder>(
       index: true,
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | ORDER ITEMS
-    |--------------------------------------------------------------------------
-    */
-
     items: {
       type: [OrderItemSchema],
       required: true,
 
       validate: {
-        validator: function (
-          items: IOrderItem[]
-        ) {
+        validator: function (items: IOrderItem[]) {
           return items.length > 0;
         },
 
-        message:
-          "Order must contain at least one item.",
+        message: "Order must contain at least one item.",
       },
     },
 
@@ -256,7 +308,6 @@ const OrderSchema = new Schema<IOrder>(
     | CUSTOMER INFORMATION
     |--------------------------------------------------------------------------
     */
-
     customer: {
       name: {
         type: String,
@@ -283,7 +334,6 @@ const OrderSchema = new Schema<IOrder>(
     | SHIPPING ADDRESS
     |--------------------------------------------------------------------------
     */
-
     shippingAddress: {
       address: {
         type: String,
@@ -310,12 +360,6 @@ const OrderSchema = new Schema<IOrder>(
       },
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | DELIVERY
-    |--------------------------------------------------------------------------
-    */
-
     deliveryMethod: {
       type: String,
       required: true,
@@ -327,44 +371,23 @@ const OrderSchema = new Schema<IOrder>(
     | PAYMENT
     |--------------------------------------------------------------------------
     */
-
     paymentMethod: {
       type: String,
       enum: ["cod", "online"],
       required: true,
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | PAYMENT STATUS
-    |--------------------------------------------------------------------------
-    */
-
     paymentStatus: {
       type: String,
-
-      enum: [
-        "pending",
-        "paid",
-        "failed",
-      ],
-
+      enum: ["pending", "paid", "failed"],
       default: "pending",
     },
 
     /*
     |--------------------------------------------------------------------------
-    | RAZORPAY ORDER ID
+    | RAZORPAY
     |--------------------------------------------------------------------------
-    |
-    | Example:
-    | order_Razorpay123456
-    |
-    | This is generated by Razorpay when an online
-    | payment order is created.
-    |
     */
-
     razorpayOrderId: {
       type: String,
       default: "",
@@ -372,34 +395,12 @@ const OrderSchema = new Schema<IOrder>(
       index: true,
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | RAZORPAY PAYMENT ID
-    |--------------------------------------------------------------------------
-    |
-    | Example:
-    | pay_Razorpay123456
-    |
-    | This is received after successful payment.
-    |
-    */
-
     razorpayPaymentId: {
       type: String,
       default: "",
       trim: true,
       index: true,
     },
-
-    /*
-    |--------------------------------------------------------------------------
-    | RAZORPAY SIGNATURE
-    |--------------------------------------------------------------------------
-    |
-    | Used by the backend to verify that the
-    | Razorpay payment response is genuine.
-    |
-    */
 
     razorpaySignature: {
       type: String,
@@ -409,13 +410,11 @@ const OrderSchema = new Schema<IOrder>(
 
     /*
     |--------------------------------------------------------------------------
-    | ORDER STATUS
+    | HOUSE OF ORIVE ORDER STATUS
     |--------------------------------------------------------------------------
     */
-
     orderStatus: {
       type: String,
-
       enum: [
         "pending",
         "confirmed",
@@ -424,8 +423,134 @@ const OrderSchema = new Schema<IOrder>(
         "delivered",
         "cancelled",
       ],
-
       default: "pending",
+    },
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHIPROCKET ORDER / SHIPMENT REFERENCES
+    |--------------------------------------------------------------------------
+    */
+    shiprocketOrderReference: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    shiprocketCreateInProgress: {
+      type: Boolean,
+      default: false,
+    },
+
+    parcelDetails: {
+      type: ParcelDetailsSchema,
+      default: undefined,
+    },
+
+    shiprocketOrderId: {
+      type: Number,
+      default: undefined,
+      index: true,
+    },
+
+    shiprocketShipmentId: {
+      type: Number,
+      default: undefined,
+      index: true,
+    },
+
+    awbCode: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
+
+    courierCompanyId: {
+      type: Number,
+      default: undefined,
+    },
+
+    courierName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    trackingUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    shipmentStatus: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    shipmentStatusCode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    pickupScheduledAt: {
+      type: Date,
+      default: undefined,
+    },
+
+    pickupTokenNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    shipmentCreatedAt: {
+      type: Date,
+      default: undefined,
+    },
+
+    shipmentEvents: {
+      type: [ShipmentEventSchema],
+      default: [],
+    },
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHIPROCKET SHIPPING LABEL
+    |--------------------------------------------------------------------------
+    */
+    shippingLabelUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    shippingLabelGeneratedAt: {
+      type: Date,
+      default: undefined,
+    },
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHIPROCKET MANIFEST
+    |--------------------------------------------------------------------------
+    */
+    shiprocketManifestId: {
+      type: Number,
+      default: undefined,
+    },
+
+    manifestUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    manifestGeneratedAt: {
+      type: Date,
+      default: undefined,
     },
 
     /*
@@ -433,7 +558,6 @@ const OrderSchema = new Schema<IOrder>(
     | PRICE
     |--------------------------------------------------------------------------
     */
-
     subtotal: {
       type: Number,
       required: true,
@@ -452,7 +576,6 @@ const OrderSchema = new Schema<IOrder>(
       min: 0,
     },
   },
-
   {
     timestamps: true,
   }
@@ -466,9 +589,6 @@ const OrderSchema = new Schema<IOrder>(
 
 const Order: Model<IOrder> =
   mongoose.models.Order ||
-  mongoose.model<IOrder>(
-    "Order",
-    OrderSchema
-  );
+  mongoose.model<IOrder>("Order", OrderSchema);
 
 export default Order;

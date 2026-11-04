@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { requireAdmin } from "@/lib/adminAuth";
@@ -13,7 +14,10 @@ export async function POST(request: Request) {
 
     if (!auth?.user) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Please log in again." },
+        {
+          success: false,
+          message: "Unauthorized. Please log in again.",
+        },
         { status: 401 }
       );
     }
@@ -71,7 +75,9 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const user = await User.findById(auth.user.id).select("+password");
+    const user = await User.findById(auth.user.id).select(
+      "+password"
+    );
 
     if (
       !user ||
@@ -87,9 +93,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // Explicitly verify that a password hash exists.
+    const currentPasswordHash = user.password;
+
+    if (
+      typeof currentPasswordHash !== "string" ||
+      !currentPasswordHash.trim()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unable to verify your current password.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Verify current password.
     const passwordMatches = await bcrypt.compare(
       currentPassword,
-      user.password
+      currentPasswordHash
     );
 
     if (!passwordMatches) {
@@ -106,13 +129,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Your new password must differ from your current password.",
+          message:
+            "Your new password must differ from your current password.",
         },
         { status: 400 }
       );
     }
 
+    // Hash and save new password.
     user.password = await bcrypt.hash(newPassword, 12);
+
     await user.save();
 
     return NextResponse.json(

@@ -29,44 +29,48 @@ export async function GET() {
 
     await connectDB();
 
-    // Fetch all products.
+    // Fetch products first. Category references can be stored as either
+    // ObjectIds or string IDs, depending on the existing Product schema.
     const products = await Product.find({})
-      .sort({
-        createdAt: -1,
-      })
+      .sort({ createdAt: -1 })
       .lean();
 
-    // MongoDB may return Product.category as an ObjectId even though
-    // the TypeScript model currently describes it as a string.
-    // Convert both forms to a string ID.
-    const categoryIds = products
-      .map((product) => {
-        if (!product.category) {
-          return "";
-        }
+    const getRawCategoryId = (value: unknown): string => {
+      if (!value) return "";
 
-        return product.category.toString();
-      })
-      .filter((id) =>
-        mongoose.Types.ObjectId.isValid(id)
-      );
+      if (typeof value === "string") return value.trim();
 
-    // Fetch all matching categories in one query.
-    const categories =
-      categoryIds.length > 0
-        ? await Category.find({
-            _id: {
-              $in: categoryIds,
-            },
-          })
-            .select(
-              "_id name slug description image status featured sortOrder createdAt updatedAt"
-            )
-            .lean()
-        : [];
+      if (typeof value === "object" && value !== null && "_id" in value) {
+        const id = (value as { _id?: unknown })._id;
+        return id ? String(id) : "";
+      }
 
-    // Create category lookup:
-    // "categoryObjectId" -> category document
+      return String(value);
+    };
+
+    // Convert valid references to actual ObjectIds before querying Category.
+    const categoryIds = Array.from(
+      new Set(
+        products
+          .map((product) => getRawCategoryId(product.category))
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      )
+    );
+
+    const categories = categoryIds.length
+      ? await Category.find({
+          _id: {
+            $in: categoryIds.map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        })
+          .select(
+            "_id name slug description image status featured sortOrder createdAt updatedAt"
+          )
+          .lean()
+      : [];
+
     const categoryMap = new Map(
       categories.map((category) => [
         category._id.toString(),
@@ -77,34 +81,47 @@ export async function GET() {
       ])
     );
 
-    // Convert every product's category ID into its category object.
+    // Always return a category object for ObjectId references, not the raw ID.
+    // Legacy text categories are preserved; unresolved IDs display as Uncategorized.
     const normalizedProducts = products.map((product) => {
-      const categoryId = product.category
-        ? product.category.toString()
-        : "";
+      const rawCategory = product.category as unknown;
+      const categoryId = getRawCategoryId(rawCategory);
+      const isCategoryId = mongoose.Types.ObjectId.isValid(categoryId);
 
-      const category =
-        categoryId && categoryMap.has(categoryId)
-          ? categoryMap.get(categoryId)
-          : product.category;
+      let category: unknown = null;
+
+      if (
+        typeof rawCategory === "object" &&
+        rawCategory !== null &&
+        "name" in rawCategory &&
+        typeof (rawCategory as { name?: unknown }).name === "string"
+      ) {
+        const existing = rawCategory as { _id?: unknown; name: string; slug?: unknown };
+        category = {
+          _id: existing._id ? String(existing._id) : categoryId,
+          name: existing.name,
+          slug: typeof existing.slug === "string" ? existing.slug : "",
+        };
+      } else if (isCategoryId) {
+        category = categoryMap.get(categoryId) ?? {
+          _id: categoryId,
+          name: "Uncategorized",
+          slug: "",
+        };
+      } else if (typeof rawCategory === "string" && rawCategory.trim()) {
+        // Keep older records where category was saved as a name, not an ID.
+        category = rawCategory.trim();
+      }
 
       return {
         ...product,
-
         _id: product._id.toString(),
-
         category,
-
-        lowStockThreshold:
-          product.lowStockThreshold ?? 5,
-
+        lowStockThreshold: product.lowStockThreshold ?? 5,
         createdAt:
-          product.createdAt?.toISOString?.() ??
-          product.createdAt,
-
+          product.createdAt?.toISOString?.() ?? product.createdAt,
         updatedAt:
-          product.updatedAt?.toISOString?.() ??
-          product.updatedAt,
+          product.updatedAt?.toISOString?.() ?? product.updatedAt,
       };
     });
 
