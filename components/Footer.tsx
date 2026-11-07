@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -10,12 +11,8 @@ export default function Footer() {
     <footer className="footer">
       <div className="footer-container">
         <div className="footer-grid">
-          {/* =========================================
-              BRAND
-          ========================================= */}
-
+          {/* BRAND */}
           <div className="footer-brand">
-            {/* LOGO */}
             <Link href="/" className="footer-logo-space">
               <Image
                 src={footerLogo}
@@ -26,7 +23,6 @@ export default function Footer() {
               />
             </Link>
 
-            {/* BRAND NAME */}
             <Link href="/" className="footer-brand-name">
               HOUSE OF ORIVE
             </Link>
@@ -44,11 +40,7 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 aria-label="House of Orive on Instagram"
               >
-                <Icon
-                  icon="mdi:instagram"
-                  width="18"
-                  height="18"
-                />
+                <Icon icon="mdi:instagram" width="18" height="18" />
               </a>
 
               <a
@@ -57,86 +49,41 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 aria-label="House of Orive on Facebook"
               >
-                <Icon
-                  icon="mdi:facebook"
-                  width="18"
-                  height="18"
-                />
+                <Icon icon="mdi:facebook" width="18" height="18" />
               </a>
             </div>
           </div>
 
-          {/* =========================================
-              SHOP
-          ========================================= */}
-
+          {/* SHOP */}
           <div className="footer-column">
             <h3 className="footer-heading">Shop</h3>
 
             <div className="footer-links">
-              <Link href="/products">
-                All Products
-              </Link>
-
-             
-
-              <Link href="/categories/women">
-                Women
-              </Link>
-
-             
-
-          
+              <Link href="/products">All Products</Link>
+              <Link href="/categories/women">Women</Link>
             </div>
           </div>
 
-          {/* =========================================
-              INFORMATION
-          ========================================= */}
-
+          {/* INFORMATION */}
           <div className="footer-column">
-            <h3 className="footer-heading">
-              Information
-            </h3>
+            <h3 className="footer-heading">Information</h3>
 
             <div className="footer-links">
-              <Link href="/about">
-                About Us
+              <Link href="/about">About Us</Link>
+              <Link href="/contact">Contact</Link>
+              <Link href="/shipping-policy">Shipping Policy</Link>
+              <Link href="/return-refund-policy">
+                Return &amp; Refund Policy
               </Link>
-
-              <Link href="/contact">
-                Contact
-              </Link>
-
-
-             <Link href="/shipping-policy">
-  Shipping Policy
-</Link>
-
-<Link href="/return-refund-policy">
-  Return & Refund Policy
-</Link>
-
-             
             </div>
           </div>
 
-          {/* =========================================
-              CONTACT
-          ========================================= */}
-
+          {/* CONTACT */}
           <div className="footer-contact">
-            <h3 className="footer-heading">
-              Get In Touch
-            </h3>
+            <h3 className="footer-heading">Get In Touch</h3>
 
             <div className="contact-list">
-              {/* PHONE */}
-
-              <a
-                href="tel:+918448658341"
-                className="contact-item"
-              >
+              <a href="tel:+918448658341" className="contact-item">
                 <span className="contact-icon">
                   <Icon
                     icon="solar:phone-linear"
@@ -151,10 +98,8 @@ export default function Footer() {
                 </span>
               </a>
 
-              {/* EMAIL */}
-
               <a
-                href="mailto:Houseoforive@gmail.com"
+                href="mailto:contact@houseoforive.in"
                 className="contact-item"
               >
                 <span className="contact-icon">
@@ -167,46 +112,77 @@ export default function Footer() {
 
                 <span className="contact-text">
                   <small>Email Us</small>
-                  <strong>
-                    Houseoforive@gmail.com
-                  </strong>
+                  <strong>contact@houseoforive.in</strong>
                 </span>
               </a>
             </div>
           </div>
         </div>
 
-        {/* =========================================
-            DIVIDER
-        ========================================= */}
-
+        {/* DIVIDER */}
         <div className="footer-divider" />
 
-        {/* =========================================
-            BOTTOM
-        ========================================= */}
-
+        {/* COPYRIGHT AND LEGAL LINKS */}
         <div className="footer-bottom">
           <p className="copyright">
             © 2026 House of Orive. All rights reserved.
           </p>
 
-          <nav className="footer-bottom-links" aria-label="Legal and accessibility links">
+          <nav
+            className="footer-bottom-links"
+            aria-label="Legal and accessibility links"
+          >
             <Link href="/privacy-policy">Privacy Policy</Link>
-            <span className="footer-bottom-separator" aria-hidden="true">|</span>
+
+            <span
+              className="footer-bottom-separator"
+              aria-hidden="true"
+            >
+              |
+            </span>
+
             <Link href="/cookies-policy">Cookies Policy</Link>
-            <span className="footer-bottom-separator" aria-hidden="true">|</span>
-            <Link href="/terms-and-conditions">Terms and Conditions</Link>
-            <span className="footer-bottom-separator" aria-hidden="true">|</span>
+
+            <span
+              className="footer-bottom-separator"
+              aria-hidden="true"
+            >
+              |
+            </span>
+
+            <Link href="/terms-and-conditions">
+              Terms and Conditions
+            </Link>
+
+            <span
+              className="footer-bottom-separator"
+              aria-hidden="true"
+            >
+              |
+            </span>
+
             <Link href="/accessibility">Website Accessibility</Link>
           </nav>
+        </div>
+
+        {/* ZAIB INFOTECH CREDIT */}
+        <div className="footer-credit">
+          <span>Made with care by</span>
+
+          <a
+            href="https://zaibinfotech.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-credit-brand"
+            aria-label="Visit Zaib Infotech website"
+          >
+            Zaib Infotech
+          </a>
         </div>
       </div>
 
       <style jsx>{`
-        /* =========================================
-           FOOTER
-        ========================================= */
+        /* FOOTER */
 
         .footer {
           width: 100%;
@@ -218,101 +194,70 @@ export default function Footer() {
           width: 100%;
           max-width: 1280px;
           margin: 0 auto;
-          padding: 80px 40px 32px;
+          padding: 80px 40px 25px;
         }
 
-        /* =========================================
-           GRID
-        ========================================= */
+        /* GRID */
 
         .footer-grid {
           display: grid;
-
-          grid-template-columns:
-            2fr
-            1fr
-            1fr
-            1.4fr;
-
+          grid-template-columns: 2fr 1fr 1fr 1.4fr;
           gap: 50px;
         }
 
-        /* =========================================
-           BRAND
-        ========================================= */
+        /* BRAND */
 
         .footer-brand {
           min-width: 0;
         }
 
-        /* =========================================
-           LOGO
-        ========================================= */
+        /* LOGO */
 
         .footer-logo-space {
           display: flex;
           align-items: center;
           justify-content: flex-start;
-
           width: 190px;
           height: 72px;
-
           margin-bottom: 22px;
-
           text-decoration: none;
         }
 
         .footer-logo {
           display: block;
-
           max-width: 180px;
           max-height: 68px;
-
           width: auto;
           height: auto;
-
           object-fit: contain;
         }
 
-        /* =========================================
-           BRAND NAME
-        ========================================= */
+        /* BRAND NAME */
 
         .footer-brand-name {
           display: inline-block;
-
           color: #ffffff;
-
           font-size: 27px;
           font-weight: 700;
           line-height: 1;
-
           letter-spacing: -0.045em;
-
           text-decoration: none;
         }
 
         .footer-description {
           max-width: 350px;
-
           margin: 20px 0 0;
-
           color: #999999;
-
           font-size: 13px;
           line-height: 1.8;
         }
 
-        /* =========================================
-           SOCIAL
-        ========================================= */
+        /* SOCIAL */
 
         .footer-social {
           display: flex;
           align-items: center;
-
           gap: 9px;
-
           margin-top: 27px;
         }
 
@@ -320,17 +265,12 @@ export default function Footer() {
           display: flex;
           align-items: center;
           justify-content: center;
-
           width: 38px;
           height: 38px;
-
           border: 1px solid #333333;
           border-radius: 50%;
-
           color: #ffffff;
-
           text-decoration: none;
-
           transition:
             background 0.3s ease,
             border-color 0.3s ease,
@@ -342,47 +282,34 @@ export default function Footer() {
           background: #FAF8F5;
           border-color: #ffffff;
           color: #111111;
-
           transform: translateY(-2px);
         }
 
-        /* =========================================
-           HEADINGS
-        ========================================= */
+        /* HEADINGS */
 
         .footer-heading {
           margin: 0 0 22px;
-
           color: #ffffff;
-
           font-size: 12px;
           font-weight: 600;
-
           letter-spacing: 0.18em;
           text-transform: uppercase;
         }
 
-        /* =========================================
-           LINKS
-        ========================================= */
+        /* LINKS */
 
         .footer-links {
           display: flex;
           flex-direction: column;
-
           gap: 13px;
         }
 
         .footer-links a {
           width: fit-content;
-
           color: #999999;
-
           font-size: 13px;
           line-height: 1.4;
-
           text-decoration: none;
-
           transition:
             color 0.25s ease,
             transform 0.25s ease;
@@ -393,25 +320,19 @@ export default function Footer() {
           transform: translateX(3px);
         }
 
-        /* =========================================
-           CONTACT
-        ========================================= */
+        /* CONTACT */
 
         .contact-list {
           display: flex;
           flex-direction: column;
-
           gap: 18px;
         }
 
         .contact-item {
           display: flex;
           align-items: center;
-
           gap: 12px;
-
           color: #ffffff;
-
           text-decoration: none;
         }
 
@@ -419,16 +340,12 @@ export default function Footer() {
           display: flex;
           align-items: center;
           justify-content: center;
-
           width: 38px;
           height: 38px;
           min-width: 38px;
-
           border: 1px solid #333333;
           border-radius: 50%;
-
           color: #ffffff;
-
           transition:
             background 0.25s ease,
             color 0.25s ease;
@@ -442,65 +359,48 @@ export default function Footer() {
         .contact-text {
           display: flex;
           flex-direction: column;
-
           min-width: 0;
         }
 
         .contact-item small {
           margin-bottom: 4px;
-
           color: #777777;
-
           font-size: 9px;
           font-weight: 600;
-
           letter-spacing: 0.14em;
           text-transform: uppercase;
         }
 
         .contact-item strong {
           color: #dddddd;
-
           font-size: 12px;
           font-weight: 400;
-
           line-height: 1.5;
-
           word-break: break-word;
         }
 
-        /* =========================================
-           DIVIDER
-        ========================================= */
+        /* DIVIDER */
 
         .footer-divider {
           width: 100%;
           height: 1px;
-
           margin: 62px 0 25px;
-
           background: #292929;
         }
 
-        /* =========================================
-           BOTTOM
-        ========================================= */
+        /* BOTTOM */
 
         .footer-bottom {
           display: flex;
           align-items: center;
           justify-content: space-between;
-
           gap: 20px;
-
           flex-wrap: wrap;
         }
 
         .copyright {
           margin: 0;
-
           color: #777777;
-
           font-size: 11px;
           line-height: 1.5;
         }
@@ -535,14 +435,41 @@ export default function Footer() {
           user-select: none;
         }
 
-        /* =========================================
-           TABLET
-           769px - 1000px
-        ========================================= */
+        /* ZAIB INFOTECH CREDIT */
+
+        .footer-credit {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 5px;
+          margin-top: 25px;
+          padding-top: 18px;
+          border-top: 1px solid #202020;
+          color: #777777;
+          font-size: 11px;
+          letter-spacing: 0.04em;
+          text-align: center;
+        }
+
+        .footer-credit-brand {
+          color: #ffffff;
+          font-weight: 600;
+          text-decoration: none;
+          transition: color 0.25s ease;
+        }
+
+        .footer-credit-brand:hover {
+          color: #bdbdbd;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+
+        /* TABLET */
 
         @media (min-width: 769px) and (max-width: 1000px) {
           .footer-container {
-            padding: 65px 25px 35px;
+            padding: 65px 25px 30px;
           }
 
           .footer-grid {
@@ -563,10 +490,7 @@ export default function Footer() {
           }
         }
 
-        /* =========================================
-           LARGE TABLET
-           1001px - 1150px
-        ========================================= */
+        /* LARGE TABLET */
 
         @media (min-width: 1001px) and (max-width: 1150px) {
           .footer-container {
@@ -575,24 +499,16 @@ export default function Footer() {
           }
 
           .footer-grid {
-            grid-template-columns:
-              1.7fr
-              1fr
-              1fr
-              1.3fr;
-
+            grid-template-columns: 1.7fr 1fr 1fr 1.3fr;
             gap: 35px;
           }
         }
 
-        /* =========================================
-           MOBILE
-           768px and below
-        ========================================= */
+        /* MOBILE */
 
         @media (max-width: 768px) {
           .footer-container {
-            padding: 55px 20px 30px;
+            padding: 55px 20px 25px;
           }
 
           .footer-grid {
@@ -621,7 +537,6 @@ export default function Footer() {
           .footer-description {
             max-width: 100%;
             margin-top: 18px;
-
             font-size: 12px;
             line-height: 1.75;
           }
@@ -659,7 +574,6 @@ export default function Footer() {
           .footer-bottom {
             flex-direction: column;
             align-items: flex-start;
-
             gap: 17px;
           }
 
@@ -673,16 +587,19 @@ export default function Footer() {
           .footer-bottom-separator {
             font-size: 10px;
           }
+
+          .footer-credit {
+            margin-top: 22px;
+            padding-top: 16px;
+            font-size: 10px;
+          }
         }
 
-        /* =========================================
-           SMALL MOBILE
-           480px and below
-        ========================================= */
+        /* SMALL MOBILE */
 
         @media (max-width: 480px) {
           .footer-container {
-            padding: 48px 18px 28px;
+            padding: 48px 18px 24px;
           }
 
           .footer-grid {
@@ -764,14 +681,11 @@ export default function Footer() {
           }
         }
 
-        /* =========================================
-           VERY SMALL MOBILE
-           359px and below
-        ========================================= */
+        /* VERY SMALL MOBILE */
 
         @media (max-width: 359px) {
           .footer-container {
-            padding: 42px 15px 26px;
+            padding: 42px 15px 22px;
           }
 
           .footer-grid {
@@ -827,16 +741,19 @@ export default function Footer() {
           .footer-bottom-separator {
             font-size: 8px;
           }
+
+          .footer-credit {
+            font-size: 9px;
+          }
         }
 
-        /* =========================================
-           REDUCED MOTION
-        ========================================= */
+        /* REDUCED MOTION */
 
         @media (prefers-reduced-motion: reduce) {
           .footer-social a,
           .footer-links a,
-          .contact-icon {
+          .contact-icon,
+          .footer-credit-brand {
             transition: none;
           }
 

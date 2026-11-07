@@ -65,7 +65,7 @@ export default function ContactSection() {
 
             {/* EMAIL */}
             <a
-              href="mailto:Houseoforive@gmail.com"
+              href="mailto:contact@houseoforive.in"
               className="contact-detail"
             >
               <div className="contact-icon">
@@ -79,7 +79,7 @@ export default function ContactSection() {
               <div className="contact-detail-text">
                 <span>EMAIL US</span>
 
-                <strong>Houseoforive@gmail.com</strong>
+                <strong>contact@houseoforive.in</strong>
               </div>
             </a>
 

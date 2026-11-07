@@ -51,7 +51,7 @@ export default function ContactPage() {
               <div className="mt-9 border-t border-black/10">
                 {/* EMAIL */}
                 <a
-                  href="mailto:Houseoforive@gmail.com"
+                  href="mailto:contact@houseoforive.in"
                   className="group flex gap-5 border-b border-black/10 py-6 transition-colors hover:bg-[#faf9f6]"
                 >
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-black/10 bg-[#faf9f6] transition-colors group-hover:bg-white">
@@ -67,7 +67,7 @@ export default function ContactPage() {
                       Email Us
                     </p>
                     <p className="mt-2 break-all text-sm font-medium">
-                      Houseoforive@gmail.com
+                      contact@houseoforive.in
                     </p>
                   </div>
 
