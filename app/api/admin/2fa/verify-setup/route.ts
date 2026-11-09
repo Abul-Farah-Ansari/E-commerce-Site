@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { connectDB } from "@/lib/mongodb";
 import { requireAdmin } from "@/lib/adminAuth";
 import User from "@/models/User";
@@ -21,25 +22,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let body: unknown;
-
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, message: "Invalid request body." },
-        { status: 400 }
-      );
-    }
-
-    if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { success: false, message: "Invalid request body." },
-        { status: 400 }
-      );
-    }
-
-    const { code } = body as { code?: unknown };
+    const body = await request.json().catch(() => null);
+    const code = body?.code;
 
     if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
       return NextResponse.json(
@@ -54,47 +38,45 @@ export async function POST(request: NextRequest) {
       "+totpSecretEncrypted +totpPendingSecretEncrypted"
     );
 
-    if (!user || user.role !== "admin" || user.accountStatus !== "active") {
+    if (
+      !user ||
+      user.role !== "admin" ||
+      user.accountStatus !== "active"
+    ) {
       return NextResponse.json(
         { success: false, message: "Active admin account not found." },
         { status: 403 }
       );
     }
 
-    if (user.totpEnabled) {
-      return NextResponse.json(
-        { success: false, message: "Two-factor authentication is already enabled." },
-        { status: 409 }
-      );
-    }
-
     if (!user.totpPendingSecretEncrypted) {
       return NextResponse.json(
-        { success: false, message: "Start the 2FA setup process first." },
+        { success: false, message: "Start authenticator setup first." },
         { status: 400 }
       );
     }
 
-    let secret: string;
+    let newSecret: string;
 
     try {
-      secret = decryptTotpSecret(user.totpPendingSecretEncrypted);
+      newSecret = decryptTotpSecret(
+        user.totpPendingSecretEncrypted
+      );
     } catch {
-      console.error("Unable to decrypt the pending admin TOTP secret.");
-
       return NextResponse.json(
-        { success: false, message: "Unable to verify setup. Please restart the setup process." },
+        { success: false, message: "Unable to read pending authenticator." },
         { status: 500 }
       );
     }
 
-    if (!verifyTotpCode(secret, code)) {
+    if (!verifyTotpCode(newSecret, code)) {
       return NextResponse.json(
-        { success: false, message: "Incorrect or expired code. Please try again." },
-        { status: 400 }
+        { success: false, message: "Incorrect or expired new authenticator code." },
+        { status: 401 }
       );
     }
 
+    // Activate the new secret only after successful verification.
     user.totpSecretEncrypted = user.totpPendingSecretEncrypted;
     user.totpPendingSecretEncrypted = undefined;
     user.totpEnabled = true;
@@ -104,18 +86,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: "Two-factor authentication enabled successfully.",
+        message: "New authenticator successfully activated.",
       },
       {
         status: 200,
-        headers: { "Cache-Control": "no-store" },
+        headers: { "Cache-Control": "no-store, max-age=0" },
       }
     );
   } catch (error) {
     console.error("Admin 2FA verification error:", error);
 
     return NextResponse.json(
-      { success: false, message: "Unable to verify the authenticator code." },
+      { success: false, message: "Unable to verify the new authenticator." },
       { status: 500 }
     );
   }

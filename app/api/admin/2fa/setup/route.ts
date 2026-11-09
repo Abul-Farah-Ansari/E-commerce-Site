@@ -1,17 +1,21 @@
 
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+
 import { connectDB } from "@/lib/mongodb";
 import { requireAdmin } from "@/lib/adminAuth";
 import User from "@/models/User";
 import {
+  decryptTotpSecret,
   encryptTotpSecret,
   generateTotpQrCode,
   generateTotpSecret,
+  verifyTotpCode,
 } from "@/lib/totp";
 
 export const runtime = "nodejs";
 
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const auth = await requireAdmin();
 
@@ -22,49 +26,111 @@ export async function POST(_request: NextRequest) {
       );
     }
 
+    const body = await request.json().catch(() => null);
+
+    const password =
+      typeof body?.password === "string" ? body.password : "";
+
+    const currentCode =
+      typeof body?.currentCode === "string"
+        ? body.currentCode
+        : "";
+
+    if (!password || password.length > 200) {
+      return NextResponse.json(
+        { success: false, message: "Enter your current password." },
+        { status: 400 }
+      );
+    }
+
     await connectDB();
 
-    const user = await User.findById(auth.user.id)
-      .select("+totpSecretEncrypted +totpPendingSecretEncrypted");
+    const user = await User.findById(auth.user.id).select(
+      "+password +totpSecretEncrypted +totpPendingSecretEncrypted"
+    );
 
-    if (!user || user.role !== "admin" || user.accountStatus !== "active") {
+    if (
+      !user ||
+      user.role !== "admin" ||
+      user.accountStatus !== "active"
+    ) {
       return NextResponse.json(
         { success: false, message: "Active admin account not found." },
         { status: 403 }
       );
     }
 
-    if (user.totpEnabled) {
+    if (
+      typeof user.password !== "string" ||
+      !(await bcrypt.compare(password, user.password))
+    ) {
       return NextResponse.json(
-        { success: false, message: "Two-factor authentication is already enabled." },
-        { status: 409 }
+        { success: false, message: "Incorrect password." },
+        { status: 401 }
       );
     }
 
-    const secret = generateTotpSecret();
-    const encryptedSecret = encryptTotpSecret(secret);
-    const qrCode = await generateTotpQrCode(secret, user.email);
+    // If 2FA is already enabled, verify the existing authenticator.
+    if (user.totpEnabled) {
+      if (
+        !user.totpSecretEncrypted ||
+        !/^\d{6}$/.test(currentCode)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Enter your current six-digit authenticator code.",
+          },
+          { status: 400 }
+        );
+      }
 
+      let oldSecret: string;
+
+      try {
+        oldSecret = decryptTotpSecret(user.totpSecretEncrypted);
+      } catch {
+        return NextResponse.json(
+          { success: false, message: "Unable to verify current authenticator." },
+          { status: 500 }
+        );
+      }
+
+      if (!verifyTotpCode(oldSecret, currentCode)) {
+        return NextResponse.json(
+          { success: false, message: "Incorrect current authenticator code." },
+          { status: 401 }
+        );
+      }
+    }
+
+    const newSecret = generateTotpSecret();
+    const encryptedSecret = encryptTotpSecret(newSecret);
+    const qrCode = await generateTotpQrCode(
+      newSecret,
+      user.email
+    );
+
+    // Keep the current active secret unchanged.
     user.totpPendingSecretEncrypted = encryptedSecret;
     await user.save();
 
     return NextResponse.json(
       {
         success: true,
-        message: "Scan the QR code with your authenticator app, then verify a code.",
+        message: "Scan the new QR code and verify it to complete setup.",
         qrCode,
-        // The raw secret is not returned; the QR code contains the enrollment URI.
       },
       {
         status: 200,
-        headers: { "Cache-Control": "no-store" },
+        headers: { "Cache-Control": "no-store, max-age=0" },
       }
     );
   } catch (error) {
     console.error("Admin 2FA setup error:", error);
 
     return NextResponse.json(
-      { success: false, message: "Unable to start two-factor setup." },
+      { success: false, message: "Unable to start 2FA setup." },
       { status: 500 }
     );
   }

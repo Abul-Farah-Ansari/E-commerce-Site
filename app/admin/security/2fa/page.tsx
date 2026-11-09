@@ -5,21 +5,26 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 
-type TwoFactorStatus = {
-  enabled: boolean;
-};
-
 export default function AdminTwoFactorSetupPage() {
   const [qrCode, setQrCode] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+
+  const [setupPassword, setSetupPassword] = useState("");
+  const [currentCode, setCurrentCode] = useState("");
+  const [newCode, setNewCode] = useState("");
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(true);
+
   const [enabled, setEnabled] = useState(false);
+  const [showSetupForm, setShowSetupForm] = useState(false);
   const [showDisableForm, setShowDisableForm] = useState(false);
 
+  // Load current 2FA status
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
     setError("");
@@ -50,7 +55,12 @@ export default function AdminTwoFactorSetupPage() {
     void loadStatus();
   }, [loadStatus]);
 
-  async function startSetup() {
+  // Start initial setup or authenticator replacement
+  async function startSetup(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
     setError("");
     setMessage("");
     setLoading(true);
@@ -58,8 +68,15 @@ export default function AdminTwoFactorSetupPage() {
     try {
       const response = await fetch("/api/admin/2fa/setup", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
         cache: "no-store",
+        body: JSON.stringify({
+          password: setupPassword,
+          currentCode: enabled ? currentCode : "",
+        }),
       });
 
       const data = await response.json();
@@ -70,7 +87,14 @@ export default function AdminTwoFactorSetupPage() {
       }
 
       setQrCode(data.qrCode);
-      setMessage("Scan this QR code with your authenticator app.");
+      setNewCode("");
+      setShowSetupForm(false);
+      setSetupPassword("");
+      setCurrentCode("");
+
+      setMessage(
+        "Scan the new QR code with Google Authenticator."
+      );
     } catch {
       setError("Unable to connect to the server.");
     } finally {
@@ -78,8 +102,12 @@ export default function AdminTwoFactorSetupPage() {
     }
   }
 
-  async function verifySetup(event: React.FormEvent<HTMLFormElement>) {
+  // Verify the new authenticator
+  async function verifySetup(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     setError("");
     setMessage("");
     setLoading(true);
@@ -87,10 +115,14 @@ export default function AdminTwoFactorSetupPage() {
     try {
       const response = await fetch("/api/admin/2fa/verify-setup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({
+          code: newCode,
+        }),
       });
 
       const data = await response.json();
@@ -102,8 +134,14 @@ export default function AdminTwoFactorSetupPage() {
 
       setEnabled(true);
       setQrCode("");
-      setCode("");
-      setMessage("Two-factor authentication is now enabled.");
+      setNewCode("");
+      setSetupPassword("");
+      setCurrentCode("");
+      setShowSetupForm(false);
+
+      setMessage(
+        "Your new authenticator has been activated successfully."
+      );
     } catch {
       setError("Unable to connect to the server.");
     } finally {
@@ -111,8 +149,12 @@ export default function AdminTwoFactorSetupPage() {
     }
   }
 
-  async function disableTwoFactor(event: React.FormEvent<HTMLFormElement>) {
+  // Disable 2FA - existing functionality
+  async function disableTwoFactor(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     setError("");
     setMessage("");
     setLoading(true);
@@ -120,25 +162,41 @@ export default function AdminTwoFactorSetupPage() {
     try {
       const response = await fetch("/api/admin/2fa/disable", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ password, code }),
+        body: JSON.stringify({
+          password,
+          code,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setError(data.message || "Unable to disable two-factor authentication.");
+        setError(
+          data.message ||
+            "Unable to disable two-factor authentication."
+        );
         return;
       }
 
       setEnabled(false);
       setShowDisableForm(false);
+      setShowSetupForm(false);
+
       setPassword("");
       setCode("");
       setQrCode("");
-      setMessage("Two-factor authentication has been disabled.");
+      setNewCode("");
+      setSetupPassword("");
+      setCurrentCode("");
+
+      setMessage(
+        "Two-factor authentication has been disabled."
+      );
     } catch {
       setError("Unable to connect to the server.");
     } finally {
@@ -146,6 +204,18 @@ export default function AdminTwoFactorSetupPage() {
     }
   }
 
+  // Cancel setup
+  function cancelSetup() {
+    setQrCode("");
+    setNewCode("");
+    setSetupPassword("");
+    setCurrentCode("");
+    setShowSetupForm(false);
+    setMessage("");
+    setError("");
+  }
+
+  // Shared input styling
   const inputStyle: React.CSSProperties = {
     width: "100%",
     boxSizing: "border-box",
@@ -156,6 +226,7 @@ export default function AdminTwoFactorSetupPage() {
     outlineColor: "#111111",
   };
 
+  // Shared button styling
   const primaryButtonStyle: React.CSSProperties = {
     width: "100%",
     padding: 14,
@@ -165,6 +236,17 @@ export default function AdminTwoFactorSetupPage() {
     borderRadius: 8,
     cursor: loading ? "not-allowed" : "pointer",
     fontWeight: 600,
+  };
+
+  const secondaryButtonStyle: React.CSSProperties = {
+    width: "100%",
+    padding: 12,
+    marginTop: 10,
+    border: "1px solid #dddddd",
+    borderRadius: 8,
+    background: "#ffffff",
+    color: "#333333",
+    cursor: "pointer",
   };
 
   return (
@@ -211,7 +293,10 @@ export default function AdminTwoFactorSetupPage() {
             borderRadius: 12,
           }}
         >
-          <Icon icon="mdi:shield-lock-outline" width={29} />
+          <Icon
+            icon="mdi:shield-lock-outline"
+            width={29}
+          />
         </div>
 
         <h1
@@ -225,11 +310,19 @@ export default function AdminTwoFactorSetupPage() {
           Two-Factor Authentication
         </h1>
 
-        <p style={{ color: "#666666", fontSize: 14, lineHeight: 1.7 }}>
-          Protect your administrator account with an additional verification
-          code from Google Authenticator or another compatible app.
+        <p
+          style={{
+            color: "#666666",
+            fontSize: 14,
+            lineHeight: 1.7,
+          }}
+        >
+          Protect your administrator account with an additional
+          verification code from Google Authenticator or another
+          compatible app.
         </p>
 
+        {/* Error message */}
         {error && (
           <div
             role="alert"
@@ -247,6 +340,7 @@ export default function AdminTwoFactorSetupPage() {
           </div>
         )}
 
+        {/* Success message */}
         {message && (
           <div
             role="status"
@@ -265,12 +359,18 @@ export default function AdminTwoFactorSetupPage() {
         )}
 
         {statusLoading ? (
-          <p style={{ marginTop: 24, color: "#666666", fontSize: 14 }}>
+          <p
+            style={{
+              marginTop: 24,
+              color: "#666666",
+              fontSize: 14,
+            }}
+          >
             Checking your security status...
           </p>
         ) : (
           <>
-            {/* Current status */}
+            {/* Current 2FA status */}
             <div
               style={{
                 marginTop: 24,
@@ -284,9 +384,16 @@ export default function AdminTwoFactorSetupPage() {
               }}
             >
               <div>
-                <p style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>
+                <p
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    margin: 0,
+                  }}
+                >
                   Authenticator protection
                 </p>
+
                 <p
                   style={{
                     fontSize: 12,
@@ -315,24 +422,174 @@ export default function AdminTwoFactorSetupPage() {
               </span>
             </div>
 
-            {/* Enable flow */}
-            {!enabled && !qrCode && (
-              <button
-                type="button"
-                onClick={startSetup}
-                disabled={loading}
-                style={{ ...primaryButtonStyle, marginTop: 20 }}
+            {/* Enable or change authenticator button */}
+            {!qrCode &&
+              !showSetupForm &&
+              !showDisableForm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSetupForm(true);
+                    setError("");
+                    setMessage("");
+                  }}
+                  disabled={loading}
+                  style={{
+                    ...primaryButtonStyle,
+                    marginTop: 20,
+                  }}
+                >
+                  {enabled
+                    ? "Change Authenticator"
+                    : "Enable 2FA"}
+                </button>
+              )}
+
+            {/* Setup authorization form */}
+            {showSetupForm && !qrCode && (
+              <form
+                onSubmit={startSetup}
+                style={{
+                  marginTop: 22,
+                  padding: 18,
+                  border: "1px solid #e5e5e5",
+                  borderRadius: 12,
+                }}
               >
-                {loading ? "Preparing setup..." : "Enable 2FA"}
-              </button>
+                <h2
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    marginTop: 0,
+                  }}
+                >
+                  {enabled
+                    ? "Change Authenticator"
+                    : "Enable Two-Factor Authentication"}
+                </h2>
+
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "#666666",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {enabled
+                    ? "Verify your current password and existing authenticator before generating a replacement QR code."
+                    : "Enter your admin password to generate your authenticator QR code."}
+                </p>
+
+                <label
+                  htmlFor="setup-password"
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    margin: "16px 0 8px",
+                  }}
+                >
+                  Current Admin Password
+                </label>
+
+                <input
+                  id="setup-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={setupPassword}
+                  onChange={(event) =>
+                    setSetupPassword(event.target.value)
+                  }
+                  required
+                  style={inputStyle}
+                />
+
+                {/* Existing authenticator code is required
+                    only when changing an enabled authenticator. */}
+                {enabled && (
+                  <>
+                    <label
+                      htmlFor="existing-auth-code"
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        margin: "16px 0 8px",
+                      }}
+                    >
+                      Existing Authenticator Code
+                    </label>
+
+                    <input
+                      id="existing-auth-code"
+                      value={currentCode}
+                      onChange={(event) =>
+                        setCurrentCode(
+                          event.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6)
+                        )
+                      }
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      pattern="[0-9]{6}"
+                      placeholder="000000"
+                      required
+                      style={{
+                        ...inputStyle,
+                        textAlign: "center",
+                        letterSpacing: 6,
+                        fontSize: 18,
+                      }}
+                    />
+                  </>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={
+                    loading ||
+                    !setupPassword ||
+                    (enabled && currentCode.length !== 6)
+                  }
+                  style={{
+                    ...primaryButtonStyle,
+                    marginTop: 18,
+                  }}
+                >
+                  {loading
+                    ? "Preparing..."
+                    : "Generate New QR Code"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={cancelSetup}
+                  style={secondaryButtonStyle}
+                >
+                  Cancel
+                </button>
+              </form>
             )}
 
-            {!enabled && qrCode && (
+            {/* New authenticator QR code */}
+            {qrCode && (
               <>
-                <div style={{ textAlign: "center", margin: "24px 0" }}>
+                <div
+                  style={{
+                    textAlign: "center",
+                    margin: "24px 0",
+                  }}
+                >
+                  <h2 style={{ fontSize: 17 }}>
+                    Scan Your New Authenticator QR Code
+                  </h2>
+
                   <img
                     src={qrCode}
-                    alt="Authenticator enrollment QR code"
+                    alt="New authenticator enrollment QR code"
                     width={230}
                     height={230}
                     style={{
@@ -352,14 +609,26 @@ export default function AdminTwoFactorSetupPage() {
                     paddingLeft: 22,
                   }}
                 >
-                  <li>Open Google Authenticator on your phone.</li>
-                  <li>Scan the QR code above.</li>
-                  <li>Enter the current six-digit code below.</li>
+                  <li>
+                    Open Google Authenticator on your phone.
+                  </li>
+                  <li>
+                    Add a new account by scanning this QR code.
+                  </li>
+                  <li>
+                    Check that the new entry displays your updated email.
+                  </li>
+                  <li>
+                    Enter the six-digit code from the new entry below.
+                  </li>
                 </ol>
 
-                <form onSubmit={verifySetup} style={{ marginTop: 18 }}>
+                <form
+                  onSubmit={verifySetup}
+                  style={{ marginTop: 18 }}
+                >
                   <label
-                    htmlFor="setup-code"
+                    htmlFor="new-auth-code"
                     style={{
                       display: "block",
                       fontSize: 13,
@@ -367,14 +636,18 @@ export default function AdminTwoFactorSetupPage() {
                       marginBottom: 8,
                     }}
                   >
-                    Authenticator Code
+                    New Authenticator Code
                   </label>
 
                   <input
-                    id="setup-code"
-                    value={code}
+                    id="new-auth-code"
+                    value={newCode}
                     onChange={(event) =>
-                      setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                      setNewCode(
+                        event.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 6)
+                      )
                     }
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -393,58 +666,51 @@ export default function AdminTwoFactorSetupPage() {
 
                   <button
                     type="submit"
-                    disabled={loading || code.length !== 6}
+                    disabled={loading || newCode.length !== 6}
                     style={primaryButtonStyle}
                   >
-                    {loading ? "Verifying..." : "Verify and Enable 2FA"}
+                    {loading
+                      ? "Verifying..."
+                      : "Verify and Activate New Authenticator"}
                   </button>
                 </form>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setQrCode("");
-                    setCode("");
-                    setMessage("");
-                    setError("");
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: 12,
-                    marginTop: 10,
-                    border: "1px solid #dddddd",
-                    borderRadius: 8,
-                    background: "#ffffff",
-                    color: "#333333",
-                    cursor: "pointer",
-                  }}
+                  disabled={loading}
+                  onClick={cancelSetup}
+                  style={secondaryButtonStyle}
                 >
                   Cancel Setup
                 </button>
               </>
             )}
 
-            {/* Disable flow */}
-            {enabled && !showDisableForm && (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDisableForm(true);
-                  setMessage("");
-                  setError("");
-                }}
-                style={{
-                  ...primaryButtonStyle,
-                  marginTop: 20,
-                  background: "#ffffff",
-                  color: "#111111",
-                  border: "1px solid #cccccc",
-                }}
-              >
-                Disable 2FA
-              </button>
-            )}
+            {/* Disable 2FA button */}
+            {enabled &&
+              !showDisableForm &&
+              !showSetupForm &&
+              !qrCode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDisableForm(true);
+                    setMessage("");
+                    setError("");
+                  }}
+                  style={{
+                    ...primaryButtonStyle,
+                    marginTop: 20,
+                    background: "#ffffff",
+                    color: "#111111",
+                    border: "1px solid #cccccc",
+                  }}
+                >
+                  Disable 2FA
+                </button>
+              )}
 
+            {/* Disable 2FA form */}
             {enabled && showDisableForm && (
               <form
                 onSubmit={disableTwoFactor}
@@ -455,7 +721,13 @@ export default function AdminTwoFactorSetupPage() {
                   borderRadius: 12,
                 }}
               >
-                <h2 style={{ fontSize: 16, fontWeight: 700, marginTop: 0 }}>
+                <h2
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    marginTop: 0,
+                  }}
+                >
                   Confirm disabling 2FA
                 </h2>
 
@@ -466,8 +738,8 @@ export default function AdminTwoFactorSetupPage() {
                     color: "#666666",
                   }}
                 >
-                  Enter your current admin password and a valid authenticator
-                  code to confirm this change.
+                  Enter your current admin password and a valid
+                  authenticator code to confirm this change.
                 </p>
 
                 <label
@@ -487,7 +759,9 @@ export default function AdminTwoFactorSetupPage() {
                   type="password"
                   autoComplete="current-password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
                   required
                   style={inputStyle}
                 />
@@ -508,7 +782,11 @@ export default function AdminTwoFactorSetupPage() {
                   id="disable-code"
                   value={code}
                   onChange={(event) =>
-                    setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                    setCode(
+                      event.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 6)
+                    )
                   }
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -525,30 +803,31 @@ export default function AdminTwoFactorSetupPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !password || code.length !== 6}
-                  style={{ ...primaryButtonStyle, marginTop: 18 }}
+                  disabled={
+                    loading ||
+                    !password ||
+                    code.length !== 6
+                  }
+                  style={{
+                    ...primaryButtonStyle,
+                    marginTop: 18,
+                  }}
                 >
-                  {loading ? "Verifying..." : "Confirm and Disable 2FA"}
+                  {loading
+                    ? "Verifying..."
+                    : "Confirm and Disable 2FA"}
                 </button>
 
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => {
                     setShowDisableForm(false);
                     setPassword("");
                     setCode("");
                     setError("");
                   }}
-                  style={{
-                    width: "100%",
-                    padding: 12,
-                    marginTop: 10,
-                    border: "1px solid #dddddd",
-                    borderRadius: 8,
-                    background: "#ffffff",
-                    color: "#333333",
-                    cursor: "pointer",
-                  }}
+                  style={secondaryButtonStyle}
                 >
                   Cancel
                 </button>
