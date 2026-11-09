@@ -125,30 +125,132 @@ async function getCourierOptions(order: {
   return normalizeCouriers(result);
 }
 
-function getShiprocketResponseDiagnostic(
-  response: Record<string, unknown>
-) {
-  const data =
-    response.data && typeof response.data === "object"
-      ? (response.data as Record<string, unknown>)
-      : null;
+type ShiprocketRecord = Record<string, unknown>;
+
+type ShiprocketFieldMatch = {
+  value: unknown;
+  path: string;
+};
+
+function asShiprocketRecord(value: unknown): ShiprocketRecord | null {
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    return value as ShiprocketRecord;
+  }
+
+  return null;
+}
+
+/**
+ * Shiprocket responses may wrap the order object in one or more `data`
+ * properties. Search nested objects safely instead of assuming a fixed depth.
+ */
+function findShiprocketField(
+  response: unknown,
+  fieldNames: string[],
+  maxDepth = 6
+): ShiprocketFieldMatch | null {
+  const queue: Array<{
+    value: unknown;
+    path: string;
+    depth: number;
+  }> = [{ value: response, path: "response", depth: 0 }];
+
+  const visited = new WeakSet<object>();
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const record = asShiprocketRecord(current.value);
+
+    if (!record || visited.has(record) || current.depth > maxDepth) {
+      continue;
+    }
+
+    visited.add(record);
+
+    for (const fieldName of fieldNames) {
+      const value = record[fieldName];
+
+      if (value !== undefined && value !== null && value !== "") {
+        return {
+          value,
+          path: `${current.path}.${fieldName}`,
+        };
+      }
+    }
+
+    for (const [key, value] of Object.entries(record)) {
+      if (value && typeof value === "object") {
+        queue.push({
+          value,
+          path: `${current.path}.${key}`,
+          depth: current.depth + 1,
+        });
+      }
+    }
+  }
+
+  return null;
+}
+
+function getShiprocketResponseDiagnostic(response: ShiprocketRecord) {
+  const structure: Array<{ path: string; keys: string[] }> = [];
+  const queue: Array<{
+    value: unknown;
+    path: string;
+    depth: number;
+  }> = [{ value: response, path: "response", depth: 0 }];
+  const visited = new WeakSet<object>();
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const record = asShiprocketRecord(current.value);
+
+    if (!record || visited.has(record) || current.depth > 6) {
+      continue;
+    }
+
+    visited.add(record);
+    structure.push({
+      path: current.path,
+      keys: Object.keys(record),
+    });
+
+    for (const [key, value] of Object.entries(record)) {
+      if (value && typeof value === "object") {
+        queue.push({
+          value,
+          path: `${current.path}.${key}`,
+          depth: current.depth + 1,
+        });
+      }
+    }
+  }
+
+  const orderId = findShiprocketField(response, ["order_id", "orderId"]);
+  const shipmentId = findShiprocketField(response, [
+    "shipment_id",
+    "shipmentId",
+  ]);
 
   return {
-    responseKeys: Object.keys(response),
-    dataKeys: data ? Object.keys(data) : [],
-    orderIdPresent:
-      response.order_id !== undefined &&
-      response.order_id !== null,
-    shipmentIdPresent:
-      response.shipment_id !== undefined &&
-      response.shipment_id !== null,
-    orderIdType: typeof response.order_id,
-    shipmentIdType: typeof response.shipment_id,
-    status: response.status,
-    statusCode: response.status_code,
-    messagePresent: Boolean(response.message),
-    errorPresent: Boolean(response.error),
-    errorsPresent: Boolean(response.errors),
+    structure,
+    orderIdPresent: Boolean(orderId),
+    orderIdPath: orderId?.path ?? null,
+    orderIdType: orderId ? typeof orderId.value : "undefined",
+    shipmentIdPresent: Boolean(shipmentId),
+    shipmentIdPath: shipmentId?.path ?? null,
+    shipmentIdType: shipmentId ? typeof shipmentId.value : "undefined",
+    statusPresent: Boolean(findShiprocketField(response, ["status"])),
+    statusCodePresent: Boolean(
+      findShiprocketField(response, ["status_code", "statusCode"])
+    ),
+    messagePresent: Boolean(findShiprocketField(response, ["message"])),
+    errorPresent: Boolean(findShiprocketField(response, ["error"])),
+    errorsPresent: Boolean(findShiprocketField(response, ["errors"])),
   };
 }
 
@@ -608,19 +710,39 @@ export async function POST(
           }
         );
 
-      // Safe diagnostics: do not log customer data, credentials or tokens.
+      // Log response structure and field locations only. Never log the raw
+      // response because it may contain customer or other sensitive data.
       console.info(
         "SHIPROCKET CREATE ORDER DIAGNOSTIC:",
         getShiprocketResponseDiagnostic(shiprocketOrder)
       );
 
-      const shiprocketOrderId = Number(
-        shiprocketOrder.order_id
-      );
+      const orderIdMatch = findShiprocketField(shiprocketOrder, [
+        "order_id",
+        "orderId",
+      ]);
+      const shipmentIdMatch = findShiprocketField(shiprocketOrder, [
+        "shipment_id",
+        "shipmentId",
+      ]);
 
-      const shiprocketShipmentId = Number(
-        shiprocketOrder.shipment_id
-      );
+      const shiprocketOrderId = Number(orderIdMatch?.value);
+      const shiprocketShipmentId = Number(shipmentIdMatch?.value);
+
+      const statusMatch = findShiprocketField(shiprocketOrder, ["status"]);
+      const statusCodeMatch = findShiprocketField(shiprocketOrder, [
+        "status_code",
+        "statusCode",
+      ]);
+      const awbMatch = findShiprocketField(shiprocketOrder, ["awb_code", "awbCode"]);
+      const courierCompanyMatch = findShiprocketField(shiprocketOrder, [
+        "courier_company_id",
+        "courierCompanyId",
+      ]);
+      const courierNameMatch = findShiprocketField(shiprocketOrder, [
+        "courier_name",
+        "courierName",
+      ]);
 
       if (
         !Number.isSafeInteger(shiprocketOrderId) ||
@@ -636,11 +758,11 @@ export async function POST(
         console.error(
           "SHIPROCKET ORDER RESPONSE MISSING IDENTIFIERS:",
           {
-            orderIdPresent:
-              shiprocketOrder.order_id != null,
-            shipmentIdPresent:
-              shiprocketOrder.shipment_id != null,
-            responseKeys: Object.keys(shiprocketOrder),
+            orderIdPresent: Boolean(orderIdMatch),
+            orderIdPath: orderIdMatch?.path ?? null,
+            shipmentIdPresent: Boolean(shipmentIdMatch),
+            shipmentIdPath: shipmentIdMatch?.path ?? null,
+            responseStructure: getShiprocketResponseDiagnostic(shiprocketOrder),
           }
         );
 
@@ -656,43 +778,36 @@ export async function POST(
       order.shiprocketShipmentId = shiprocketShipmentId;
 
       order.shipmentStatus = String(
-        shiprocketOrder.status || "NEW"
+        statusMatch?.value || "NEW"
       );
 
       order.shipmentStatusCode = String(
-        shiprocketOrder.status_code ?? "1"
+        statusCodeMatch?.value ?? "1"
       );
 
       order.shipmentCreatedAt = new Date();
       order.shiprocketCreateInProgress = false;
 
-      if (
-        typeof shiprocketOrder.awb_code === "string" &&
-        shiprocketOrder.awb_code
-      ) {
-        order.awbCode = shiprocketOrder.awb_code;
+      if (typeof awbMatch?.value === "string" && awbMatch.value) {
+        order.awbCode = awbMatch.value;
       }
 
-      if (shiprocketOrder.courier_company_id) {
-        order.courierCompanyId = Number(
-          shiprocketOrder.courier_company_id
-        );
+      if (courierCompanyMatch?.value != null) {
+        order.courierCompanyId = Number(courierCompanyMatch.value);
       }
 
       if (
-        typeof shiprocketOrder.courier_name === "string" &&
-        shiprocketOrder.courier_name
+        typeof courierNameMatch?.value === "string" &&
+        courierNameMatch.value
       ) {
-        order.courierName = shiprocketOrder.courier_name;
+        order.courierName = courierNameMatch.value;
       }
 
       order.shipmentEvents = order.shipmentEvents || [];
 
       order.shipmentEvents.push({
-        status: String(shiprocketOrder.status || "NEW"),
-        statusCode: String(
-          shiprocketOrder.status_code ?? "1"
-        ),
+        status: String(statusMatch?.value || "NEW"),
+        statusCode: String(statusCodeMatch?.value ?? "1"),
         description:
           "Order created in Shiprocket. Courier assignment is pending.",
         eventDate: new Date(),
