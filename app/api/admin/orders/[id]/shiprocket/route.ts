@@ -712,10 +712,50 @@ export async function POST(
 
       // Log response structure and field locations only. Never log the raw
       // response because it may contain customer or other sensitive data.
-      console.info(
-        "SHIPROCKET CREATE ORDER DIAGNOSTIC:",
-        getShiprocketResponseDiagnostic(shiprocketOrder)
-      );
+  const shiprocketData =
+  shiprocketOrder.data &&
+  typeof shiprocketOrder.data === "object"
+    ? shiprocketOrder.data as Record<string, unknown>
+    : null;
+
+const diagnostic = getShiprocketResponseDiagnostic(shiprocketOrder);
+
+console.info(
+  "SHIPROCKET CREATE ORDER DIAGNOSTIC:",
+  JSON.stringify(
+    {
+      ...diagnostic,
+
+      responseMessage:
+        typeof shiprocketOrder.message === "string"
+          ? shiprocketOrder.message.slice(0, 500)
+          : null,
+
+      dataType: typeof shiprocketOrder.data,
+
+      dataKeys: shiprocketData
+        ? Object.keys(shiprocketData)
+        : [],
+
+      dataMessage:
+        typeof shiprocketData?.message === "string"
+          ? shiprocketData.message.slice(0, 500)
+          : null,
+
+      nestedDataType: typeof shiprocketData?.data,
+
+      nestedDataKeys:
+        shiprocketData?.data &&
+        typeof shiprocketData.data === "object"
+          ? Object.keys(
+              shiprocketData.data as Record<string, unknown>
+            )
+          : [],
+    },
+    null,
+    2
+  )
+);
 
       const orderIdMatch = findShiprocketField(shiprocketOrder, [
         "order_id",
