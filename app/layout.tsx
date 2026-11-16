@@ -1,10 +1,14 @@
+
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+
 import "./globals.css";
+
 import { CartProvider } from "@/components/CartContext";
 import GlobalAnimations from "@/components/GlobalAnimations";
 import PageLoader from "@/components/PageLoader";
 
+// Cormorant Garamond font
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -12,6 +16,7 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
+// Manrope font
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -19,6 +24,7 @@ const manrope = Manrope({
   display: "swap",
 });
 
+// SEO Metadata
 export const metadata: Metadata = {
   title: {
     default: "House of Orive",
@@ -54,9 +60,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${cormorant.variable} ${manrope.variable}`}>
-      <body>
+    <html
+      lang="en"
+      className={`${cormorant.variable} ${manrope.variable}`}
+    >
+      <body className="antialiased">
         <PageLoader />
+
         <CartProvider>
           <GlobalAnimations />
           {children}
