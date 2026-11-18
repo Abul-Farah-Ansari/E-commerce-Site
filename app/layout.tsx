@@ -1,6 +1,7 @@
 
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+import MetaPixel from "@/components/MetaPixel";
 
 import "./globals.css";
 
@@ -66,7 +67,7 @@ export default function RootLayout({
     >
       <body className="antialiased">
         <PageLoader />
-
+<MetaPixel />
         <CartProvider>
           <GlobalAnimations />
           {children}
