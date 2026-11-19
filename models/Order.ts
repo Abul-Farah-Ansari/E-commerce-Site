@@ -91,11 +91,29 @@ export interface IOrder extends Document {
 
   /*
   |--------------------------------------------------------------------------
+  | ORDER CANCELLATION DETAILS
+  |--------------------------------------------------------------------------
+  */
+  cancellationReason?: string;
+  cancelledAt?: Date;
+  cancelledBy?: "customer" | "admin";
+
+  /**
+   * Prevents restoring product stock more than once.
+   */
+  stockRestoredAt?: Date;
+
+  /*
+  |--------------------------------------------------------------------------
   | SHIPROCKET SHIPMENT DETAILS
   |--------------------------------------------------------------------------
   */
   shiprocketOrderReference?: string;
   shiprocketCreateInProgress?: boolean;
+
+  // Prevents simultaneous AWB assignment requests.
+  shiprocketAwbAssignInProgress?: boolean;
+
   parcelDetails?: IParcelDetails;
 
   shiprocketOrderId?: number;
@@ -428,6 +446,34 @@ const OrderSchema = new Schema<IOrder>(
 
     /*
     |--------------------------------------------------------------------------
+    | ORDER CANCELLATION DETAILS
+    |--------------------------------------------------------------------------
+    */
+    cancellationReason: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+
+    cancelledAt: {
+      type: Date,
+      default: undefined,
+    },
+
+    cancelledBy: {
+      type: String,
+      enum: ["customer", "admin"],
+      default: undefined,
+    },
+
+    stockRestoredAt: {
+      type: Date,
+      default: undefined,
+    },
+
+    /*
+    |--------------------------------------------------------------------------
     | SHIPROCKET ORDER / SHIPMENT REFERENCES
     |--------------------------------------------------------------------------
     */
@@ -438,6 +484,11 @@ const OrderSchema = new Schema<IOrder>(
     },
 
     shiprocketCreateInProgress: {
+      type: Boolean,
+      default: false,
+    },
+
+    shiprocketAwbAssignInProgress: {
       type: Boolean,
       default: false,
     },

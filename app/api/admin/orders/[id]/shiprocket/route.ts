@@ -422,7 +422,7 @@ export async function POST(
 
     await connectDB();
 
-    const order = await Order.findById(id);
+    let order = await Order.findById(id);
 
     if (!order) {
       return NextResponse.json(
@@ -473,11 +473,11 @@ export async function POST(
       );
     }
 
-    if (order.shiprocketShipmentId) {
+    if (order.shiprocketOrderId || order.shiprocketShipmentId) {
       return NextResponse.json(
         {
           success: false,
-          message: "A shipment is already saved for this order.",
+          message: "A Shiprocket order or shipment is already saved for this order.",
         },
         { status: 409 }
       );
@@ -625,16 +625,55 @@ export async function POST(
       );
     }
 
-    // Live mode: this request can create a real Shiprocket order.
+    // Live mode: acquire the creation lock atomically before contacting Shiprocket.
     const externalOrderReference =
       order.shiprocketOrderReference ||
       BigInt(`0x${order._id.toString()}`).toString();
 
-    order.parcelDetails = parcelDetails;
-    order.shiprocketOrderReference = externalOrderReference;
-    order.shiprocketCreateInProgress = true;
+    const lockResult = await Order.updateOne(
+      {
+        _id: order._id,
+        orderStatus: { $in: ["confirmed", "processing"] },
+        ...(order.paymentMethod === "online" ? { paymentStatus: "paid" } : {}),
+        shiprocketCreateInProgress: { $ne: true },
+        shiprocketOrderId: null,
+        shiprocketShipmentId: null,
+        awbCode: { $in: [null, ""] },
+        cancelledAt: null,
+      },
+      {
+        $set: {
+          parcelDetails,
+          shiprocketOrderReference: externalOrderReference,
+          shiprocketCreateInProgress: true,
+        },
+      }
+    );
 
-    await order.save();
+    if (lockResult.modifiedCount !== 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "The order changed or another Shiprocket request is already in progress. Refresh the order and try again.",
+        },
+        { status: 409 }
+      );
+    }
+
+    // Read the document after lock acquisition so subsequent payload data is current.
+    order = await Order.findById(id);
+
+    if (!order || !order.shiprocketCreateInProgress) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Could not confirm the Shiprocket creation lock. Check the order before retrying.",
+        },
+        { status: 409 }
+      );
+    }
 
     let shiprocketRequestStarted = false;
     let keepCreationLock = false;
@@ -811,52 +850,76 @@ console.info(
         );
       }
 
-      // Keep the lock until IDs are successfully saved to MongoDB.
+      // Keep the lock until the external identifiers are durably saved.
       keepCreationLock = true;
 
-      order.shiprocketOrderId = shiprocketOrderId;
-      order.shiprocketShipmentId = shiprocketShipmentId;
+      const shipmentCreatedAt = new Date();
+      const shipmentStatus = String(statusMatch?.value || "NEW");
+      const shipmentStatusCode = String(statusCodeMatch?.value ?? "1");
+      const awbCode =
+        typeof awbMatch?.value === "string" && awbMatch.value
+          ? awbMatch.value
+          : undefined;
+      const courierCompanyId =
+        courierCompanyMatch?.value != null
+          ? Number(courierCompanyMatch.value)
+          : undefined;
+      const courierName =
+        typeof courierNameMatch?.value === "string" && courierNameMatch.value
+          ? courierNameMatch.value
+          : undefined;
 
-      order.shipmentStatus = String(
-        statusMatch?.value || "NEW"
+      const shipmentEvents = [
+        ...(order.shipmentEvents || []),
+        {
+          status: shipmentStatus,
+          statusCode: shipmentStatusCode,
+          description:
+            "Order created in Shiprocket. Courier assignment is pending.",
+          eventDate: shipmentCreatedAt,
+        },
+      ];
+
+      // Save identifiers and release the lock in one conditional database update.
+      const saveResult = await Order.updateOne(
+        {
+          _id: order._id,
+          orderStatus: { $in: ["confirmed", "processing"] },
+          shiprocketCreateInProgress: true,
+          shiprocketOrderId: null,
+          shiprocketShipmentId: null,
+        },
+        {
+          $set: {
+            shiprocketOrderId,
+            shiprocketShipmentId,
+            shipmentStatus,
+            shipmentStatusCode,
+            shipmentCreatedAt,
+            ...(awbCode ? { awbCode } : {}),
+            ...(courierCompanyId !== undefined ? { courierCompanyId } : {}),
+            ...(courierName ? { courierName } : {}),
+            shipmentEvents,
+            shiprocketCreateInProgress: false,
+          },
+        }
       );
 
-      order.shipmentStatusCode = String(
-        statusCodeMatch?.value ?? "1"
-      );
-
-      order.shipmentCreatedAt = new Date();
-      order.shiprocketCreateInProgress = false;
-
-      if (typeof awbMatch?.value === "string" && awbMatch.value) {
-        order.awbCode = awbMatch.value;
+      if (saveResult.modifiedCount !== 1) {
+        throw new Error(
+          "Shiprocket created the order, but its identifiers could not be safely saved. The creation lock has been retained. Reconcile the Shiprocket dashboard before retrying."
+        );
       }
 
-      if (courierCompanyMatch?.value != null) {
-        order.courierCompanyId = Number(courierCompanyMatch.value);
-      }
-
-      if (
-        typeof courierNameMatch?.value === "string" &&
-        courierNameMatch.value
-      ) {
-        order.courierName = courierNameMatch.value;
-      }
-
-      order.shipmentEvents = order.shipmentEvents || [];
-
-      order.shipmentEvents.push({
-        status: String(statusMatch?.value || "NEW"),
-        statusCode: String(statusCodeMatch?.value ?? "1"),
-        description:
-          "Order created in Shiprocket. Courier assignment is pending.",
-        eventDate: new Date(),
-      });
-
-      await order.save();
-
-      // MongoDB now contains the confirmed Shiprocket identifiers.
       keepCreationLock = false;
+
+      order = await Order.findById(order._id);
+
+      if (!order) {
+        throw new Error(
+          "Shiprocket identifiers were saved, but the local order could not be reloaded."
+        );
+      }
 
       let couriers: ReturnType<typeof normalizeCouriers> = [];
       let courierWarning = "";
@@ -931,9 +994,17 @@ console.info(
         !keepCreationLock &&
         (!shiprocketRequestStarted || definitiveRejection)
       ) {
-        order.shiprocketCreateInProgress = false;
-
-        await order.save().catch((saveError) => {
+        await Order.updateOne(
+          {
+            _id: id,
+            shiprocketCreateInProgress: true,
+            shiprocketOrderId: null,
+            shiprocketShipmentId: null,
+          },
+          {
+            $set: { shiprocketCreateInProgress: false },
+          }
+        ).catch((saveError) => {
           console.error(
             "SHIPROCKET LOCK RESET ERROR:",
             saveError instanceof Error

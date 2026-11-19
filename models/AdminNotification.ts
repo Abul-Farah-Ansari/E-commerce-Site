@@ -11,7 +11,8 @@ export type AdminNotificationType =
   | "order_status"
   | "payment_status"
   | "low_stock"
-  | "customer_cancellation";
+  | "customer_cancellation"
+  | "admin_cancellation";
 
 /* =========================================================
    ADMIN NOTIFICATION INTERFACE
@@ -42,6 +43,7 @@ const AdminNotificationSchema = new Schema<IAdminNotification>(
         "payment_status",
         "low_stock",
         "customer_cancellation",
+        "admin_cancellation",
       ],
       required: true,
     },

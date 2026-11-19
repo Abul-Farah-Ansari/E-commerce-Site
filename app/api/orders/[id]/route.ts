@@ -8,19 +8,15 @@ import Order from "@/models/Order";
 import Product from "@/models/Product";
 import AdminNotification from "@/models/AdminNotification";
 
-const CANCELLABLE_ORDER_STATUSES = [
-  "pending",
-  "confirmed",
-  "processing",
-] as const;
+const CANCELLABLE_ORDER_STATUSES = ["pending", "confirmed"] as const;
 
-/* =========================================================
-   GET SINGLE ORDER
-========================================================= */
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: RouteContext
 ) {
   try {
     const auth = await requireAuth();
@@ -29,24 +25,17 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
-          message:
-            auth.status === 401
-              ? "Please login first."
-              : auth.message,
+          message: auth.status === 401 ? "Please login first." : auth.message,
         },
         { status: auth.status }
       );
     }
 
-    // Explicitly verify that the authenticated user exists.
     const authenticatedUser = auth.user;
 
     if (!authenticatedUser) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Please login first.",
-        },
+        { success: false, message: "Please login first." },
         { status: 401 }
       );
     }
@@ -55,17 +44,13 @@ export async function GET(
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid order ID.",
-        },
+        { success: false, message: "Invalid order ID." },
         { status: 400 }
       );
     }
 
     await connectDB();
 
-    // Only allow the authenticated customer to access their own order.
     const order = await Order.findOne({
       _id: id,
       userId: authenticatedUser.id,
@@ -73,10 +58,7 @@ export async function GET(
 
     if (!order) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Order not found.",
-        },
+        { success: false, message: "Order not found." },
         { status: 404 }
       );
     }
@@ -94,85 +76,105 @@ export async function GET(
       },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store",
-        },
+        headers: { "Cache-Control": "no-store" },
       }
     );
   } catch (error) {
     console.error("Get single order error:", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        message: "Unable to load order.",
-      },
+      { success: false, message: "Unable to load order." },
       { status: 500 }
     );
   }
 }
 
-/* =========================================================
-   CUSTOMER CANCEL ORDER
-   PATCH /api/orders/[id]
-========================================================= */
-
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: RouteContext
 ) {
   let session: mongoose.ClientSession | null = null;
+  let committed = false;
 
   try {
-    // 1. Authenticate customer.
     const auth = await requireAuth();
 
     if (!auth.success) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            auth.status === 401
-              ? "Please login first."
-              : auth.message,
+          message: auth.status === 401 ? "Please login first." : auth.message,
         },
         { status: auth.status }
       );
     }
 
-    // Explicitly verify that the authenticated user exists.
     const authenticatedUser = auth.user;
 
     if (!authenticatedUser) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Please login first.",
-        },
+        { success: false, message: "Please login first." },
         { status: 401 }
       );
     }
 
-    // 2. Validate order ID.
     const { id } = await context.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
+        { success: false, message: "Invalid order ID." },
+        { status: 400 }
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Invalid JSON request." },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid cancellation request." },
+        { status: 400 }
+      );
+    }
+
+    const input = body as Record<string, unknown>;
+
+    if (
+      input.reason !== undefined &&
+      typeof input.reason !== "string"
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Cancellation reason must be text." },
+        { status: 400 }
+      );
+    }
+
+    const cancellationReason =
+      typeof input.reason === "string" ? input.reason.trim() : "";
+
+    if (cancellationReason.length > 500) {
+      return NextResponse.json(
         {
           success: false,
-          message: "Invalid order ID.",
+          message: "Cancellation reason cannot exceed 500 characters.",
         },
         { status: 400 }
       );
     }
 
-    // 3. Connect and start transaction.
     await connectDB();
 
     session = await mongoose.startSession();
     session.startTransaction();
 
-    // 4. Find only this authenticated customer's order.
     const order = await Order.findOne({
       _id: id,
       userId: authenticatedUser.id,
@@ -182,23 +184,16 @@ export async function PATCH(
       await session.abortTransaction();
 
       return NextResponse.json(
-        {
-          success: false,
-          message: "Order not found.",
-        },
+        { success: false, message: "Order not found." },
         { status: 404 }
       );
     }
 
-    // 5. Check whether cancellation is allowed.
     if (order.orderStatus === "cancelled") {
       await session.abortTransaction();
 
       return NextResponse.json(
-        {
-          success: false,
-          message: "This order is already cancelled.",
-        },
+        { success: false, message: "This order is already cancelled." },
         { status: 409 }
       );
     }
@@ -214,13 +209,99 @@ export async function PATCH(
         {
           success: false,
           message:
-            "This order can no longer be cancelled because it has been shipped or delivered.",
+            "This order can only be cancelled before preparation begins.",
         },
-        { status: 400 }
+        { status: 409 }
       );
     }
 
-    // 6. Restore product stock within the same transaction.
+    /*
+     * If Shiprocket shipment creation is actively running,
+     * block cancellation to avoid a race condition.
+     *
+     * If a shipment already exists, cancellation is allowed.
+     * The shipment will NOT be cancelled automatically.
+     */
+
+    if (order.shiprocketCreateInProgress) {
+      await session.abortTransaction();
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Your shipment is currently being created. Please wait and contact support if you still need to cancel your order.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (order.stockRestoredAt) {
+      await session.abortTransaction();
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Stock has already been restored for this order.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const shipmentNeedsManualCancellation = Boolean(
+      order.shiprocketOrderId ||
+      order.shiprocketShipmentId ||
+      order.awbCode?.trim()
+    );
+
+    const cancelledAt = new Date();
+
+    /*
+     * Conditional update prevents duplicate cancellation
+     * and duplicate stock restoration.
+     *
+     * Existing Shiprocket IDs are intentionally NOT
+     * restricted here. The store order can be cancelled
+     * without automatically cancelling the shipment.
+     */
+
+    const updated = await Order.updateOne(
+      {
+        _id: order._id,
+        userId: authenticatedUser.id,
+        orderStatus: { $in: [...CANCELLABLE_ORDER_STATUSES] },
+        stockRestoredAt: null,
+        shiprocketCreateInProgress: { $ne: true },
+      },
+      {
+        $set: {
+          orderStatus: "cancelled",
+          cancellationReason,
+          cancelledAt,
+          cancelledBy: "customer",
+          stockRestoredAt: cancelledAt,
+        },
+      },
+      { session }
+    );
+
+    if (updated.modifiedCount !== 1) {
+      await session.abortTransaction();
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Order status changed while cancellation was being processed. Please refresh and try again.",
+        },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * Restore product stock inside the same transaction.
+     */
+
     for (const item of order.items) {
       const productId = String(item.productId || "").trim();
       const quantity = Number(item.quantity);
@@ -243,15 +324,8 @@ export async function PATCH(
 
       const product = await Product.findByIdAndUpdate(
         productId,
-        {
-          $inc: {
-            stock: quantity,
-          },
-        },
-        {
-          new: true,
-          session,
-        }
+        { $inc: { stock: quantity } },
+        { new: true, session }
       );
 
       if (!product) {
@@ -268,13 +342,17 @@ export async function PATCH(
       }
     }
 
-    // 7. Cancel the order in the same transaction.
-    order.orderStatus = "cancelled";
+    /*
+     * Commit order cancellation and stock restoration together.
+     */
 
-    await order.save({ session });
     await session.commitTransaction();
+    committed = true;
 
-    // 8. Notify admin only after successful cancellation.
+    /*
+     * Notify admin after successful transaction.
+     */
+
     try {
       await AdminNotification.create({
         type: "customer_cancellation",
@@ -291,27 +369,52 @@ export async function PATCH(
       );
     }
 
+    /*
+     * Build an honest customer response.
+     * No Shiprocket cancellation or Razorpay refund
+     * is initiated by this endpoint.
+     */
+
+    let message =
+      "Order cancelled successfully. Product stock has been restored.";
+
+    if (shipmentNeedsManualCancellation) {
+      message +=
+        " Your Shiprocket shipment has not been cancelled automatically. Our team needs to handle it manually.";
+    }
+
+    if (
+      order.paymentMethod === "online" &&
+      order.paymentStatus === "paid"
+    ) {
+      message +=
+        " Your online payment has not been refunded automatically. Please contact our team regarding your refund.";
+    }
+
     return NextResponse.json({
       success: true,
-      message:
-        "Order cancelled successfully. Product stock has been restored.",
+      message,
+      shipmentNeedsManualCancellation,
+      refundRequiresManualHandling:
+        order.paymentMethod === "online" &&
+        order.paymentStatus === "paid",
       order: {
         id: order._id.toString(),
-        orderStatus: order.orderStatus,
-        updatedAt: order.updatedAt,
+        orderStatus: "cancelled",
+        cancellationReason,
+        cancelledAt,
+        cancelledBy: "customer",
+        stockRestoredAt: cancelledAt,
       },
     });
   } catch (error) {
     console.error("Customer cancel order error:", error);
 
-    if (session?.inTransaction()) {
+    if (!committed && session?.inTransaction()) {
       try {
         await session.abortTransaction();
       } catch (rollbackError) {
-        console.error(
-          "Cancellation rollback error:",
-          rollbackError
-        );
+        console.error("Cancellation rollback error:", rollbackError);
       }
     }
 

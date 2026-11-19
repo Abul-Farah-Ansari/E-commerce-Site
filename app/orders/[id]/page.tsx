@@ -47,6 +47,11 @@ interface Order {
   paymentStatus: "pending" | "paid" | "failed";
 
   orderStatus: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: "customer" | "admin";
+  stockRestoredAt?: string;
+  shiprocketCreateInProgress?: boolean;
 
   subtotal: number;
   shipping: number;
@@ -134,6 +139,14 @@ export default function OrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState("");
+  const [cancelError, setCancelError] = useState("");
+
+  const canCustomerCancel =
+    order?.orderStatus === "pending" || order?.orderStatus === "confirmed";
 
   const refreshShipmentTracking = async () => {
   const response = await fetch(
@@ -214,6 +227,51 @@ export default function OrderDetailsPage() {
 
   const isCancelled = order?.orderStatus === "cancelled";
 
+  const handleCancelOrder = async () => {
+    if (!order || !canCustomerCancel || cancelling) return;
+
+    setCancelling(true);
+    setCancelError("");
+    setCancelMessage("");
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          orderStatus: "cancelled",
+          reason: cancelReason.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to cancel this order.");
+      }
+
+      setShowCancelDialog(false);
+      setCancelReason("");
+      setCancelMessage(
+        data.message || "Your order has been cancelled successfully."
+      );
+
+      await fetchOrder();
+    } catch (err) {
+      setCancelError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <>
       <Navbar />
@@ -284,6 +342,13 @@ export default function OrderDetailsPage() {
                 </button>
               </header>
 
+              {cancelMessage && (
+                <div className="orive-cancel-success" role="status">
+                  <Icon icon="solar:check-circle-linear" />
+                  <span>{cancelMessage}</span>
+                </div>
+              )}
+
               {/* ORDER STATUS */}
               <section className="orive-detail-card">
                 <div className="orive-detail-section-heading">
@@ -302,6 +367,17 @@ export default function OrderDetailsPage() {
                     <Icon icon="solar:close-circle-linear" />
                     <div>
                       <strong>This order has been cancelled.</strong>
+                      {order.cancelledAt && (
+                        <p>Cancelled on: {formatDate(order.cancelledAt)}</p>
+                      )}
+                      {order.cancelledBy && (
+                        <p>
+                          Cancelled by: {order.cancelledBy === "customer" ? "You" : "Our team"}
+                        </p>
+                      )}
+                      {order.cancellationReason && (
+                        <p>Reason: {order.cancellationReason}</p>
+                      )}
                       <p>Please contact our team if you need assistance.</p>
                     </div>
                   </div>
@@ -570,6 +646,20 @@ export default function OrderDetailsPage() {
                   Back to My Orders
                 </Link>
 
+                {canCustomerCancel && (
+                  <button
+                    type="button"
+                    className="orive-cancel-order-button"
+                    onClick={() => {
+                      setCancelError("");
+                      setShowCancelDialog(true);
+                    }}
+                  >
+                    <Icon icon="solar:close-circle-linear" />
+                    Cancel Order
+                  </button>
+                )}
+
                 <Link href="/contact">
                   Need help with your order?
                   <Icon icon="solar:arrow-up-right-linear" />
@@ -578,6 +668,94 @@ export default function OrderDetailsPage() {
             </>
           ) : null}
         </div>
+
+        {showCancelDialog && order && (
+          <div
+            className="orive-cancel-overlay"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !cancelling) {
+                setShowCancelDialog(false);
+              }
+            }}
+          >
+            <div
+              className="orive-cancel-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="cancel-order-title"
+            >
+              <button
+                type="button"
+                className="orive-cancel-close"
+                onClick={() => setShowCancelDialog(false)}
+                disabled={cancelling}
+                aria-label="Close cancellation dialog"
+              >
+                <Icon icon="solar:close-circle-linear" />
+              </button>
+
+              <p className="orive-detail-eyebrow">ORDER CANCELLATION</p>
+              <h2 id="cancel-order-title">Cancel this order?</h2>
+              <p className="orive-cancel-description">
+                Are you sure you want to cancel order #{getReference(order._id)}?
+                This action cannot be undone.
+              </p>
+
+              <label htmlFor="cancel-reason">Reason for cancellation</label>
+              <textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="Please tell us why you want to cancel..."
+                maxLength={500}
+                rows={4}
+              />
+              <small className="orive-cancel-counter">
+                {cancelReason.length}/500 characters
+              </small>
+
+              {(order.shiprocketOrderId ||
+                order.shiprocketShipmentId ||
+                order.awbCode ||
+                order.shiprocketCreateInProgress) && (
+                <div className="orive-cancel-warning">
+                  A shipment may already exist in Shiprocket. Cancelling this
+                  order will not automatically cancel the courier shipment.
+                  Our team may need to handle it manually.
+                </div>
+              )}
+
+              {order.paymentMethod === "online" && order.paymentStatus === "paid" && (
+                <div className="orive-cancel-warning">
+                  Your online payment has already been received. Cancellation
+                  does not automatically issue a refund. Our team will handle
+                  the refund separately.
+                </div>
+              )}
+
+              {cancelError && (
+                <p className="orive-cancel-error" role="alert">{cancelError}</p>
+              )}
+
+              <div className="orive-cancel-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelDialog(false)}
+                  disabled={cancelling}
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  disabled={cancelling}
+                >
+                  {cancelling ? "Cancelling..." : "Confirm Cancellation"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />
@@ -1105,6 +1283,161 @@ function OrderDetailsStyles() {
         to { transform: rotate(360deg); }
       }
 
+      .orive-cancel-order-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 43px;
+        padding: 0 17px;
+        border: 1px solid #a45e5e;
+        background: #fff;
+        color: #a45e5e;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .orive-cancel-success {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 18px;
+        padding: 13px 16px;
+        border: 1px solid #dce6d8;
+        background: #f0f5ed;
+        color: #486344;
+        font-size: 12px;
+      }
+
+      .orive-cancel-success svg {
+        flex-shrink: 0;
+        font-size: 18px;
+      }
+
+      .orive-cancel-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        overflow-y: auto;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.55);
+      }
+
+      .orive-cancel-modal {
+        position: relative;
+        width: min(470px, 100%);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        padding: 35px;
+        background: #fff;
+        color: #171715;
+      }
+
+      .orive-cancel-modal h2 {
+        margin: 0 0 12px;
+        font-family: Georgia, serif;
+        font-size: 30px;
+        font-weight: 400;
+      }
+
+      .orive-cancel-description {
+        color: #77736d;
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .orive-cancel-modal label {
+        display: block;
+        margin: 20px 0 8px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .orive-cancel-modal textarea {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #dedbd5;
+        border-radius: 0;
+        outline-color: #898074;
+        background: #faf9f7;
+        color: #171715;
+        font: inherit;
+        font-size: 12px;
+        resize: vertical;
+      }
+
+      .orive-cancel-counter {
+        display: block;
+        margin-top: 6px;
+        color: #99948c;
+        font-size: 9px;
+        text-align: right;
+      }
+
+      .orive-cancel-close {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        background: transparent;
+        color: #77736d;
+        font-size: 22px;
+        cursor: pointer;
+      }
+
+      .orive-cancel-warning {
+        margin-top: 14px;
+        padding: 12px;
+        background: #f7f3e9;
+        color: #76633c;
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .orive-cancel-error {
+        margin: 13px 0 0;
+        color: #a13e3e;
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .orive-cancel-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .orive-cancel-actions button {
+        flex: 1;
+        min-height: 43px;
+        padding: 8px;
+        border: 1px solid #171715;
+        background: #fff;
+        color: #171715;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .orive-cancel-actions button:last-child {
+        background: #171715;
+        color: #fff;
+      }
+
+      .orive-cancel-actions button:disabled,
+      .orive-cancel-close:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
       @media (max-width: 700px) {
         .orive-detail-page {
           padding: 25px 15px 65px;
@@ -1158,6 +1491,16 @@ function OrderDetailsStyles() {
 
         .orive-detail-product-total {
           font-size: 14px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .orive-cancel-modal {
+          padding: 30px 20px;
+        }
+
+        .orive-cancel-actions {
+          flex-direction: column;
         }
       }
 

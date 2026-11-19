@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
@@ -8,7 +7,7 @@ import Product from "@/models/Product";
 import AdminNotification from "@/models/AdminNotification";
 
 /* =========================================================
-   VALID ORDER STATUSES
+   VALID STATUSES
 ========================================================= */
 
 const VALID_ORDER_STATUSES = [
@@ -26,18 +25,18 @@ const VALID_PAYMENT_STATUSES = [
   "failed",
 ] as const;
 
-type OrderStatus = (typeof VALID_ORDER_STATUSES)[number];
-type PaymentStatus = (typeof VALID_PAYMENT_STATUSES)[number];
-
-/* =========================================================
-   CANCELLABLE ORDER STATUSES
-========================================================= */
-
 const CANCELLABLE_ORDER_STATUSES = [
   "pending",
   "confirmed",
   "processing",
 ] as const;
+
+type OrderStatus = (typeof VALID_ORDER_STATUSES)[number];
+type PaymentStatus = (typeof VALID_PAYMENT_STATUSES)[number];
+
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
 
 /* =========================================================
    UPDATE ORDER / PAYMENT STATUS
@@ -46,9 +45,10 @@ const CANCELLABLE_ORDER_STATUSES = [
 
 export async function PUT(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: RouteContext
 ) {
   let session: mongoose.ClientSession | null = null;
+  let committed = false;
 
   try {
     /* =====================================================
@@ -70,7 +70,7 @@ export async function PUT(
     }
 
     /* =====================================================
-       2. GET AND VALIDATE ORDER ID
+       2. VALIDATE ORDER ID
     ===================================================== */
 
     const { id } = await context.params;
@@ -81,9 +81,7 @@ export async function PUT(
           success: false,
           message: "Invalid order ID.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -94,6 +92,8 @@ export async function PUT(
     let body: {
       orderStatus?: unknown;
       paymentStatus?: unknown;
+      cancellationReason?: unknown;
+      reason?: unknown;
     };
 
     try {
@@ -104,9 +104,7 @@ export async function PUT(
           success: false,
           message: "Invalid JSON request body.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -119,21 +117,101 @@ export async function PUT(
           success: false,
           message: "Provide orderStatus or paymentStatus.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
     /* =====================================================
-       4. START DATABASE TRANSACTION
+       4. VALIDATE REQUESTED STATUSES
+    ===================================================== */
+
+    let requestedOrderStatus: OrderStatus | undefined;
+    let requestedPaymentStatus: PaymentStatus | undefined;
+
+    if (hasOrderStatus) {
+      const value = String(body.orderStatus || "").trim();
+
+      if (
+        !VALID_ORDER_STATUSES.includes(value as OrderStatus)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Invalid order status.",
+          },
+          { status: 400 }
+        );
+      }
+
+      requestedOrderStatus = value as OrderStatus;
+    }
+
+    if (hasPaymentStatus) {
+      const value = String(body.paymentStatus || "").trim();
+
+      if (
+        !VALID_PAYMENT_STATUSES.includes(value as PaymentStatus)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Invalid payment status.",
+          },
+          { status: 400 }
+        );
+      }
+
+      requestedPaymentStatus = value as PaymentStatus;
+    }
+
+    /* =====================================================
+       5. VALIDATE CANCELLATION REASON
+    ===================================================== */
+
+    const cancellationRequested =
+      requestedOrderStatus === "cancelled";
+
+    const rawReason =
+      body.cancellationReason !== undefined
+        ? body.cancellationReason
+        : body.reason;
+
+    if (
+      cancellationRequested &&
+      rawReason !== undefined &&
+      typeof rawReason !== "string"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Cancellation reason must be text.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const cancellationReason =
+      typeof rawReason === "string" ? rawReason.trim() : "";
+
+    if (cancellationReason.length > 500) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Cancellation reason cannot exceed 500 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    /* =====================================================
+       6. START DATABASE TRANSACTION
     ===================================================== */
 
     session = await mongoose.startSession();
     session.startTransaction();
 
     /* =====================================================
-       5. FIND ORDER
+       7. FIND ORDER
     ===================================================== */
 
     const order = await Order.findById(id).session(session);
@@ -146,99 +224,50 @@ export async function PUT(
           success: false,
           message: "Order not found.",
         },
-        {
-          status: 404,
-        }
+        { status: 404 }
       );
     }
-
-    /* =====================================================
-       6. SAVE PREVIOUS STATUSES FOR NOTIFICATIONS
-
-       IMPORTANT:
-       Read these only after confirming that the order exists.
-    ===================================================== */
 
     const previousOrderStatus = order.orderStatus;
     const previousPaymentStatus = order.paymentStatus;
 
-    /* =====================================================
-       7. TRACK STATUS CHANGES
-    ===================================================== */
-
     let orderStatusChanged = false;
     let paymentStatusChanged = false;
-    let cancellationRequested = false;
 
     /* =====================================================
-       8. VALIDATE AND UPDATE ORDER STATUS
+       8. VALIDATE ORDER STATUS TRANSITION
     ===================================================== */
 
-    if (hasOrderStatus) {
-      const orderStatus = String(body.orderStatus || "").trim() as OrderStatus;
-
-      if (!VALID_ORDER_STATUSES.includes(orderStatus)) {
+    if (requestedOrderStatus) {
+      if (order.orderStatus === "delivered") {
         await session.abortTransaction();
 
         return NextResponse.json(
           {
             success: false,
-            message: "Invalid order status.",
+            message: "A delivered order cannot be changed.",
           },
-          {
-            status: 400,
-          }
+          { status: 400 }
         );
       }
 
-      const currentStatus = order.orderStatus;
+      if (order.orderStatus === "cancelled") {
+        await session.abortTransaction();
 
-      if (currentStatus === orderStatus) {
-        orderStatusChanged = false;
-      } else {
-        /* -----------------------------------------------
-           Delivered orders cannot be changed
-        ----------------------------------------------- */
+        return NextResponse.json(
+          {
+            success: false,
+            message: "A cancelled order cannot be changed.",
+          },
+          { status: 400 }
+        );
+      }
 
-        if (currentStatus === "delivered") {
-          await session.abortTransaction();
-
-          return NextResponse.json(
-            {
-              success: false,
-              message: "A delivered order cannot be changed.",
-            },
-            {
-              status: 400,
-            }
-          );
-        }
-
-        /* -----------------------------------------------
-           Cancelled orders cannot be changed
-        ----------------------------------------------- */
-
-        if (currentStatus === "cancelled") {
-          await session.abortTransaction();
-
-          return NextResponse.json(
-            {
-              success: false,
-              message: "A cancelled order cannot be changed.",
-            },
-            {
-              status: 400,
-            }
-          );
-        }
-
-        /* -----------------------------------------------
-           Handle order cancellation
-        ----------------------------------------------- */
-
-        if (orderStatus === "cancelled") {
+      if (requestedOrderStatus !== order.orderStatus) {
+        if (cancellationRequested) {
           const canCancel = CANCELLABLE_ORDER_STATUSES.includes(
-            currentStatus as (typeof CANCELLABLE_ORDER_STATUSES)[number]
+            order.orderStatus as
+              (typeof CANCELLABLE_ORDER_STATUSES)[number]
           );
 
           if (!canCancel) {
@@ -247,65 +276,143 @@ export async function PUT(
             return NextResponse.json(
               {
                 success: false,
-                message: `A ${currentStatus} order cannot be cancelled.`,
+                message: `A ${order.orderStatus} order cannot be cancelled.`,
               },
-              {
-                status: 400,
-              }
+              { status: 400 }
             );
           }
 
-          cancellationRequested = true;
-          order.orderStatus = "cancelled";
+          /*
+           * IMPORTANT:
+           * Do not cancel while Shiprocket order creation
+           * is running. This prevents a race condition
+           * between shipment creation and cancellation.
+           */
+          if (order.shiprocketCreateInProgress === true) {
+            await session.abortTransaction();
+
+            return NextResponse.json(
+              {
+                success: false,
+                message:
+                  "Shiprocket shipment creation is currently in progress. Please wait for it to finish before cancelling this order.",
+              },
+              { status: 409 }
+            );
+          }
+
+          if (order.stockRestoredAt) {
+            await session.abortTransaction();
+
+            return NextResponse.json(
+              {
+                success: false,
+                message: "Product stock has already been restored.",
+              },
+              { status: 409 }
+            );
+          }
+
           orderStatusChanged = true;
         } else {
-          order.orderStatus = orderStatus;
+          order.orderStatus = requestedOrderStatus;
           orderStatusChanged = true;
         }
       }
     }
 
     /* =====================================================
-       9. VALIDATE AND UPDATE PAYMENT STATUS
+       9. VALIDATE PAYMENT STATUS
     ===================================================== */
 
-    if (hasPaymentStatus) {
-      const paymentStatus = String(body.paymentStatus || "").trim() as PaymentStatus;
-
-      if (!VALID_PAYMENT_STATUSES.includes(paymentStatus)) {
-        await session.abortTransaction();
-
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Invalid payment status.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
-
-      const currentPaymentStatus = order.paymentStatus;
-
-      if (currentPaymentStatus === paymentStatus) {
-        paymentStatusChanged = false;
-      } else {
-        order.paymentStatus = paymentStatus;
+    if (requestedPaymentStatus) {
+      if (order.paymentStatus !== requestedPaymentStatus) {
+        order.paymentStatus = requestedPaymentStatus;
         paymentStatusChanged = true;
       }
     }
 
     /* =====================================================
-       10. RESTORE PRODUCT STOCK ON CANCELLATION
-
-       Stock restoration and the order update are performed
-       in the same transaction.
+       10. HANDLE ADMIN CANCELLATION
     ===================================================== */
 
-    if (cancellationRequested) {
+    let cancelledAt: Date | undefined;
+    let shipmentNeedsManualCancellation = false;
+
+    if (cancellationRequested && orderStatusChanged) {
+      const currentStatus = order.orderStatus;
+
+      // Shiprocket is NOT called automatically.
+      // The admin must handle an existing shipment manually.
+      shipmentNeedsManualCancellation = Boolean(
+        order.shiprocketCreateInProgress ||
+        order.shiprocketOrderId ||
+        order.shiprocketShipmentId ||
+        order.awbCode?.trim()
+      );
+
+      cancelledAt = new Date();
+
+      /*
+       * Atomically claim cancellation.
+       *
+       * IMPORTANT:
+       * shiprocketCreateInProgress must not be true.
+       *
+       * This database condition protects against a
+       * concurrent Shiprocket creation request that
+       * starts after the order was initially read.
+       *
+       * Stock restoration and cancellation happen
+       * inside the same transaction.
+       */
+
+      const updateResult = await Order.updateOne(
+        {
+          _id: order._id,
+          orderStatus: currentStatus,
+
+          // Critical Shiprocket race-condition protection.
+          shiprocketCreateInProgress: { $ne: true },
+
+          stockRestoredAt: null,
+        },
+        {
+          $set: {
+            orderStatus: "cancelled",
+            cancellationReason,
+            cancelledAt,
+            cancelledBy: "admin",
+            stockRestoredAt: cancelledAt,
+
+            ...(paymentStatusChanged
+              ? { paymentStatus: order.paymentStatus }
+              : {}),
+          },
+        },
+        { session }
+      );
+
+      if (updateResult.modifiedCount !== 1) {
+        await session.abortTransaction();
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Order was modified by another request or Shiprocket shipment creation is in progress. Refresh the order and try again.",
+          },
+          { status: 409 }
+        );
+      }
+
+      /* -----------------------------------------------
+         Restore product stock inside the transaction
+      ----------------------------------------------- */
+
       for (const item of order.items) {
         const productId = String(item.productId || "").trim();
+        const quantity = Number(item.quantity);
 
         if (!mongoose.Types.ObjectId.isValid(productId)) {
           await session.abortTransaction();
@@ -313,15 +420,11 @@ export async function PUT(
           return NextResponse.json(
             {
               success: false,
-              message: `Invalid product ID found in order for "${item.name}".`,
+              message: `Invalid product ID for "${item.name}".`,
             },
-            {
-              status: 400,
-            }
+            { status: 400 }
           );
         }
-
-        const quantity = Number(item.quantity);
 
         if (!Number.isInteger(quantity) || quantity < 1) {
           await session.abortTransaction();
@@ -329,11 +432,9 @@ export async function PUT(
           return NextResponse.json(
             {
               success: false,
-              message: `Invalid quantity found for "${item.name}".`,
+              message: `Invalid quantity for "${item.name}".`,
             },
-            {
-              status: 400,
-            }
+            { status: 400 }
           );
         }
 
@@ -356,90 +457,86 @@ export async function PUT(
           return NextResponse.json(
             {
               success: false,
-              message: `Product "${item.name}" no longer exists. Order cancellation was not completed.`,
+              message:
+                `Product "${item.name}" no longer exists. Cancellation was not completed.`,
             },
-            {
-              status: 409,
-            }
+            { status: 409 }
           );
         }
       }
-    }
 
-    /* =====================================================
-       11. HANDLE REQUESTS WITH NO ACTUAL CHANGES
+      order.orderStatus = "cancelled";
+      order.cancellationReason = cancellationReason;
+      order.cancelledAt = cancelledAt;
+      order.cancelledBy = "admin";
+      order.stockRestoredAt = cancelledAt;
+    }
+        /* =====================================================
+       11. HANDLE NORMAL ORDER / PAYMENT UPDATES
     ===================================================== */
 
-    if (!orderStatusChanged && !paymentStatusChanged) {
-      await session.commitTransaction();
+    if (!cancellationRequested || !orderStatusChanged) {
+      if (!orderStatusChanged && !paymentStatusChanged) {
+        await session.commitTransaction();
+        committed = true;
 
-      return NextResponse.json(
-        {
-          success: true,
-          message: "No changes were made.",
-          order: {
-            id: order._id.toString(),
-            orderStatus: order.orderStatus,
-            paymentStatus: order.paymentStatus,
-            updatedAt: order.updatedAt,
+        return NextResponse.json(
+          {
+            success: true,
+            message: "No changes were made.",
+            order: {
+              id: order._id.toString(),
+              orderStatus: order.orderStatus,
+              paymentStatus: order.paymentStatus,
+              updatedAt: order.updatedAt,
+            },
           },
-        },
-        {
-          status: 200,
-        }
-      );
+          { status: 200 }
+        );
+      }
+
+      await order.save({ session });
     }
 
     /* =====================================================
-       12. SAVE ORDER AND COMMIT TRANSACTION
+       12. COMMIT TRANSACTION
     ===================================================== */
-
-    await order.save({
-      session,
-    });
 
     await session.commitTransaction();
+    committed = true;
 
     /* =====================================================
        13. CREATE ADMIN NOTIFICATIONS
-
-       IMPORTANT:
-       Notifications are created only after the order
-       transaction has committed successfully.
-
-       A notification failure must not turn a successful
-       order update into a failed API response.
     ===================================================== */
 
     try {
       const notificationPromises: Promise<unknown>[] = [];
 
-      /* -----------------------------------------------
-         Order status notification
-      ----------------------------------------------- */
-
       if (orderStatusChanged) {
         notificationPromises.push(
           AdminNotification.create({
-            type: "order_status",
-            title: "Order Status Updated",
-            message: `Order #${order._id.toString()} status changed from ${previousOrderStatus} to ${order.orderStatus}.`,
+            type: cancellationRequested
+              ? "admin_cancellation"
+              : "order_status",
+            title: cancellationRequested
+              ? "Order Cancelled by Admin"
+              : "Order Status Updated",
+            message: cancellationRequested
+              ? `Admin cancelled order #${order._id.toString()}. Reason: ${cancellationReason || "Not provided"}.`
+              : `Order #${order._id.toString()} status changed from ${previousOrderStatus} to ${order.orderStatus}.`,
             orderId: order._id,
             isRead: false,
           })
         );
       }
 
-      /* -----------------------------------------------
-         Payment status notification
-      ----------------------------------------------- */
-
       if (paymentStatusChanged) {
         notificationPromises.push(
           AdminNotification.create({
             type: "payment_status",
             title: "Payment Status Updated",
-            message: `Order #${order._id.toString()} payment status changed from ${previousPaymentStatus} to ${order.paymentStatus}.`,
+            message:
+              `Order #${order._id.toString()} payment status changed from ${previousPaymentStatus} to ${order.paymentStatus}.`,
             orderId: order._id,
             isRead: false,
           })
@@ -457,16 +554,23 @@ export async function PUT(
     }
 
     /* =====================================================
-       14. BUILD SUCCESS MESSAGE
+       14. SUCCESS RESPONSE
     ===================================================== */
 
     let message = "Order updated successfully.";
 
-    if (cancellationRequested && paymentStatusChanged) {
+    if (cancellationRequested) {
       message =
-        "Order cancelled, stock restored, and payment status updated successfully.";
-    } else if (cancellationRequested) {
-      message = "Order cancelled and stock restored successfully.";
+        "Order cancelled successfully. Product stock has been restored.";
+
+      if (shipmentNeedsManualCancellation) {
+        message +=
+          " IMPORTANT: A Shiprocket shipment may already exist. It was NOT cancelled automatically. Please handle it manually in Shiprocket.";
+      }
+
+      if (paymentStatusChanged) {
+        message += " Payment status was also updated.";
+      }
     } else if (orderStatusChanged && paymentStatusChanged) {
       message = "Order status and payment status updated successfully.";
     } else if (orderStatusChanged) {
@@ -475,33 +579,30 @@ export async function PUT(
       message = "Payment status updated successfully.";
     }
 
-    /* =====================================================
-       15. RETURN SUCCESS RESPONSE
-    ===================================================== */
-
     return NextResponse.json(
       {
         success: true,
         message,
+        warning: shipmentNeedsManualCancellation
+          ? "Shiprocket shipment was not cancelled automatically. Manual action may be required."
+          : null,
         order: {
           id: order._id.toString(),
           orderStatus: order.orderStatus,
           paymentStatus: order.paymentStatus,
+          cancellationReason: order.cancellationReason || "",
+          cancelledAt: order.cancelledAt || null,
+          cancelledBy: order.cancelledBy || null,
+          stockRestoredAt: order.stockRestoredAt || null,
           updatedAt: order.updatedAt,
         },
       },
-      {
-        status: 200,
-      }
+      { status: 200 }
     );
   } catch (error) {
-    /* =====================================================
-       16. HANDLE ERRORS AND ROLLBACK
-    ===================================================== */
-
     console.error("ADMIN ORDER UPDATE ERROR:", error);
 
-    if (session && session.inTransaction()) {
+    if (!committed && session?.inTransaction()) {
       try {
         await session.abortTransaction();
       } catch (rollbackError) {
@@ -517,15 +618,9 @@ export async function PUT(
         success: false,
         message: "Unable to update order.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   } finally {
-    /* =====================================================
-       17. END DATABASE SESSION
-    ===================================================== */
-
     if (session) {
       await session.endSession();
     }
