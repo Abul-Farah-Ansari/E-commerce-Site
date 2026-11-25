@@ -9,7 +9,7 @@ import { CartProvider } from "@/components/CartContext";
 import GlobalAnimations from "@/components/GlobalAnimations";
 import PageLoader from "@/components/PageLoader";
 
-// Cormorant Garamond font
+// Fonts
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -17,7 +17,6 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
-// Manrope font
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -25,33 +24,67 @@ const manrope = Manrope({
   display: "swap",
 });
 
-// SEO Metadata
+// Global SEO Metadata
 export const metadata: Metadata = {
+  metadataBase: new URL("https://houseoforive.in"),
+
   title: {
-    default: "House of Orive",
+    default: "House of Orive | Timeless Fashion & Modern Elegance",
     template: "%s | House of Orive",
   },
+
   description:
-    "House of Orive — timeless fashion, refined essentials and modern elegance.",
+    "Discover House of Orive for timeless fashion, refined essentials and contemporary styles. Explore our collection and shop online.",
+
+  applicationName: "House of Orive",
+
   keywords: [
     "House of Orive",
-    "fashion",
-    "clothing",
-    "premium clothing",
-    "luxury fashion",
-    "online fashion",
-    "fashion store",
+    "House of Orive official website",
+    "House of Orive clothing",
+    "online fashion store India",
+    "fashion clothing online",
+    "modern fashion",
+    "timeless fashion",
+    "wardrobe essentials",
+    "contemporary clothing",
   ],
-  applicationName: "House of Orive",
+
+  authors: [{ name: "House of Orive" }],
+  creator: "House of Orive",
+  publisher: "House of Orive",
+
+  alternates: {
+    canonical: "/",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+
   openGraph: {
-    title: "House of Orive",
-    description: "Timeless fashion, refined essentials and modern elegance.",
+    title: "House of Orive | Timeless Fashion & Modern Elegance",
+    description:
+      "Discover House of Orive for timeless fashion, refined essentials and contemporary styles.",
+    url: "https://houseoforive.in/",
+    siteName: "House of Orive",
+    locale: "en_IN",
     type: "website",
   },
+
   twitter: {
     card: "summary_large_image",
-    title: "House of Orive",
-    description: "Timeless fashion, refined essentials and modern elegance.",
+    title: "House of Orive | Timeless Fashion & Modern Elegance",
+    description:
+      "Discover House of Orive for timeless fashion, refined essentials and contemporary styles.",
   },
 };
 
@@ -67,7 +100,8 @@ export default function RootLayout({
     >
       <body className="antialiased">
         <PageLoader />
-<MetaPixel />
+        <MetaPixel />
+
         <CartProvider>
           <GlobalAnimations />
           {children}
