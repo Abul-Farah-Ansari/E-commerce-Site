@@ -1,4 +1,6 @@
 
+import type { Metadata } from "next";
+
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import ProductSection from "@/components/ProductSection";
@@ -9,7 +11,37 @@ import BrandStory from "@/components/BrandStory";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
 
-;
+export const metadata: Metadata = {
+  title: "House of Orive | Timeless Fashion & Modern Elegance",
+  description:
+    "Discover House of Orive for timeless fashion, refined essentials and contemporary styles. Explore our latest arrivals and shop online.",
+
+  alternates: {
+    canonical: "https://www.houseoforive.in/",
+  },
+
+  openGraph: {
+    type: "website",
+    url: "https://www.houseoforive.in/",
+    title: "House of Orive | Timeless Fashion & Modern Elegance",
+    description:
+      "Discover timeless fashion, refined essentials and contemporary styles at House of Orive.",
+    siteName: "House of Orive",
+    locale: "en_IN",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "House of Orive | Timeless Fashion & Modern Elegance",
+    description:
+      "Discover timeless fashion and modern elegance at House of Orive.",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function Home() {
   return (
@@ -17,11 +49,9 @@ export default function Home() {
       <Navbar />
 
       <main>
-        {/* Hero Section */}
         <Hero />
         <HomeVideoSection />
 
-        {/* New Arrivals */}
         <ProductSection
           title="New Arrivals"
           subtitle="THE LATEST EDIT"
@@ -29,7 +59,6 @@ export default function Home() {
           limit={5}
         />
 
-        {/* Sale */}
         <ProductSection
           title="Sale"
           subtitle="SPECIAL EDIT"
@@ -37,7 +66,6 @@ export default function Home() {
           limit={5}
         />
 
-        {/* Trending */}
         <ProductSection
           title="Trending Now"
           subtitle="WHAT'S HOT"
@@ -45,7 +73,6 @@ export default function Home() {
           limit={5}
         />
 
-        {/* Best Sellers */}
         <ProductSection
           title="Best Sellers"
           subtitle="MOST WANTED"
@@ -53,17 +80,9 @@ export default function Home() {
           limit={5}
         />
 
-        {/* Benefits */}
         <Benefits />
-
-        {/* Brand Story */}
         <BrandStory />
-
-        {/* Testimonials */}
         <Testimonials />
-        
-
-        {/* Contact */}
         <ContactSection />
       </main>
 
