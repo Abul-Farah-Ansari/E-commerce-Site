@@ -42,7 +42,7 @@ export default function TermsAndConditionsPage() {
           <p>These terms are governed by the applicable laws of India. Any dispute will be handled by a competent court with jurisdiction under applicable law.</p>
 
           <h2>Contact Us</h2>
-          <address>House of Orive<br />Email: <a href="mailto:info@houseoforive.in">info@houseoforive.in</a><br />Website: <a href="https://houseoforive.in">houseoforive.in</a></address>
+          <address>House of Orive<br />Email: <a href="mailto:info@houseoforive.in">info@houseoforive.in</a><br />Website: <a href="https://www.houseoforive.in">houseoforive.in</a></address>
           <p className="policy-updated">Last updated: 24 October 2026</p>
         </article>
       </main>

@@ -9,7 +9,7 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
-const BASE_URL = "https://houseoforive.in";
+const BASE_URL = "https://www.houseoforive.in";
 
 export async function generateMetadata({
   params,

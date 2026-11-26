@@ -20,7 +20,7 @@ export default function robots(): MetadataRoute.Robots {
       ],
     },
 
-    sitemap: "https://houseoforive.in/sitemap.xml",
-    host: "https://houseoforive.in",
+    sitemap: "https://www.houseoforive.in/sitemap.xml",
+host: "https://www.houseoforive.in",
   };
 }

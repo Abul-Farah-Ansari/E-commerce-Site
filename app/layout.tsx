@@ -24,7 +24,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://houseoforive.in"),
+  metadataBase: new URL("https://www.houseoforive.in"),
 
   title: {
     default: "House of Orive | Timeless Fashion & Modern Elegance",
@@ -71,6 +71,7 @@ export const metadata: Metadata = {
     siteName: "House of Orive",
     locale: "en_IN",
     type: "website",
+    url: "https://www.houseoforive.in/",
   },
 
   twitter: {

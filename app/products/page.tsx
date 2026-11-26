@@ -9,7 +9,7 @@ import ProductsPageClient from "@/components/ProductsPageClient";
 
 export const dynamic = "force-dynamic";
 
-const BASE_URL = "https://houseoforive.in";
+const BASE_URL = "https://www.houseoforive.in";
 
 export const metadata: Metadata = {
   title: "Shop All Products",

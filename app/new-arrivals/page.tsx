@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { connectDB } from "@/lib/mongodb";
 import Product from "@/models/Product";
@@ -7,16 +8,18 @@ import NewArrivalsPageClient, {
 
 export const dynamic = "force-dynamic";
 
+const SITE_URL = "https://www.houseoforive.in";
+
 export const metadata: Metadata = {
   title: "New Arrivals | Latest Fashion Collection",
   description:
     "Explore the latest arrivals at House of Orive. Discover new fashion pieces, refined silhouettes and timeless styles from our newest collection.",
   alternates: {
-    canonical: "https://houseoforive.in/new-arrivals",
+    canonical: `${SITE_URL}/new-arrivals`,
   },
   openGraph: {
     type: "website",
-    url: "https://houseoforive.in/new-arrivals",
+    url: `${SITE_URL}/new-arrivals`,
     title: "New Arrivals | House of Orive",
     description:
       "Discover the latest pieces from the House of Orive collection.",
@@ -96,13 +99,13 @@ export default async function NewArrivalsPage() {
     name: "New Arrivals | House of Orive",
     description:
       "Discover the latest pieces from the House of Orive collection.",
-    url: "https://houseoforive.in/new-arrivals",
+    url: `${SITE_URL}/new-arrivals`,
     mainEntity: {
       "@type": "ItemList",
       itemListElement: products.map((product, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: `https://houseoforive.in/products/${product.slug}`,
+        url: `${SITE_URL}/products/${product.slug}`,
         name: product.name,
         image: product.images?.[0] || undefined,
       })),

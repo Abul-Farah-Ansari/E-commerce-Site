@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { connectDB } from "@/lib/mongodb";
 import Product from "@/models/Product";
@@ -9,7 +10,7 @@ import SalePageClient, {
 
 export const dynamic = "force-dynamic";
 
-const SITE_URL = "https://houseoforive.in";
+const SITE_URL = "https://www.houseoforive.in";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {

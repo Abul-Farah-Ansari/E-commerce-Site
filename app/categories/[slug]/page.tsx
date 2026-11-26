@@ -10,8 +10,7 @@ import CategoryDetailsClient from "@/components/CategoryDetailsClient";
 type Props = {
   params: Promise<{ slug: string }>;
 };
-
-const BASE_URL = "https://houseoforive.in";
+const BASE_URL = "https://www.houseoforive.in";
 
 export const dynamic = "force-dynamic";
 
