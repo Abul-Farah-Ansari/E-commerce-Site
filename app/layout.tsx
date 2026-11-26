@@ -23,8 +23,43 @@ const manrope = Manrope({
   display: "swap",
 });
 
+// Website URL
+const SITE_URL = "https://www.houseoforive.in";
+
+// Organization structured data
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
+  name: "House of Orive",
+  url: SITE_URL,
+  logo: {
+    "@type": "ImageObject",
+    url: `${SITE_URL}/Orive%20Boutique%20Fashion%20Logo.png`,
+  },
+  image: `${SITE_URL}/Orive%20Boutique%20Fashion%20Logo.png`,
+  email: "contact@houseoforive.in",
+  telephone: "+918448658341",
+  sameAs: [
+    "https://www.instagram.com/houseoforive",
+  ],
+};
+
+// Website structured data
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  name: "House of Orive",
+  url: SITE_URL,
+  publisher: {
+    "@id": `${SITE_URL}/#organization`,
+  },
+  inLanguage: "en-IN",
+};
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.houseoforive.in"),
+  metadataBase: new URL("https://houseoforive.in"),
 
   title: {
     default: "House of Orive | Timeless Fashion & Modern Elegance",
@@ -71,7 +106,6 @@ export const metadata: Metadata = {
     siteName: "House of Orive",
     locale: "en_IN",
     type: "website",
-    url: "https://www.houseoforive.in/",
   },
 
   twitter: {
@@ -93,6 +127,29 @@ export default function RootLayout({
       className={`${cormorant.variable} ${manrope.variable}`}
     >
       <body className="antialiased">
+
+        {/* Organization Schema */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationSchema).replace(
+              /</g,
+              "\\u003c"
+            ),
+          }}
+        />
+
+        {/* Website Schema */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteSchema).replace(
+              /</g,
+              "\\u003c"
+            ),
+          }}
+        />
+
         <PageLoader />
         <MetaPixel />
 
@@ -100,6 +157,7 @@ export default function RootLayout({
           <GlobalAnimations />
           {children}
         </CartProvider>
+
       </body>
     </html>
   );

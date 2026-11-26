@@ -51,7 +51,6 @@ const PasswordResetOTPSchema =
       expiresAt: {
         type: Date,
         required: true,
-        index: true,
       },
 
       attempts: {
@@ -70,8 +69,7 @@ const PasswordResetOTPSchema =
     }
   );
 
-// Automatically remove expired OTP records.
-// The application must still check expiresAt itself.
+// Automatically delete expired OTP records.
 PasswordResetOTPSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
