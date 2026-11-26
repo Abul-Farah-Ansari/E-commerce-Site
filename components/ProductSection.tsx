@@ -25,6 +25,42 @@ type Product = {
   sale?: boolean;
 };
 
+const CLOUDINARY_IMAGE_WIDTHS = [320, 480, 640, 800];
+const PRODUCT_IMAGE_SIZES = "(max-width: 700px) 50vw, (max-width: 1100px) 33vw, 30vw";
+
+/**
+ * Add Cloudinary transformations without changing the stored/original image.
+ * Non-Cloudinary URLs are returned unchanged.
+ */
+const getOptimizedImageUrl = (imageUrl: string, width: number = 640) => {
+  if (
+    !imageUrl.includes("res.cloudinary.com/") ||
+    !imageUrl.includes("/image/upload/")
+  ) {
+    return imageUrl;
+  }
+
+  const transformations = `f_auto,q_auto,w_${width},c_limit`;
+  return imageUrl.replace(
+    "/image/upload/",
+    `/image/upload/${transformations}/`
+  );
+};
+
+/** Build responsive candidates so mobile devices do not download desktop-sized files. */
+const getOptimizedImageSrcSet = (imageUrl: string) => {
+  if (
+    !imageUrl.includes("res.cloudinary.com/") ||
+    !imageUrl.includes("/image/upload/")
+  ) {
+    return undefined;
+  }
+
+  return CLOUDINARY_IMAGE_WIDTHS.map(
+    (width) => `${getOptimizedImageUrl(imageUrl, width)} ${width}w`
+  ).join(", ");
+};
+
 type ProductSectionProps = {
   title: string;
   subtitle?: string;
@@ -289,17 +325,24 @@ export default function ProductSection({
                       }`}
                     >
                       <img
-                        src={getProductImage(product)}
+                        src={getOptimizedImageUrl(getProductImage(product), 640)}
+                        srcSet={getOptimizedImageSrcSet(getProductImage(product))}
+                        sizes={PRODUCT_IMAGE_SIZES}
                         alt={product.name}
                         className="product-image-primary"
+                        loading="lazy"
+                        decoding="async"
                       />
 
                       {product.images && product.images.length > 1 && product.images[1] && (
                         <img
-                          src={product.images[1]}
+                          src={getOptimizedImageUrl(product.images[1], 640)}
+                          srcSet={getOptimizedImageSrcSet(product.images[1])}
+                          sizes={PRODUCT_IMAGE_SIZES}
                           alt={`${product.name} - alternate view`}
                           className="product-image-secondary"
                           loading="lazy"
+                          decoding="async"
                         />
                       )}
                     </div>

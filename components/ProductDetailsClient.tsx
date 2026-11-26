@@ -40,6 +40,21 @@ type ProductDetailsClientProps = {
   initialProduct: Product;
 };
 
+/**
+ * Requests appropriately sized, automatically formatted Cloudinary images.
+ * Non-Cloudinary URLs are returned unchanged.
+ */
+const getCloudinaryImageUrl = (url: string, width: number): string => {
+  if (!url || !url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  return url.replace(
+    "/image/upload/",
+    `/image/upload/f_auto,q_auto,w_${width}/`
+  );
+};
+
 export default function ProductDetailsClient({
   initialProduct,
 }: ProductDetailsClientProps) {
@@ -605,7 +620,7 @@ export default function ProductDetailsClient({
                           }}
                         >
                           <img
-                            src={image}
+                            src={getCloudinaryImageUrl(image, 240)}
                             alt={`${product.name} thumbnail ${index + 1}`}
                             loading="lazy"
                             style={{
@@ -649,7 +664,7 @@ export default function ProductDetailsClient({
                 >
                   {mainImage ? (
                     <img
-                      src={mainImage}
+                      src={getCloudinaryImageUrl(mainImage, 1000)}
                       alt={product.name}
                       fetchPriority="high"
                       style={{
@@ -680,7 +695,7 @@ export default function ProductDetailsClient({
                       className="product-image-zoom-preview"
                       aria-label="3x magnified product image preview"
                       style={{
-                        backgroundImage: `url("${mainImage}")`,
+                        backgroundImage: `url("${getCloudinaryImageUrl(mainImage, 1800)}")`,
                         backgroundSize: "300% 300%",
                         backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
                       }}

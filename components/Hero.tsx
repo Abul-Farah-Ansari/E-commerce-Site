@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -18,6 +19,35 @@ type HeroSlide = {
 
 const DEFAULT_ALT = "House of Orive fashion collection";
 const SLIDE_INTERVAL = 5000;
+
+/*
+=========================================================
+CLOUDINARY IMAGE OPTIMIZATION
+=========================================================
+*/
+
+function optimizeCloudinaryImage(
+  imageUrl: string,
+  width: number
+): string {
+  if (!imageUrl) return imageUrl;
+
+  // Leave non-Cloudinary URLs unchanged.
+  if (
+    !imageUrl.includes("res.cloudinary.com") ||
+    !imageUrl.includes("/upload/")
+  ) {
+    return imageUrl;
+  }
+
+  const transformations =
+    `f_auto,q_auto,c_limit,w_${width}`;
+
+  return imageUrl.replace(
+    "/upload/",
+    `/upload/${transformations}/`
+  );
+}
 
 export default function Hero() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
@@ -220,47 +250,53 @@ export default function Hero() {
     >
       {/* HERO IMAGES */}
 
-      {slides.map((slide, index) => (
-        <picture
-          key={`${slide.desktopImageUrl}-${index}`}
-          className={`absolute inset-0 m-0 block h-full w-full transition-opacity duration-700 ease-in-out ${
-            index === activeIndex
-              ? "z-10 opacity-100"
-              : "z-0 opacity-0"
-          }`}
-        >
-          {/* MOBILE IMAGE */}
+      {slides.map((slide, index) => {
+        const isActive = index === activeIndex;
 
-          {slide.mobileImageUrl && (
+        const desktopImage = optimizeCloudinaryImage(
+          slide.desktopImageUrl,
+          1800
+        );
+
+        const mobileImage = optimizeCloudinaryImage(
+          slide.mobileImageUrl || slide.desktopImageUrl,
+          900
+        );
+
+        return (
+          <picture
+            key={`${slide.desktopImageUrl}-${index}`}
+            className={`absolute inset-0 m-0 block h-full w-full transition-opacity duration-700 ease-in-out ${
+              isActive
+                ? "z-10 opacity-100"
+                : "z-0 opacity-0"
+            }`}
+          >
+            {/* MOBILE IMAGE */}
+
             <source
               media="(max-width: 767px)"
-              srcSet={slide.mobileImageUrl}
+              srcSet={mobileImage}
             />
-          )}
 
-          {/* DESKTOP IMAGE / MOBILE FALLBACK */}
+            {/* DESKTOP IMAGE */}
 
-          <img
-            src={slide.desktopImageUrl}
-            alt={slide.altText}
-            fetchPriority={
-              index === activeIndex
-                ? "high"
-                : "auto"
-            }
-            loading={
-              index === activeIndex
-                ? "eager"
-                : "lazy"
-            }
-            draggable={false}
-            className="absolute inset-0 m-0 block h-full w-full object-cover object-center p-0"
-            aria-hidden={
-              index !== activeIndex
-            }
-          />
-        </picture>
-      ))}
+            <img
+              src={desktopImage}
+              alt={slide.altText}
+              fetchPriority={
+                isActive ? "high" : "auto"
+              }
+              loading={
+                isActive ? "eager" : "lazy"
+              }
+              draggable={false}
+              className="absolute inset-0 m-0 block h-full w-full object-cover object-center p-0"
+              aria-hidden={!isActive}
+            />
+          </picture>
+        );
+      })}
 
       {/* CAROUSEL CONTROLS */}
 
@@ -274,9 +310,7 @@ export default function Hero() {
             aria-label="Previous hero image"
             className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-black/40 text-2xl text-white backdrop-blur-sm transition hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white sm:left-6 sm:h-12 sm:w-12"
           >
-            <span aria-hidden="true">
-              ‹
-            </span>
+            <span aria-hidden="true">‹</span>
           </button>
 
           {/* NEXT */}
@@ -287,9 +321,7 @@ export default function Hero() {
             aria-label="Next hero image"
             className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-black/40 text-2xl text-white backdrop-blur-sm transition hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white sm:right-6 sm:h-12 sm:w-12"
           >
-            <span aria-hidden="true">
-              ›
-            </span>
+            <span aria-hidden="true">›</span>
           </button>
 
           {/* SLIDE INDICATORS */}
@@ -299,9 +331,7 @@ export default function Hero() {
               <button
                 key={index}
                 type="button"
-                onClick={() =>
-                  setActiveIndex(index)
-                }
+                onClick={() => setActiveIndex(index)}
                 aria-label={`Go to hero image ${index + 1}`}
                 aria-current={
                   index === activeIndex
