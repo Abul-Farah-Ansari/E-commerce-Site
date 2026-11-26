@@ -1,853 +1,140 @@
-"use client";
+import type { Metadata } from "next";
+import { connectDB } from "@/lib/mongodb";
+import Product from "@/models/Product";
+import Category from "@/models/Category";
+import SalePageClient, {
+  type SaleProduct,
+  type SaleCategory,
+} from "@/components/SalePageClient";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Icon } from "@iconify/react";
+export const dynamic = "force-dynamic";
 
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { usePageHeroSettings } from "@/hooks/usePageHeroSettings";
+const SITE_URL = "https://houseoforive.in";
 
-type Product = {
-  _id: string;
-  name: string;
-  slug: string;
-  description?: string;
-
-  category:
-    | string
-    | {
-        _id?: string;
-        name?: string;
-        slug?: string;
-      }
-    | null;
-
-  price: number;
-  compareAtPrice?: number;
-
-  images?: string[];
-  sizes?: string[];
-  colors?: string[];
-
-  sku?: string;
-
-  stock?: number;
-  lowStockThreshold?: number;
-
-  status?: "active" | "draft" | "out_of_stock";
-
-  featured?: boolean;
-  newArrival?: boolean;
-  trending?: boolean;
-  sale?: boolean;
-
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
-};
-
-type Category = {
-  _id: string;
-  name: string;
-  slug: string;
-  status?: "active" | "inactive";
-};
-
-const FALLBACK_IMAGE = "";
-
-export default function SalePage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [sort, setSort] = useState("featured");
-
-  // =========================================================
-  // RESPONSIVE HERO SETTINGS
-  // =========================================================
-
-  const hero = usePageHeroSettings("sale", {
-    desktopImageUrl: "",
-    mobileImageUrl: "",
-    imageUrl: "",
-    altText: "House Of Orive Sale",
-    eyebrow: "",
-    heading: "",
-    description: "",
-    buttonText: "",
-    buttonLink: "",
-  });
-
-  const desktopImage =
-    hero.desktopImageUrl || hero.imageUrl || "";
-
-  const mobileImage =
-    hero.mobileImageUrl || "";
-
-  const hasHeroImage = Boolean(desktopImage);
-
-  // =========================================================
-  // LOAD PRODUCTS + CATEGORIES
-  // =========================================================
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const [
-          productsResponse,
-          categoriesResponse,
-        ] = await Promise.all([
-          fetch("/api/products", {
-            cache: "no-store",
-          }),
-
-          fetch("/api/categories", {
-            cache: "no-store",
-          }),
-        ]);
-
-        const productsData =
-          await productsResponse.json();
-
-        const categoriesData =
-          await categoriesResponse.json();
-
-        if (!productsResponse.ok) {
-          throw new Error(
-            productsData?.message ||
-              "Unable to load products."
-          );
-        }
-
-        const productList = Array.isArray(
-          productsData?.products
-        )
-          ? productsData.products
-          : [];
-
-        const categoryList = Array.isArray(
-          categoriesData?.categories
-        )
-          ? categoriesData.categories
-          : [];
-
-        if (!mounted) return;
-
-        setProducts(productList);
-        setCategories(categoryList);
-      } catch (requestError) {
-        console.error(
-          "Sale page error:",
-          requestError
-        );
-
-        if (mounted) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "Unable to load sale products."
-          );
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadData();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // =========================================================
-  // CATEGORY NAME
-  // =========================================================
-
-  const getCategoryName = (
-    category: Product["category"]
-  ) => {
-    if (!category) {
-      return "Uncategorized";
-    }
-
-    if (typeof category === "string") {
-      return category;
-    }
-
-    return category.name || "Uncategorized";
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Sale Collection | Exclusive Fashion Offers",
+    description:
+      "Explore the Sale Collection at House of Orive. Discover selected styles and current offers across our fashion collection.",
+    alternates: {
+      canonical: `${SITE_URL}/sale`,
+    },
+    openGraph: {
+      type: "website",
+      url: `${SITE_URL}/sale`,
+      siteName: "House of Orive",
+      title: "Sale Collection | House of Orive",
+      description:
+        "Discover selected House of Orive styles and current offers in our Sale Collection.",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Sale Collection | House of Orive",
+      description:
+        "Discover selected House of Orive styles and current offers.",
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
   };
+}
 
-  // =========================================================
-  // CATEGORY SLUG
-  // =========================================================
+export default async function SalePage() {
+  await connectDB();
 
-  const getCategorySlug = (
-    category: Product["category"]
-  ) => {
-    if (!category) {
-      return "";
-    }
-
-    if (typeof category === "string") {
-      return category.toLowerCase();
-    }
-
-    return (
-      category.slug ||
-      category.name?.toLowerCase() ||
-      ""
-    );
-  };
-
-  // =========================================================
-  // SALE PRODUCTS
-  // =========================================================
-
-  const saleProducts = useMemo(() => {
-    let result = products.filter(
-      (product) =>
-        product.sale === true &&
-        product.status === "active"
-    );
-
-    // SEARCH
-
-    if (search.trim()) {
-      const searchValue =
-        search.trim().toLowerCase();
-
-      result = result.filter((product) => {
-        const categoryName =
-          getCategoryName(
-            product.category
-          ).toLowerCase();
-
-        return (
-          product.name
-            .toLowerCase()
-            .includes(searchValue) ||
-          product.slug
-            .toLowerCase()
-            .includes(searchValue) ||
-          categoryName.includes(searchValue)
-        );
-      });
-    }
-
-    // CATEGORY
-
-    if (selectedCategory) {
-      result = result.filter((product) => {
-        const productCategory =
-          getCategorySlug(product.category);
-
-        return (
-          productCategory ===
-          selectedCategory.toLowerCase()
-        );
-      });
-    }
-
-    // SORT
-
-    if (sort === "featured") {
-      result.sort((a, b) => {
-        return (
-          Number(Boolean(b.featured)) -
-          Number(Boolean(a.featured))
-        );
-      });
-    }
-
-    if (sort === "newest") {
-      result.sort((a, b) => {
-        const aDate = a.createdAt
-          ? new Date(a.createdAt).getTime()
-          : 0;
-
-        const bDate = b.createdAt
-          ? new Date(b.createdAt).getTime()
-          : 0;
-
-        return bDate - aDate;
-      });
-    }
-
-    if (sort === "price-low") {
-      result.sort(
-        (a, b) =>
-          Number(a.price) -
-          Number(b.price)
-      );
-    }
-
-    if (sort === "price-high") {
-      result.sort(
-        (a, b) =>
-          Number(b.price) -
-          Number(a.price)
-      );
-    }
-
-    return result;
-  }, [
-    products,
-    search,
-    selectedCategory,
-    sort,
+  const [productDocuments, categoryDocuments] = await Promise.all([
+    Product.find({ sale: true, status: "active" })
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 })
+      .lean(),
+    Category.find({ status: "active" })
+      .select("name slug status")
+      .sort({ sortOrder: 1, createdAt: -1 })
+      .lean(),
   ]);
 
-  // =========================================================
-  // DISCOUNT
-  // =========================================================
+  const initialProducts: SaleProduct[] = productDocuments.map((product: any) => {
+    const category = product.category
+      ? {
+          _id: String(product.category._id ?? product.category),
+          name: product.category.name ?? "Uncategorized",
+          slug: product.category.slug ?? "",
+        }
+      : null;
 
-  const calculateDiscount = (
-    price: number,
-    compareAtPrice?: number
-  ) => {
-    if (
-      !compareAtPrice ||
-      compareAtPrice <= price
-    ) {
-      return null;
-    }
+    return {
+      _id: String(product._id),
+      name: String(product.name ?? ""),
+      slug: String(product.slug ?? ""),
+      description: product.description ?? "",
+      category,
+      price: Number(product.price ?? 0),
+      compareAtPrice:
+        product.compareAtPrice == null
+          ? undefined
+          : Number(product.compareAtPrice),
+      images: Array.isArray(product.images) ? product.images : [],
+      sizes: Array.isArray(product.sizes) ? product.sizes : [],
+      colors: Array.isArray(product.colors) ? product.colors : [],
+      sku: product.sku ?? "",
+      stock: Number(product.stock ?? 0),
+      lowStockThreshold: Number(product.lowStockThreshold ?? 5),
+      status: product.status,
+      featured: Boolean(product.featured),
+      newArrival: Boolean(product.newArrival),
+      trending: Boolean(product.trending),
+      sale: Boolean(product.sale),
+      createdAt: product.createdAt
+        ? new Date(product.createdAt).toISOString()
+        : undefined,
+      updatedAt: product.updatedAt
+        ? new Date(product.updatedAt).toISOString()
+        : undefined,
+    };
+  });
 
-    return Math.round(
-      ((compareAtPrice - price) /
-        compareAtPrice) *
-        100
-    );
+  const initialCategories: SaleCategory[] = categoryDocuments.map(
+    (category: any) => ({
+      _id: String(category._id),
+      name: String(category.name ?? ""),
+      slug: String(category.slug ?? ""),
+      status: category.status,
+    })
+  );
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Sale Collection | House of Orive",
+    description:
+      "Discover selected House of Orive styles and current offers in our Sale Collection.",
+    url: `${SITE_URL}/sale`,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: initialProducts.length,
+      itemListElement: initialProducts.map((product, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `${SITE_URL}/products/${product.slug}`,
+        name: product.name,
+        ...(product.images?.[0] ? { image: product.images[0] } : {}),
+      })),
+    },
   };
 
-  // =========================================================
-  // LOADING
-  // =========================================================
-
-  if (loading) {
-    return (
-      <>
-        <Navbar />
-
-        <main className="min-h-screen bg-white">
-          <section className="flex min-h-[600px] items-center justify-center">
-            <div className="text-center">
-              <Icon
-                icon="solar:refresh-linear"
-                width={30}
-                height={30}
-                className="mx-auto animate-spin text-black/50"
-              />
-
-              <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-black/45">
-                Loading Sale
-              </p>
-            </div>
-          </section>
-        </main>
-
-        <Footer />
-      </>
-    );
-  }
-
-  // =========================================================
-  // ERROR
-  // =========================================================
-
-  if (error) {
-    return (
-      <>
-        <Navbar />
-
-        <main className="flex min-h-[70vh] items-center justify-center px-5">
-          <div className="text-center">
-            <Icon
-              icon="solar:danger-circle-linear"
-              width={40}
-              height={40}
-              className="mx-auto text-red-500"
-            />
-
-            <p className="mt-5 text-sm text-red-500">
-              {error}
-            </p>
-
-            <Link
-              href="/products"
-              className="mt-6 inline-flex bg-black px-7 py-3 text-[10px] font-medium uppercase tracking-[0.16em] text-white"
-            >
-              View All Products
-            </Link>
-          </div>
-        </main>
-
-        <Footer />
-      </>
-    );
-  }
-
-  // =========================================================
-  // PAGE
-  // =========================================================
+  const safeStructuredData = JSON.stringify(structuredData).replace(/</g, "\\u003c");
 
   return (
     <>
-      <Navbar />
-
-      <main className="bg-white">
-
-        {/* ================================================= */}
-        {/* RESPONSIVE HERO */}
-        {/* MOBILE HEIGHT MATCHES HOME HERO */}
-        {/* ================================================= */}
-
-        <section
-          className="
-            relative
-            flex
-            h-[60svh]
-            min-h-[300px]
-            max-h-[480px]
-            w-full
-            items-center
-            overflow-hidden
-            bg-neutral-100
-
-            md:h-[calc(100svh-76px)]
-            md:min-h-[320px]
-            md:max-h-none
-          "
-        >
-
-          {/* MOBILE IMAGE */}
-
-          {hasHeroImage && (
-            <>
-              <img
-                src={mobileImage || desktopImage}
-                alt={hero.altText || "House Of Orive Sale"}
-                fetchPriority="high"
-                loading="eager"
-                draggable={false}
-                className="
-                  absolute
-                  inset-0
-                  z-0
-                  block
-                  h-full
-                  w-full
-                  object-cover
-                  object-center
-                  md:hidden
-                "
-              />
-
-              {/* DESKTOP IMAGE */}
-
-              <img
-                src={desktopImage}
-                alt={hero.altText || "House Of Orive Sale"}
-                fetchPriority="high"
-                loading="eager"
-                draggable={false}
-                className="
-                  absolute
-                  inset-0
-                  z-0
-                  hidden
-                  h-full
-                  w-full
-                  object-cover
-                  object-center
-                  md:block
-                "
-              />
-            </>
-          )}
-
-          {/* OVERLAY */}
-
-          {hasHeroImage ? (
-            <div className="absolute inset-0 z-[1] bg-black/10" />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#f8f6f2] via-white to-[#eee9e2]" />
-          )}
-
-          {/* HERO CONTENT */}
-
-          <div
-            className="
-              relative
-              z-10
-              mx-auto
-              w-full
-              max-w-[1600px]
-              px-6
-              py-10
-              sm:px-10
-              sm:py-20
-              lg:px-16
-            "
-          >
-
-            <p
-              className={`text-[10px] font-medium uppercase tracking-[0.32em] ${
-                hasHeroImage
-                  ? "text-white/65"
-                  : "text-black/45"
-              }`}
-            >
-              {hero.eyebrow || ""}
-            </p>
-
-            <h1
-              className={`mt-4 font-serif text-[48px] leading-[0.9] tracking-[-0.045em] sm:mt-5 sm:text-[76px] lg:text-[104px] ${
-                hasHeroImage
-                  ? "text-white"
-                  : "text-black"
-              }`}
-            >
-              {hero.heading || ""}
-            </h1>
-
-            <p
-              className={`mt-5 max-w-[580px] text-xs leading-6 sm:mt-8 sm:text-sm sm:leading-7 ${
-                hasHeroImage
-                  ? "text-white/75"
-                  : "text-black/60"
-              }`}
-            >
-              {hero.description || ""}
-            </p>
-
-            {hero.buttonText && hero.buttonLink ? (
-              <Link
-                href={hero.buttonLink}
-                className={`mt-6 inline-flex items-center border px-5 py-3 text-[10px] uppercase tracking-[0.2em] transition sm:mt-8 sm:px-6 sm:text-xs ${
-                  hasHeroImage
-                    ? "border-white/60 text-white hover:bg-white hover:text-black"
-                    : "border-black/40 text-black hover:bg-black hover:text-white"
-                }`}
-              >
-                {hero.buttonText}
-
-                <Icon
-                  icon="solar:arrow-right-up-linear"
-                  width={16}
-                  height={16}
-                  className="ml-2"
-                />
-              </Link>
-            ) : null}
-
-          </div>
-
-          {/* BOTTOM LABEL */}
-
-          <div className="absolute bottom-5 right-5 z-10 hidden text-right lg:block">
-            <p
-              className={`text-[9px] uppercase tracking-[0.25em] ${
-                hasHeroImage
-                  ? "text-white/55"
-                  : "text-black/40"
-              }`}
-            >
-              Special Edit
-            </p>
-
-            <p
-              className={`mt-1 font-serif text-3xl ${
-                hasHeroImage
-                  ? "text-white"
-                  : "text-black"
-              }`}
-            >
-              01
-            </p>
-          </div>
-
-        </section>
-
-        {/* ================================================= */}
-        {/* SALE COLLECTION */}
-        {/* ================================================= */}
-
-        <section className="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 lg:px-12">
-
-          {/* HEADER */}
-
-          <div className="mb-10 flex flex-col gap-6 border-b border-black/10 pb-7 md:flex-row md:items-end md:justify-between">
-
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-black/40">
-                Special Edit
-              </p>
-
-              <h2 className="mt-2 font-serif text-4xl tracking-[-0.035em] sm:text-5xl">
-                Sale Collection
-              </h2>
-
-              <p className="mt-3 text-sm text-black/45">
-                {saleProducts.length}{" "}
-                {saleProducts.length === 1
-                  ? "piece"
-                  : "pieces"}
-              </p>
-            </div>
-
-            {/* SORT */}
-
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-black/40">
-                Sort
-              </span>
-
-              <select
-                value={sort}
-                onChange={(event) =>
-                  setSort(event.target.value)
-                }
-                className="border-0 border-b border-black/20 bg-transparent px-1 pb-2 text-[11px] uppercase tracking-[0.12em] outline-none"
-              >
-                <option value="featured">
-                  Featured
-                </option>
-
-                <option value="newest">
-                  Newest
-                </option>
-
-                <option value="price-low">
-                  Price Low
-                </option>
-
-                <option value="price-high">
-                  Price High
-                </option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* ================================================= */}
-          {/* FILTER BAR */}
-          {/* ================================================= */}
-
-          <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
-            {/* SEARCH */}
-
-            <div className="relative w-full md:max-w-[360px]">
-              <Icon
-                icon="solar:magnifer-linear"
-                width={19}
-                height={19}
-                className="absolute left-0 top-1/2 -translate-y-1/2 text-black/40"
-              />
-
-              <input
-                type="text"
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search sale products..."
-                className="w-full border-b border-black/15 bg-transparent py-3 pl-8 text-sm outline-none placeholder:text-black/30"
-              />
-            </div>
-
-            {/* CATEGORY */}
-
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-black/40">
-                Category
-              </span>
-
-              <select
-                value={selectedCategory}
-                onChange={(event) =>
-                  setSelectedCategory(event.target.value)
-                }
-                className="border-0 border-b border-black/20 bg-transparent px-1 pb-2 text-[11px] uppercase tracking-[0.12em] outline-none"
-              >
-                <option value="">
-                  All Categories
-                </option>
-
-                {categories
-                  .filter(
-                    (category) =>
-                      category.status !== "inactive"
-                  )
-                  .map((category) => (
-                    <option
-                      key={category._id}
-                      value={category.slug}
-                    >
-                      {category.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-          </div>
-
-          {/* ================================================= */}
-          {/* PRODUCTS */}
-          {/* ================================================= */}
-
-          {saleProducts.length > 0 ? (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-
-              {saleProducts.map((product) => {
-                const image =
-                  product.images?.[0] ||
-                  FALLBACK_IMAGE;
-
-                const discount =
-                  calculateDiscount(
-                    product.price,
-                    product.compareAtPrice
-                  );
-
-                return (
-                  <Link
-                    key={product._id}
-                    href={`/products/${product.slug}`}
-                    className="group"
-                  >
-
-                    {/* IMAGE */}
-
-                    <div className="relative aspect-[3/4] overflow-hidden bg-[#f4f4f4]">
-
-                      {image && (
-                        <img
-                          src={image}
-                          alt={product.name}
-                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-                        />
-                      )}
-
-                      {/* SALE BADGE */}
-
-                      <span className="absolute left-3 top-3 bg-black px-3 py-1.5 text-[9px] font-medium uppercase tracking-[0.15em] text-white">
-                        Sale
-                      </span>
-
-                      {/* DISCOUNT */}
-
-                      {discount && (
-                        <span className="absolute right-3 top-3 bg-white px-2.5 py-1.5 text-[9px] font-medium tracking-[0.08em] text-black">
-                          {discount}% OFF
-                        </span>
-                      )}
-
-                      {/* WISHLIST */}
-
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                        }}
-                        className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center bg-white/95 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                        aria-label="Add to wishlist"
-                      >
-                        <Icon
-                          icon="solar:heart-linear"
-                          width={18}
-                          height={18}
-                        />
-                      </button>
-
-                    </div>
-
-                    {/* PRODUCT INFO */}
-
-                    <div className="pt-4">
-                      <p className="text-[9px] uppercase tracking-[0.15em] text-black/40">
-                        {getCategoryName(product.category)}
-                      </p>
-
-                      <h3 className="mt-1.5 line-clamp-1 text-[13px] font-medium text-black">
-                        {product.name}
-                      </h3>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="text-sm font-medium text-black">
-                          ₹
-                          {Number(product.price).toLocaleString("en-IN")}
-                        </span>
-
-                        {product.compareAtPrice &&
-                          product.compareAtPrice > product.price && (
-                            <span className="text-xs text-black/35 line-through">
-                              ₹
-                              {Number(
-                                product.compareAtPrice
-                              ).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                      </div>
-                    </div>
-
-                  </Link>
-                );
-              })}
-
-            </div>
-          ) : (
-
-            /* ================================================= */
-            /* NO SALE PRODUCTS */
-            /* ================================================= */
-
-            <div className="flex min-h-[400px] items-center justify-center border border-black/10">
-              <div className="px-5 text-center">
-                <Icon
-                  icon="solar:tag-price-linear"
-                  width={42}
-                  height={42}
-                  className="mx-auto text-black/20"
-                />
-
-                <h3 className="mt-5 font-serif text-3xl tracking-[-0.02em]">
-                  No Sale Products
-                </h3>
-
-                <p className="mt-3 text-sm text-black/45">
-                  There are currently no products
-                  marked for sale.
-                </p>
-
-                <Link
-                  href="/products"
-                  className="mt-7 inline-flex bg-black px-7 py-3.5 text-[10px] font-medium uppercase tracking-[0.16em] text-white transition-opacity hover:opacity-80"
-                >
-                  Shop All Products
-                </Link>
-              </div>
-            </div>
-
-          )}
-
-        </section>
-      </main>
-
-      <Footer />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeStructuredData }}
+      />
+      <SalePageClient
+        initialProducts={initialProducts}
+        initialCategories={initialCategories}
+      />
     </>
   );
 }

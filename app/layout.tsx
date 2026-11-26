@@ -9,7 +9,6 @@ import { CartProvider } from "@/components/CartContext";
 import GlobalAnimations from "@/components/GlobalAnimations";
 import PageLoader from "@/components/PageLoader";
 
-// Fonts
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -24,7 +23,6 @@ const manrope = Manrope({
   display: "swap",
 });
 
-// Global SEO Metadata
 export const metadata: Metadata = {
   metadataBase: new URL("https://houseoforive.in"),
 
@@ -54,10 +52,6 @@ export const metadata: Metadata = {
   creator: "House of Orive",
   publisher: "House of Orive",
 
-  alternates: {
-    canonical: "/",
-  },
-
   robots: {
     index: true,
     follow: true,
@@ -74,7 +68,6 @@ export const metadata: Metadata = {
     title: "House of Orive | Timeless Fashion & Modern Elegance",
     description:
       "Discover House of Orive for timeless fashion, refined essentials and contemporary styles.",
-    url: "https://houseoforive.in/",
     siteName: "House of Orive",
     locale: "en_IN",
     type: "website",
