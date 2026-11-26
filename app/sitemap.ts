@@ -8,7 +8,8 @@ import Category from "@/models/Category";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://houseoforive.in";
+  // Use the www domain consistently with Google's selected canonical.
+  const baseUrl = "https://www.houseoforive.in";
 
   // Public static pages
   const staticPages: MetadataRoute.Sitemap = [
