@@ -2159,6 +2159,236 @@ export default function NewArrivalsPage({
             animation: none;
           }
         }
+
+
+        /* =========================================
+           HOUSE OF ORIVE - PURPLE EDITORIAL THEME
+           Visual-only overrides; functionality unchanged
+        ========================================= */
+
+        .new-arrivals-page {
+          background: #EDE5F6 !important;
+          color: #2D203D;
+        }
+
+        .new-arrivals-hero {
+          min-height: 480px;
+          background: linear-gradient(
+            135deg,
+            #E8DDF4 0%,
+            #D8C7EB 52%,
+            #F4EFFA 100%
+          ) !important;
+          border-bottom: 1px solid #D4C3E7;
+        }
+
+        .new-arrivals-hero::before {
+          color: rgba(83, 53, 119, 0.07);
+        }
+
+        .new-arrivals-hero h1,
+        .intro-left h2 {
+          color: #302044;
+        }
+
+        .hero-eyebrow,
+        .hero-line,
+        .intro-left > span,
+        .intro-count,
+        .result-count,
+        .sort-wrapper label {
+          color: #765B98;
+        }
+
+        .new-arrivals-hero p,
+        .intro-right p {
+          color: #665477;
+        }
+
+        .hero-line span:first-child,
+        .hero-line span:last-child {
+          background: #B9A3D1;
+        }
+
+        .collection-intro,
+        .collection-toolbar,
+        .products-section {
+          max-width: 1400px;
+        }
+
+        .collection-intro {
+          padding-top: 72px;
+          padding-bottom: 52px;
+          gap: 64px;
+        }
+
+        .collection-toolbar {
+          border-bottom-color: #D2C2E4;
+        }
+
+        .filter-button {
+          color: #806A9B;
+        }
+
+        .filter-button::after {
+          background: #70449B;
+        }
+
+        .filter-button:hover,
+        .filter-button.active {
+          color: #4C286F;
+        }
+
+        .sort-wrapper select {
+          color: #49335F;
+        }
+
+        .products-section {
+          padding: 34px 28px 90px;
+        }
+
+        /* Smaller, neat four-column product cards */
+        .products-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 28px 18px;
+        }
+
+        .product-card {
+          min-width: 0;
+          padding: 7px;
+          background: #F9F6FC;
+          border: 1px solid #DED1EC;
+          border-radius: 5px;
+          box-shadow: 0 4px 15px rgba(70, 42, 100, 0.06);
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .product-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 25px rgba(70, 42, 100, 0.13);
+        }
+
+        .product-image-wrap {
+          aspect-ratio: 0.82;
+          background: #E4D9F0;
+        }
+
+        .new-badge {
+          background: #563477;
+        }
+
+        .discount-badge {
+          background: #E7D9F2;
+          color: #563477;
+        }
+
+        .product-info {
+          padding: 12px 5px 7px;
+        }
+
+        .product-category {
+          color: #876DA5;
+        }
+
+        .product-name {
+          color: #302044;
+          font-family: var(--font-cormorant), Georgia, serif;
+          font-size: 20px;
+          font-weight: 600;
+          line-height: 1.12;
+        }
+
+        .product-name:hover {
+          color: #8054A5;
+        }
+
+        .product-price {
+          color: #563477;
+        }
+
+        .quick-action-button {
+          background: rgba(67, 42, 91, 0.97);
+        }
+
+        .wishlist-button:hover {
+          background: #69448D;
+        }
+
+        .state-box button {
+          background: #563477;
+          border-color: #563477;
+        }
+
+        .state-box button:hover {
+          background: #EDE5F6;
+          color: #563477;
+        }
+
+        .editorial-banner {
+          border-radius: 5px;
+        }
+
+        @media (max-width: 1050px) {
+          .collection-intro,
+          .collection-toolbar,
+          .products-section {
+            max-width: 100%;
+          }
+
+          .products-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 768px) {
+          .new-arrivals-hero {
+            min-height: 450px;
+          }
+
+          .collection-intro {
+            padding: 65px 22px 48px;
+          }
+
+          .products-section {
+            padding: 30px 16px 72px;
+          }
+
+          .products-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px 10px;
+          }
+
+          .product-card {
+            padding: 5px;
+          }
+
+          .product-image-wrap {
+            aspect-ratio: 0.76;
+          }
+
+          .product-info {
+            padding: 10px 4px 6px;
+          }
+
+          .product-name {
+            font-size: 18px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .products-section {
+            padding: 26px 10px 60px;
+          }
+
+          .products-grid {
+            gap: 22px 8px;
+          }
+
+          .product-name {
+            font-size: 17px;
+          }
+        }
       `}</style>
     </>
   );

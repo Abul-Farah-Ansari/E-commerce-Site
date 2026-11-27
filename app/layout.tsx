@@ -1,13 +1,18 @@
 
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+
 import MetaPixel from "@/components/MetaPixel";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 import "./globals.css";
 
 import { CartProvider } from "@/components/CartContext";
 import GlobalAnimations from "@/components/GlobalAnimations";
 import PageLoader from "@/components/PageLoader";
+
+const GA_MEASUREMENT_ID = "G-JJE3FKF3JT";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -59,7 +64,7 @@ const websiteSchema = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://houseoforive.in"),
+  metadataBase: new URL("https://www.houseoforive.in"),
 
   title: {
     default: "House of Orive | Timeless Fashion & Modern Elegance",
@@ -127,6 +132,30 @@ export default function RootLayout({
       className={`${cormorant.variable} ${manrope.variable}`}
     >
       <body className="antialiased">
+
+        {/* Google Analytics 4 */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+        >
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            window.gtag = gtag;
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}', {
+              send_page_view: false
+            });
+          `}
+        </Script>
+
+        {/* Track Next.js route changes */}
+        <GoogleAnalytics />
 
         {/* Organization Schema */}
         <script

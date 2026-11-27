@@ -32,6 +32,9 @@ type Order = {
   _id: string;
   orderNumber?: string;
   status?: string;
+  orderStatus?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
   totalAmount?: number;
   total?: number;
   createdAt?: string;
@@ -108,6 +111,34 @@ const getOrderCustomer = (order: Order) => {
 
 const getOrderTotal = (order: Order) => {
   return Number(order.totalAmount ?? order.total ?? 0);
+};
+
+// Prefer the actual orderStatus field from the database.
+// `status` remains a fallback for older API responses.
+const getOrderStatusValue = (order: Order) =>
+  String(order.orderStatus || order.status || "").trim().toLowerCase();
+
+// Revenue rules:
+// - Online orders count only after paymentStatus is "paid".
+// - COD orders count only after orderStatus is "delivered".
+// - Cancelled orders never count.
+const isRevenueEligible = (order: Order) => {
+  const status = getOrderStatusValue(order);
+  if (status === "cancelled" || status === "canceled") return false;
+
+  const paymentMethod = String(order.paymentMethod || "").trim().toLowerCase();
+  const paymentStatus = String(order.paymentStatus || "").trim().toLowerCase();
+
+  if (paymentMethod === "online") {
+    return paymentStatus === "paid";
+  }
+
+  if (paymentMethod === "cod") {
+    return status === "delivered";
+  }
+
+  // Exclude unknown or missing payment methods rather than inflating revenue.
+  return false;
 };
 
 const getOrderStatus = (status?: string) => {
@@ -277,12 +308,12 @@ export default function AdminDashboardPage() {
 
     const totalRevenue = orders.reduce(
       (total, order) =>
-        total + getOrderTotal(order),
+        total + (isRevenueEligible(order) ? getOrderTotal(order) : 0),
       0
     );
 
     const pendingOrders = orders.filter((order) => {
-      const status = String(order.status || "").toLowerCase();
+      const status = getOrderStatusValue(order);
 
       return (
         status === "pending" ||
@@ -292,7 +323,7 @@ export default function AdminDashboardPage() {
     }).length;
 
     const processingOrders = orders.filter((order) => {
-      const status = String(order.status || "").toLowerCase();
+      const status = getOrderStatusValue(order);
 
       return (
         status === "processing" ||
@@ -301,13 +332,13 @@ export default function AdminDashboardPage() {
     }).length;
 
     const shippedOrders = orders.filter((order) => {
-      const status = String(order.status || "").toLowerCase();
+      const status = getOrderStatusValue(order);
 
       return status === "shipped";
     }).length;
 
     const deliveredOrders = orders.filter((order) => {
-      const status = String(order.status || "").toLowerCase();
+      const status = getOrderStatusValue(order);
 
       return status === "delivered";
     }).length;
@@ -395,6 +426,8 @@ export default function AdminDashboardPage() {
     );
 
     orders.forEach((order) => {
+      // Keep the monthly chart consistent with the total revenue card.
+      if (!isRevenueEligible(order)) return;
       if (!order.createdAt) return;
 
       const date = new Date(order.createdAt);
@@ -1111,10 +1144,7 @@ export default function AdminDashboardPage() {
               {recentOrders.map(
                 (order) => {
 
-                  const status =
-                    String(
-                      order.status || ""
-                    ).toLowerCase();
+                  const status = getOrderStatusValue(order);
 
                   return (
                     <div

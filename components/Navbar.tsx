@@ -367,8 +367,9 @@ export default function Navbar() {
       <div
         className={`
           border-b
-          border-black/10
-          bg-[#FAF8F5]
+          border-[#e9e3dc]
+          bg-white/95
+          backdrop-blur-xl
           transition-shadow
           duration-300
           ${
@@ -378,7 +379,7 @@ export default function Navbar() {
           }
         `}
       >
-        <div className="mx-auto flex h-[76px] max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:px-10">
+        <div className="mx-auto flex h-[82px] max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:px-12">
           
           {/* ================================================= */}
           {/* BRAND LOGO + BRAND NAME */}
@@ -390,7 +391,7 @@ export default function Navbar() {
             className="flex shrink-0 items-center gap-3"
           >
             {/* Logo Container */}
-            <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
+            <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#eee9e3] bg-[#FAF8F5]">
               <img
                 src="/ORIVE-logo.webp"
                 alt="House Of Orive Logo"
@@ -400,11 +401,11 @@ export default function Navbar() {
 
             {/* Brand Name */}
             <div className="hidden sm:block">
-              <span className="block text-[18px] font-semibold uppercase leading-none tracking-[0.12em] text-black">
+              <span className="block font-[var(--font-cormorant)] text-[21px] font-semibold uppercase leading-none tracking-[0.13em] text-[#211d19]">
                 House Of Orive
               </span>
 
-              <span className="mt-1.5 block text-[8px] font-medium uppercase tracking-[0.34em] text-black/45">
+              <span className="mt-2 block text-[8px] font-medium uppercase tracking-[0.38em] text-[#8b8177]">
                 Fashion & Lifestyle
               </span>
             </div>
@@ -415,11 +416,11 @@ export default function Navbar() {
           {/* ================================================= */}
 
           
-<nav className="hidden items-center gap-6 lg:ml-10 xl:ml-16 lg:flex">
+<nav className="hidden items-center gap-8 lg:ml-8 xl:ml-14 lg:flex">
 
             <Link
               href="/"
-              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
+              className="relative text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
             >
               Home
             </Link>
@@ -436,9 +437,11 @@ export default function Navbar() {
             >
               <button
                 type="button"
-                className="flex items-center gap-1 text-[13px] font-medium uppercase tracking-[0.13em] leading-normal text-black transition-colors duration-200 hover:text-black/55"
+                className="flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-[0.18em] leading-normal text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
               >
-                Shop
+                <span className="text-[11px] font-semibold uppercase tracking-[0.19em] leading-normal">
+                  Shop
+                </span>
 
                 <Icon
                   icon="solar:alt-arrow-down-linear"
@@ -461,7 +464,7 @@ export default function Navbar() {
                   absolute
                   left-1/2
                   top-full
-                  w-[230px]
+                  w-[250px]
                   -translate-x-1/2
                   pt-5
                   transition-all
@@ -473,14 +476,14 @@ export default function Navbar() {
                   }
                 `}
               >
-                <div className="border border-black/10 bg-white p-3 shadow-[0_15px_50px_rgba(0,0,0,0.08)]">
+                <div className="rounded-sm border border-[#e9e3dc] bg-white p-3 shadow-[0_18px_55px_rgba(38,29,20,0.12)]">
                   <Link
                     href="/products"
                     onClick={(event) => {
                       event.preventDefault();
                       navigateFromShopMenu("/products");
                     }}
-                    className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
+                    className="flex items-center justify-between px-3 py-3.5 text-[11px] font-medium uppercase tracking-[0.16em] text-[#494139] transition-colors hover:bg-[#f8f5f1]"
                   >
                     <span>All Products</span>
                     <Icon
@@ -496,7 +499,7 @@ export default function Navbar() {
                       event.preventDefault();
                       navigateFromShopMenu("/products?sort=newest&filter=new-arrivals");
                     }}
-                    className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
+                    className="flex items-center justify-between px-3 py-3.5 text-[11px] font-medium uppercase tracking-[0.16em] text-[#494139] transition-colors hover:bg-[#f8f5f1]"
                   >
                     <span>New Arrivals</span>
                     <Icon
@@ -512,7 +515,7 @@ export default function Navbar() {
                       event.preventDefault();
                       navigateFromShopMenu("/products?sort=featured&filter=best-sellers");
                     }}
-                    className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
+                    className="flex items-center justify-between px-3 py-3.5 text-[11px] font-medium uppercase tracking-[0.16em] text-[#494139] transition-colors hover:bg-[#f8f5f1]"
                   >
                     <span>Best Sellers</span>
                     <Icon
@@ -528,7 +531,7 @@ export default function Navbar() {
                       event.preventDefault();
                       navigateFromShopMenu("/sale");
                     }}
-                    className="flex items-center justify-between px-3 py-3 text-[12px] uppercase tracking-[0.14em] transition-colors hover:bg-black/[0.04]"
+                    className="flex items-center justify-between px-3 py-3.5 text-[11px] font-medium uppercase tracking-[0.16em] text-[#494139] transition-colors hover:bg-[#f8f5f1]"
                   >
                     <span>Sale</span>
                     <Icon
@@ -543,21 +546,21 @@ export default function Navbar() {
 
             <Link
               href="/products?sort=newest&filter=new-arrivals"
-              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
+              className="relative text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
             >
               New Arrivals
             </Link>
 
             <Link
               href="/about"
-              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
+              className="relative text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
             >
               About
             </Link>
 
             <Link
               href="/contact"
-              className="text-[13px] font-medium uppercase tracking-[0.13em] text-black transition-colors duration-200 hover:text-black/55"
+              className="relative text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
             >
               Contact
             </Link>
@@ -589,7 +592,7 @@ export default function Navbar() {
                       ?.focus();
                   }, 50);
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-black transition-all duration-200 hover:bg-black/[0.045] hover:text-black/65"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[#302a24] transition-all duration-200 hover:bg-[#f5f1ec] hover:text-[#9b7654]"
                 aria-label="Search"
               >
                 <Icon
@@ -601,9 +604,9 @@ export default function Navbar() {
 
               {searchOpen && (
                 <div className="fixed left-4 right-4 top-[84px] sm:absolute sm:left-auto sm:right-0 sm:top-[52px] sm:w-[430px]">
-                  <div className="overflow-hidden border border-black/10 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+                  <div className="overflow-hidden rounded-sm border border-[#e9e3dc] bg-white shadow-[0_20px_60px_rgba(38,29,20,0.14)]">
                     
-                    <div className="flex items-center border-b border-black/10 px-4">
+                    <div className="flex items-center border-b border-[#eee8e1] px-4">
                       <Icon
                         icon="solar:magnifer-linear"
                         width={19}
@@ -768,7 +771,7 @@ export default function Navbar() {
             {/* WISHLIST */}
             <Link
               href="/wishlist"
-              className="hidden h-10 w-10 items-center justify-center rounded-full text-black transition-all duration-200 hover:bg-black/[0.045] hover:text-black/65 sm:flex"
+              className="hidden h-10 w-10 items-center justify-center rounded-full text-[#302a24] transition-all duration-200 hover:bg-[#f5f1ec] hover:text-[#9b7654] sm:flex"
               aria-label="Wishlist"
             >
               <Icon
@@ -781,7 +784,7 @@ export default function Navbar() {
             {/* CART — minimal line icon with quantity badge */}
             <Link
               href="/cart"
-              className="relative flex h-10 w-10 items-center justify-center rounded-full text-black transition-colors duration-200 hover:bg-black/[0.045]"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#302a24] transition-colors duration-200 hover:bg-[#f5f1ec]"
               aria-label="Shopping cart"
               title="Shopping cart"
             >
@@ -841,7 +844,7 @@ export default function Navbar() {
                     </button>
 
                     {accountOpen && (
-                      <div className="absolute right-0 top-[52px] w-[230px] border border-black/10 bg-white p-3 shadow-[0_15px_50px_rgba(0,0,0,0.08)]">
+                      <div className="absolute right-0 top-[52px] w-[230px] rounded-sm border border-[#e9e3dc] bg-white p-3 shadow-[0_18px_55px_rgba(38,29,20,0.12)]">
                         <div className="border-b border-black/10 px-3 pb-4">
                           <p className="truncate text-sm font-medium">
                             {user.name}
@@ -959,14 +962,14 @@ export default function Navbar() {
         {/* ================================================= */}
 
         {mobileOpen && (
-          <div className="border-t border-black/10 bg-white lg:hidden">
-            <div className="max-h-[calc(100vh-76px)] overflow-y-auto px-5 py-5">
+          <div className="border-t border-[#e9e3dc] bg-[#fffdfa] lg:hidden">
+            <div className="max-h-[calc(100vh-82px)] overflow-y-auto px-5 py-6">
               <div className="flex flex-col">
                 
                 <Link
                   href="/"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
+                  className="border-b border-[#eee8e1] py-4 text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
                 >
                   Home
                 </Link>
@@ -980,7 +983,7 @@ export default function Navbar() {
                         (value) => !value
                       )
                     }
-                    className="flex w-full items-center justify-between py-4 text-[13px] font-medium uppercase tracking-[0.13em] leading-normal text-black transition-colors duration-200 hover:text-black/55"
+                    className="flex w-full items-center justify-between py-4 text-[12px] font-medium uppercase tracking-[0.18em] leading-normal text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
                   >
                     <span>Shop</span>
 
@@ -1007,7 +1010,7 @@ export default function Navbar() {
                           event.preventDefault();
                           navigateFromShopMenu("/products");
                         }}
-                        className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
+                        className="block py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-[#75695d]"
                       >
                         All Products
                       </Link>
@@ -1018,7 +1021,7 @@ export default function Navbar() {
                           event.preventDefault();
                           navigateFromShopMenu("/products?sort=newest&filter=new-arrivals");
                         }}
-                        className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
+                        className="block py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-[#75695d]"
                       >
                         New Arrivals
                       </Link>
@@ -1029,7 +1032,7 @@ export default function Navbar() {
                           event.preventDefault();
                           navigateFromShopMenu("/products?sort=featured&filter=best-sellers");
                         }}
-                        className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
+                        className="block py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-[#75695d]"
                       >
                         Best Sellers
                       </Link>
@@ -1040,7 +1043,7 @@ export default function Navbar() {
                           event.preventDefault();
                           navigateFromShopMenu("/sale");
                         }}
-                        className="block py-3 text-[12px] uppercase tracking-[0.12em] text-black/70"
+                        className="block py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-[#75695d]"
                       >
                         Sale
                       </Link>
@@ -1051,7 +1054,7 @@ export default function Navbar() {
                 <Link
                   href="/products?sort=newest&filter=new-arrivals"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
+                  className="border-b border-[#eee8e1] py-4 text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
                 >
                   New Arrivals
                 </Link>
@@ -1059,7 +1062,7 @@ export default function Navbar() {
                 <Link
                   href="/about"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
+                  className="border-b border-[#eee8e1] py-4 text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
                 >
                   About
                 </Link>
@@ -1067,7 +1070,7 @@ export default function Navbar() {
                 <Link
                   href="/contact"
                   onClick={closeMobile}
-                  className="border-b border-black/10 py-4 text-[13px] font-medium uppercase tracking-[0.13em] transition-colors duration-200 hover:text-black/55"
+                  className="border-b border-[#eee8e1] py-4 text-[12px] font-medium uppercase tracking-[0.18em] text-[#302a24] transition-colors duration-200 hover:text-[#9b7654]"
                 >
                   Contact
                 </Link>
@@ -1152,7 +1155,7 @@ export default function Navbar() {
                       <Link
                         href="/login"
                         onClick={closeMobile}
-                        className="flex h-12 items-center justify-center bg-black text-[12px] font-medium uppercase tracking-[0.16em] text-white"
+                        className="flex h-12 items-center justify-center bg-[#29231e] text-[11px] font-semibold uppercase tracking-[0.18em] text-white"
                       >
                         Login
                       </Link>

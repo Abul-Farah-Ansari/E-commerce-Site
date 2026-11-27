@@ -196,7 +196,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (payment.status !== "captured" && payment.captured !== true) {
+  if (payment.status !== "captured" || payment.captured !== true) {
       return NextResponse.json(
         {
           success: false,

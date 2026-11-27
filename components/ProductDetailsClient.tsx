@@ -750,30 +750,73 @@ export default function ProductDetailsClient({
                 </div>
               </div>
 
-              {/* Service assurances */}
-              <div
-                className="product-service-cards"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: "10px",
-                  marginTop: "18px",
-                }}
-              >
-                <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
-                  <Icon icon="solar:shield-check-linear" width="21" />
-                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#555", fontWeight: 600 }}>Quality</div>
-                </div>
-                <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
-                  <Icon icon="solar:delivery-linear" width="21" />
-                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#555", fontWeight: 600 }}>Fast Delivery</div>
-                </div>
-                <div style={{ background: "#FAF8F5", padding: "14px 8px", textAlign: "center" }}>
-                  <Icon icon="solar:refresh-linear" width="21" />
-                 
-                </div>
-              </div>
-            </div>
+             
+{/* Service assurances */}
+<div
+  className="product-service-cards"
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "12px",
+    marginTop: "20px",
+  }}
+>
+  {[
+    {
+      icon: "solar:shield-check-linear",
+      label: "Quality Assured",
+    },
+    {
+      icon: "solar:delivery-linear",
+      label: "Fast Delivery",
+    },
+    {
+      icon: "solar:refresh-linear",
+      label: "Easy Exchanges",
+    },
+  ].map((item) => (
+    <div
+      key={item.label}
+      style={{
+        minWidth: 0,
+        minHeight: "76px",
+        padding: "14px 8px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "9px",
+        background: "#FFFFFF",
+        border: "1px solid #EAE5DD",
+        borderRadius: "8px",
+        textAlign: "center",
+      }}
+    >
+      <Icon
+        icon={item.icon}
+        width="22"
+        height="22"
+        style={{
+          display: "block",
+          color: "#29251F",
+          flexShrink: 0,
+        }}
+      />
+
+      <span
+        style={{
+          fontSize: "11px",
+          lineHeight: 1.3,
+          color: "#44403A",
+          fontWeight: 600,
+          whiteSpace: "normal",
+        }}
+      >
+        {item.label}
+      </span>
+    </div>
+  ))}
+</div></div>
 
             {/* ================= PRODUCT INFO ================= */}
 
