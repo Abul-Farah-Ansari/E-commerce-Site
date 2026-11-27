@@ -8,6 +8,8 @@ type Category = {
   name: string;
   slug: string;
   description?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   image?: string;
   status: "active" | "inactive";
   featured: boolean;
@@ -20,6 +22,8 @@ type CategoryForm = {
   name: string;
   slug: string;
   description: string;
+  seoTitle: string;
+  seoDescription: string;
   image: string;
   status: "active" | "inactive";
   featured: boolean;
@@ -49,6 +53,8 @@ export default function CategoriesPage() {
     name: "",
     slug: "",
     description: "",
+    seoTitle: "",
+    seoDescription: "",
     image: "",
     status: "active",
     featured: false,
@@ -149,6 +155,8 @@ export default function CategoriesPage() {
       name: "",
       slug: "",
       description: "",
+      seoTitle: "",
+      seoDescription: "",
       image: "",
       status: "active",
       featured: false,
@@ -171,6 +179,8 @@ export default function CategoriesPage() {
       name: category.name || "",
       slug: category.slug || "",
       description: category.description || "",
+      seoTitle: category.seoTitle || "",
+      seoDescription: category.seoDescription || "",
       image: category.image || "",
       status: category.status || "active",
       featured: Boolean(category.featured),
@@ -249,6 +259,8 @@ export default function CategoriesPage() {
         name: cleanName,
         slug: cleanSlug,
         description: form.description.trim(),
+        seoTitle: form.seoTitle.trim(),
+        seoDescription: form.seoDescription.trim(),
         image: form.image.trim(),
         status: form.status,
         featured: form.featured,
@@ -839,6 +851,51 @@ export default function CategoriesPage() {
                   }
                   disabled={saving}
                 />
+              </div>
+
+              {/* SEO SETTINGS */}
+
+              <div className="seo-settings">
+                <div className="seo-heading">
+                  <strong>SEO Settings</strong>
+                  <small>Optimize this category for search engines.</small>
+                </div>
+
+                <div className="form-group">
+                  <label>SEO Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Designer Kurta Sets for Women | House of Orive"
+                    value={form.seoTitle}
+                    maxLength={70}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        seoTitle: e.target.value,
+                      }))
+                    }
+                    disabled={saving}
+                  />
+                  <small>{form.seoTitle.length}/70 characters</small>
+                </div>
+
+                <div className="form-group">
+                  <label>SEO Description</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Write a unique description for search engine results..."
+                    value={form.seoDescription}
+                    maxLength={170}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        seoDescription: e.target.value,
+                      }))
+                    }
+                    disabled={saving}
+                  />
+                  <small>{form.seoDescription.length}/170 characters</small>
+                </div>
               </div>
 
               {/* IMAGE */}
@@ -1661,6 +1718,31 @@ export default function CategoriesPage() {
           align-items: center;
           gap: 8px;
           font-size: 12px;
+        }
+
+        .seo-settings {
+          margin: 22px 0;
+          padding: 17px;
+          border: 1px solid #e5e5e5;
+          border-radius: 10px;
+          background: #fafafa;
+        }
+
+        .seo-heading {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          margin-bottom: 17px;
+        }
+
+        .seo-heading strong {
+          font-size: 13px;
+          color: #222;
+        }
+
+        .seo-heading small {
+          font-size: 11px;
+          color: #888;
         }
 
         .form-group {

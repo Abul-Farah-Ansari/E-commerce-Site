@@ -1,7 +1,15 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Category from "@/models/Category";
 import { requireAdmin } from "@/lib/adminAuth";
+
+// ===============================
+// HELPER: CLEAN STRING VALUES
+// ===============================
+const cleanString = (value: unknown): string => {
+  return typeof value === "string" ? value.trim() : "";
+};
 
 // ===============================
 // GET ALL CATEGORIES
@@ -46,6 +54,8 @@ export async function POST(request: NextRequest) {
       name,
       slug,
       description,
+      seoTitle,
+      seoDescription,
       image,
       status,
       featured,
@@ -55,7 +65,12 @@ export async function POST(request: NextRequest) {
     // ===============================
     // REQUIRED FIELDS
     // ===============================
-    if (!name || !slug) {
+    const cleanName = cleanString(name);
+    const cleanSlug = cleanString(slug)
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
+    if (!cleanName || !cleanSlug) {
       return NextResponse.json(
         {
           success: false,
@@ -68,18 +83,29 @@ export async function POST(request: NextRequest) {
     // ===============================
     // CLEAN VALUES
     // ===============================
-    const cleanName = String(name).trim();
+    const cleanDescription = cleanString(description);
+    const cleanSeoTitle = cleanString(seoTitle);
+    const cleanSeoDescription = cleanString(seoDescription);
+    const cleanImage = cleanString(image);
 
-    const cleanSlug = String(slug)
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
-
-    if (!cleanName || !cleanSlug) {
+    // ===============================
+    // VALIDATE SEO FIELDS
+    // ===============================
+    if (cleanSeoTitle.length > 70) {
       return NextResponse.json(
         {
           success: false,
-          message: "Category name and slug cannot be empty.",
+          message: "SEO title cannot exceed 70 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (cleanSeoDescription.length > 170) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "SEO description cannot exceed 170 characters.",
         },
         { status: 400 }
       );
@@ -130,12 +156,12 @@ export async function POST(request: NextRequest) {
     const category = await Category.create({
       name: cleanName,
       slug: cleanSlug,
-      description: description
-        ? String(description).trim()
-        : "",
-      image: image ? String(image).trim() : "",
+      description: cleanDescription,
+      seoTitle: cleanSeoTitle,
+      seoDescription: cleanSeoDescription,
+      image: cleanImage,
       status: status === "inactive" ? "inactive" : "active",
-      featured: Boolean(featured),
+      featured: featured === true,
       sortOrder: parsedSortOrder,
     });
 
@@ -150,7 +176,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("CREATE CATEGORY ERROR:", error);
 
-    // MongoDB duplicate key protection
     if (error?.code === 11000) {
       return NextResponse.json(
         {

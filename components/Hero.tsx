@@ -10,138 +10,26 @@ import {
 
 import type { TouchEvent } from "react";
 
-type HeroSlide = {
+export type HeroSlide = {
   desktopImageUrl: string;
   mobileImageUrl?: string;
   altText: string;
   sortOrder?: number;
 };
 
-const DEFAULT_ALT = "House of Orive fashion collection";
+type HeroProps = {
+  initialSlides?: HeroSlide[];
+};
+
 const SLIDE_INTERVAL = 5000;
 
-/*
-=========================================================
-CLOUDINARY IMAGE OPTIMIZATION
-=========================================================
-*/
-
-function optimizeCloudinaryImage(
-  imageUrl: string,
-  width: number
-): string {
-  if (!imageUrl) return imageUrl;
-
-  // Leave non-Cloudinary URLs unchanged.
-  if (
-    !imageUrl.includes("res.cloudinary.com") ||
-    !imageUrl.includes("/upload/")
-  ) {
-    return imageUrl;
-  }
-
-  const transformations =
-    `f_auto,q_auto,c_limit,w_${width}`;
-
-  return imageUrl.replace(
-    "/upload/",
-    `/upload/${transformations}/`
-  );
-}
-
-export default function Hero() {
-  const [slides, setSlides] = useState<HeroSlide[]>([]);
+export default function Hero({
+  initialSlides = [],
+}: HeroProps) {
+  const [slides] = useState<HeroSlide[]>(initialSlides);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   const touchStartX = useRef<number | null>(null);
-
-  /*
-  =========================================================
-  LOAD HERO IMAGES
-  =========================================================
-  */
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadHero() {
-      try {
-        const response = await fetch("/api/hero", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("Unable to fetch hero images.");
-        }
-
-        const data = await response.json();
-
-        if (!active || !data.success) return;
-
-        const savedImages: HeroSlide[] =
-          Array.isArray(data.hero?.images)
-            ? data.hero.images
-                .map(
-                  (image: {
-                    desktopImageUrl?: string;
-                    mobileImageUrl?: string;
-                    imageUrl?: string;
-                    altText?: string;
-                    sortOrder?: number;
-                  }) => ({
-                    desktopImageUrl:
-                      image.desktopImageUrl ||
-                      image.imageUrl ||
-                      "",
-
-                    mobileImageUrl:
-                      image.mobileImageUrl || undefined,
-
-                    altText:
-                      image.altText || DEFAULT_ALT,
-
-                    sortOrder: image.sortOrder,
-                  })
-                )
-                .filter(
-                  (image: HeroSlide) =>
-                    Boolean(image.desktopImageUrl)
-                )
-                .sort(
-                  (a: HeroSlide, b: HeroSlide) =>
-                    (a.sortOrder ?? 0) -
-                    (b.sortOrder ?? 0)
-                )
-            : [];
-
-        if (!active) return;
-
-        setSlides(savedImages);
-        setActiveIndex(0);
-      } catch (error) {
-        console.error(
-          "Unable to load custom hero images:",
-          error
-        );
-
-        if (active) {
-          setSlides([]);
-          setActiveIndex(0);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadHero();
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   /*
   =========================================================
@@ -243,67 +131,52 @@ export default function Hero() {
   return (
     <section
       aria-label="Featured fashion collection"
-      aria-busy={loading}
       className="relative m-0 h-[60svh] min-h-[300px] max-h-[480px] w-full overflow-hidden bg-black p-0 md:h-[calc(100svh-76px)] md:min-h-[320px] md:max-h-none"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       {/* HERO IMAGES */}
 
-      {slides.map((slide, index) => {
-        const isActive = index === activeIndex;
+      {slides.map((slide, index) => (
+        <picture
+          key={`${slide.desktopImageUrl}-${index}`}
+          className={`absolute inset-0 m-0 block h-full w-full transition-opacity duration-700 ease-in-out ${
+            index === activeIndex
+              ? "z-10 opacity-100"
+              : "z-0 opacity-0"
+          }`}
+        >
+          {/* MOBILE IMAGE */}
 
-        const desktopImage = optimizeCloudinaryImage(
-          slide.desktopImageUrl,
-          1800
-        );
-
-        const mobileImage = optimizeCloudinaryImage(
-          slide.mobileImageUrl || slide.desktopImageUrl,
-          900
-        );
-
-        return (
-          <picture
-            key={`${slide.desktopImageUrl}-${index}`}
-            className={`absolute inset-0 m-0 block h-full w-full transition-opacity duration-700 ease-in-out ${
-              isActive
-                ? "z-10 opacity-100"
-                : "z-0 opacity-0"
-            }`}
-          >
-            {/* MOBILE IMAGE */}
-
+          {slide.mobileImageUrl && (
             <source
               media="(max-width: 767px)"
-              srcSet={mobileImage}
+              srcSet={slide.mobileImageUrl}
             />
+          )}
 
-            {/* DESKTOP IMAGE */}
+          {/* DESKTOP IMAGE / MOBILE FALLBACK */}
 
-            <img
-              src={desktopImage}
-              alt={slide.altText}
-              fetchPriority={
-                isActive ? "high" : "auto"
-              }
-              loading={
-                isActive ? "eager" : "lazy"
-              }
-              draggable={false}
-              className="absolute inset-0 m-0 block h-full w-full object-cover object-center p-0"
-              aria-hidden={!isActive}
-            />
-          </picture>
-        );
-      })}
+          <img
+            src={slide.desktopImageUrl}
+            alt={slide.altText}
+            fetchPriority={
+              index === 0 ? "high" : "auto"
+            }
+            loading={
+              index === 0 ? "eager" : "lazy"
+            }
+            draggable={false}
+            className="absolute inset-0 m-0 block h-full w-full object-cover object-center p-0"
+            aria-hidden={index !== activeIndex}
+          />
+        </picture>
+      ))}
 
       {/* CAROUSEL CONTROLS */}
 
       {slides.length > 1 && (
         <>
-          {/* PREVIOUS */}
-
           <button
             type="button"
             onClick={goToPrevious}
@@ -313,8 +186,6 @@ export default function Hero() {
             <span aria-hidden="true">‹</span>
           </button>
 
-          {/* NEXT */}
-
           <button
             type="button"
             onClick={goToNext}
@@ -323,8 +194,6 @@ export default function Hero() {
           >
             <span aria-hidden="true">›</span>
           </button>
-
-          {/* SLIDE INDICATORS */}
 
           <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
             {slides.map((_, index) => (

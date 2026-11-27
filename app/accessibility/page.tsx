@@ -33,7 +33,7 @@ export default function AccessibilityPage() {
           <p>If you have difficulty accessing any part of our website or need assistance placing an order, please contact us. Include the page you were visiting and a brief description of the issue so we can assist you.</p>
 
           <h2>Contact Us</h2>
-          <address>House of Orive<br />Email: <a href="mailto:info@houseoforive.in">info@houseoforive.in</a><br />Website: <a href="https://www.houseoforive.in">houseoforive.in</a></address>
+          <address>House of Orive<br />Email: <a href="mailto:contact@houseoforive.in">contact@houseoforive.in</a><br />Website: <a href="https://www.houseoforive.in">houseoforive.in</a></address>
           <p className="policy-updated">Last updated: 24 October 2026</p>
         </article>
       </main>

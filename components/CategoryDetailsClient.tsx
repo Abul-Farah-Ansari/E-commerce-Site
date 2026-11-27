@@ -40,6 +40,51 @@ type CategoryPageProps = {
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1800&q=90";
 
+
+
+// Category-specific editorial copy. Keep these descriptions aligned with
+// the products actually available in each collection.
+function getEditorialContent(category: Category) {
+  const categoryKey = `${category.slug} ${category.name}`.toLowerCase();
+
+  if (categoryKey.includes("kurta") && !categoryKey.includes("kurti")) {
+    return {
+      heading: <>Made for <i>everyday expression.</i></>,
+      description:
+        "Explore kurta styles selected for versatile dressing, from relaxed everyday looks to thoughtfully styled outfits. Discover the pieces that suit your wardrobe and the occasions you dress for.",
+    };
+  }
+
+  if (categoryKey.includes("kurti")) {
+    return {
+      heading: <>A little ease, <i>a lot of style.</i></>,
+      description:
+        "Discover kurtis designed to bring ease and individuality to your wardrobe. Explore the available styles and find pieces that work for everyday plans and effortless styling.",
+    };
+  }
+
+  if (categoryKey.includes("suit")) {
+    return {
+      heading: <>Tradition with <i>a modern touch.</i></>,
+      description:
+        "Explore ethnic suit styles that bring together classic inspiration and contemporary dressing. Browse the collection to find an outfit for the moments that matter.",
+    };
+  }
+
+  if (categoryKey.includes("festive")) {
+    return {
+      heading: <>Dress for <i>the moments that matter.</i></>,
+      description:
+        "Explore festive styles selected for celebrations and special occasions. Discover the available designs and find a look that feels right for your next gathering.",
+    };
+  }
+
+  return {
+    heading: <>Designed for <i>your kind of elegance.</i></>,
+    description:
+      `Explore the ${category.name} collection at House of Orive. Browse the available styles and discover pieces selected to bring character and versatility to your wardrobe.`,
+  };
+}
 export default function CategoryDetailsClient({
   initialCategory,
   initialProducts,
@@ -47,6 +92,7 @@ export default function CategoryDetailsClient({
   const category = initialCategory;
   const products = initialProducts;
   const loading = false;
+  const editorialContent = getEditorialContent(category);
 
   const [activeFilter, setActiveFilter] = useState<
     "all" | "new" | "sale"
@@ -250,13 +296,7 @@ export default function CategoryDetailsClient({
 
               }
 
-              alt={
-
-                category?.name ||
-
-                "House Of Orive"
-
-              }
+              alt={`${category.name} collection at House of Orive`}
 
               onError={(event) => {
 
@@ -422,29 +462,9 @@ export default function CategoryDetailsClient({
 
             </span>
 
-            <h2>
+            <h2>{editorialContent.heading}</h2>
 
-              Designed for
-
-              <br />
-
-              <i>everyday elegance.</i>
-
-            </h2>
-
-            <p>
-
-              Explore our carefully selected
-
-              collection of pieces created to
-
-              bring effortless character,
-
-              comfort and confidence to your
-
-              everyday wardrobe.
-
-            </p>
+            <p>{editorialContent.description}</p>
 
           </div>
 
@@ -768,19 +788,23 @@ export default function CategoryDetailsClient({
 
                       >
 
-                        <Link
+                        <div className="product-media">
 
-                          href={`/products/${product.slug}`}
+                          <Link
 
-                          className="product-image"
+                            href={`/products/${product.slug}`}
 
-                        >
+                            className="product-image"
+
+                            aria-label={`View ${product.name}`}
+
+                          >
 
                           <img
 
                             src={image}
 
-                            alt={product.name}
+                            alt={`${product.name} - House of Orive`}
 
                             loading={
 
@@ -801,18 +825,7 @@ export default function CategoryDetailsClient({
                             }}
 
                           />
-
-                          <div className="category-wishlist">
-
-                            <WishlistButton
-
-                              productId={product._id}
-
-                            />
-
-                          </div>
-
-                          <div className="image-index">
+<div className="image-index">
 
                             {String(
 
@@ -879,6 +892,18 @@ export default function CategoryDetailsClient({
                           </div>
 
                         </Link>
+
+                          <div className="category-wishlist">
+
+                            <WishlistButton
+
+                              productId={product._id}
+
+                            />
+
+                          </div>
+
+                        </div>
 
                         <div className="product-details">
 
@@ -2076,6 +2101,14 @@ export default function CategoryDetailsClient({
 
         }
 
+        .product-media {
+
+          position: relative;
+
+          width: 100%;
+
+        }
+
         .product-image {
 
           position: relative;
@@ -2174,7 +2207,7 @@ export default function CategoryDetailsClient({
 
           right: 14px;
 
-          z-index: 30;
+          z-index: 5;
 
           width: 40px;
 

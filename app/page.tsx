@@ -1,8 +1,11 @@
 
 import type { Metadata } from "next";
 
+import { connectDB } from "@/lib/mongodb";
+import HeroSettings from "@/models/HeroSettings";
+
 import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
+import Hero, { type HeroSlide } from "@/components/Hero";
 import ProductSection from "@/components/ProductSection";
 import HomeVideoSection from "@/components/HomeVideoSection";
 import Benefits from "@/components/Benefits";
@@ -10,6 +13,8 @@ import Testimonials from "@/components/Testimonials";
 import BrandStory from "@/components/BrandStory";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "House of Orive | Timeless Fashion & Modern Elegance",
@@ -43,13 +48,62 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+const DEFAULT_ALT = "House of Orive fashion collection";
+
+async function getHeroSlides(): Promise<HeroSlide[]> {
+  try {
+    await connectDB();
+
+    const settings = await HeroSettings.findOne()
+      .select("images")
+      .lean();
+
+    if (!settings || !Array.isArray(settings.images)) {
+      return [];
+    }
+
+    return settings.images
+      .map((image, index) => {
+        const desktopImageUrl =
+          image.desktopImageUrl ||
+          image.imageUrl ||
+          "";
+
+        return {
+          desktopImageUrl,
+          mobileImageUrl:
+            image.mobileImageUrl || undefined,
+          altText:
+            image.altText || DEFAULT_ALT,
+          sortOrder: image.sortOrder ?? index,
+        };
+      })
+      .filter((image) => Boolean(image.desktopImageUrl))
+      .sort(
+        (a, b) =>
+          (a.sortOrder ?? 0) -
+          (b.sortOrder ?? 0)
+      );
+  } catch (error) {
+    console.error(
+      "Homepage hero image loading failed:",
+      error
+    );
+
+    return [];
+  }
+}
+
+export default async function Home() {
+  const heroSlides = await getHeroSlides();
+
   return (
     <>
       <Navbar />
 
       <main>
-        <Hero />
+        <Hero initialSlides={heroSlides} />
+
         <HomeVideoSection />
 
         <ProductSection

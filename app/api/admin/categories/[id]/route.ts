@@ -1,8 +1,23 @@
+
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import Category from "@/models/Category";
 import { requireAdmin } from "@/lib/adminAuth";
 
+// ===============================
+// HELPER: CLEAN STRING VALUES
+// ===============================
+const cleanString = (value: unknown): string => {
+  return typeof value === "string" ? value.trim() : "";
+};
+
+// ===============================
+// HELPER: VALIDATE CATEGORY ID
+// ===============================
+const isValidId = (id: string) => {
+  return mongoose.Types.ObjectId.isValid(id);
+};
 
 // ===============================
 // GET SINGLE CATEGORY
@@ -18,6 +33,16 @@ export async function GET(
     await connectDB();
 
     const { id } = await context.params;
+
+    if (!isValidId(id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid category ID.",
+        },
+        { status: 400 }
+      );
+    }
 
     const category = await Category.findById(id).lean();
 
@@ -49,7 +74,6 @@ export async function GET(
   }
 }
 
-
 // ===============================
 // UPDATE CATEGORY
 // ===============================
@@ -65,12 +89,24 @@ export async function PUT(
 
     const { id } = await context.params;
 
+    if (!isValidId(id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid category ID.",
+        },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
 
     const {
       name,
       slug,
       description,
+      seoTitle,
+      seoDescription,
       image,
       status,
       featured,
@@ -78,9 +114,15 @@ export async function PUT(
     } = body;
 
     // ===============================
-    // REQUIRED FIELDS
+    // CLEAN VALUES
     // ===============================
-    if (!name || !slug) {
+    const cleanName = cleanString(name);
+
+    const cleanSlug = cleanString(slug)
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
+    if (!cleanName || !cleanSlug) {
       return NextResponse.json(
         {
           success: false,
@@ -90,22 +132,29 @@ export async function PUT(
       );
     }
 
-    // ===============================
-    // CLEAN VALUES
-    // ===============================
-    const cleanName = String(name).trim();
+    const cleanDescription = cleanString(description);
+    const cleanSeoTitle = cleanString(seoTitle);
+    const cleanSeoDescription = cleanString(seoDescription);
+    const cleanImage = cleanString(image);
 
-    const cleanSlug = String(slug)
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
-
-    if (!cleanName || !cleanSlug) {
+    // ===============================
+    // VALIDATE SEO FIELDS
+    // ===============================
+    if (cleanSeoTitle.length > 70) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Category name and slug cannot be empty.",
+          message: "SEO title cannot exceed 70 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (cleanSeoDescription.length > 170) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "SEO description cannot exceed 170 characters.",
         },
         { status: 400 }
       );
@@ -114,8 +163,7 @@ export async function PUT(
     // ===============================
     // CHECK CATEGORY EXISTS
     // ===============================
-    const existingCategory =
-      await Category.findById(id);
+    const existingCategory = await Category.findById(id);
 
     if (!existingCategory) {
       return NextResponse.json(
@@ -139,8 +187,7 @@ export async function PUT(
       return NextResponse.json(
         {
           success: false,
-          message:
-            "A category with this slug already exists.",
+          message: "A category with this slug already exists.",
         },
         { status: 409 }
       );
@@ -173,15 +220,16 @@ export async function PUT(
     // ===============================
     existingCategory.name = cleanName;
     existingCategory.slug = cleanSlug;
-    existingCategory.description = description
-      ? String(description).trim()
-      : "";
-    existingCategory.image = image
-      ? String(image).trim()
-      : "";
+    existingCategory.description = cleanDescription;
+
+    // SEO FIELDS
+    existingCategory.seoTitle = cleanSeoTitle;
+    existingCategory.seoDescription = cleanSeoDescription;
+
+    existingCategory.image = cleanImage;
     existingCategory.status =
       status === "inactive" ? "inactive" : "active";
-    existingCategory.featured = Boolean(featured);
+    existingCategory.featured = featured === true;
     existingCategory.sortOrder = parsedSortOrder;
 
     await existingCategory.save();
@@ -194,13 +242,11 @@ export async function PUT(
   } catch (error: any) {
     console.error("UPDATE CATEGORY ERROR:", error);
 
-    // MongoDB duplicate key protection
     if (error?.code === 11000) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "A category with this slug already exists.",
+          message: "A category with this slug already exists.",
         },
         { status: 409 }
       );
@@ -217,7 +263,6 @@ export async function PUT(
   }
 }
 
-
 // ===============================
 // DELETE CATEGORY
 // ===============================
@@ -233,8 +278,17 @@ export async function DELETE(
 
     const { id } = await context.params;
 
-    const category =
-      await Category.findByIdAndDelete(id);
+    if (!isValidId(id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid category ID.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const category = await Category.findByIdAndDelete(id);
 
     if (!category) {
       return NextResponse.json(

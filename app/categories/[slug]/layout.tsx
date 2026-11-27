@@ -11,46 +11,75 @@ type Props = {
 
 const BASE_URL = "https://www.houseoforive.in";
 
+function cleanText(value: string = "") {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function limitDescription(value: string, maxLength = 155) {
+  if (value.length <= maxLength) return value;
+
+  return `${value.slice(0, maxLength - 3).trim()}...`;
+}
+
 export async function generateMetadata({
   params,
 }: Props): Promise<Metadata> {
-  try {
-    const { slug } = await params;
+  const { slug } = await params;
 
+  try {
     await connectDB();
 
     const category = await Category.findOne({
       slug: slug.toLowerCase(),
       status: "active",
     })
-      .select("name slug description image")
+      .select(
+        "name slug description seoTitle seoDescription image"
+      )
       .lean();
 
     if (!category) {
       return {
-        title: "Collection Not Found",
+        title: "Collection Not Found | House of Orive",
+        description: "The requested collection could not be found.",
         robots: {
           index: false,
-          follow: false,
+          follow: true,
         },
       };
     }
 
-    const title = `${category.name} Collection`;
+    // SEO TITLE
+    const customSeoTitle = cleanText(category.seoTitle || "");
 
-    const cleanDescription = (category.description || "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const title =
+      customSeoTitle ||
+      `${category.name} Collection | House of Orive`;
 
-    const description =
-      cleanDescription.slice(0, 155).trim() ||
-      `Explore the ${category.name} collection at House of Orive. Discover thoughtfully selected styles and modern fashion.`;
+    // SEO DESCRIPTION
+    const categoryDescription = cleanText(
+      category.description || ""
+    );
 
+    const customSeoDescription = cleanText(
+      category.seoDescription || ""
+    );
+
+    const description = limitDescription(
+      customSeoDescription ||
+        categoryDescription ||
+        `Explore the ${category.name} collection at House of Orive. Discover thoughtfully selected styles and modern fashion.`
+    );
+
+    // CANONICAL URL
     const canonicalUrl = `${BASE_URL}/categories/${encodeURIComponent(
       category.slug
     )}`;
 
+    // SOCIAL IMAGE
     const image = category.image || undefined;
 
     return {
@@ -62,18 +91,19 @@ export async function generateMetadata({
       },
 
       openGraph: {
-        title: `${title} | House of Orive`,
+        title,
         description,
         url: canonicalUrl,
         siteName: "House of Orive",
         locale: "en_IN",
         type: "website",
+
         ...(image
           ? {
               images: [
                 {
                   url: image,
-                  alt: `${category.name} collection`,
+                  alt: `${category.name} collection at House of Orive`,
                 },
               ],
             }
@@ -82,8 +112,9 @@ export async function generateMetadata({
 
       twitter: {
         card: image ? "summary_large_image" : "summary",
-        title: `${title} | House of Orive`,
+        title,
         description,
+
         ...(image ? { images: [image] } : {}),
       },
 
@@ -100,13 +131,9 @@ export async function generateMetadata({
   } catch (error) {
     console.error("CATEGORY SEO METADATA ERROR:", error);
 
-    return {
-      title: "Collection",
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
+    // Do not replace category metadata with generic
+    // metadata or mark the page noindex on a DB error.
+    throw error;
   }
 }
 
