@@ -1508,7 +1508,42 @@ export default function ProductDetailsClient({
                  
 
                   <div>
-                   
+                   <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    padding: "17px 0",
+  }}
+>
+  <Icon
+    icon="solar:refresh-linear"
+    width="22"
+    style={{ flexShrink: 0 }}
+  />
+
+  <div>
+    <div
+      style={{
+        fontSize: "13px",
+        fontWeight: 700,
+        color: "#111",
+        marginBottom: "3px",
+      }}
+    >
+      Easy Exchanges
+    </div>
+
+    <div
+      style={{
+        fontSize: "12px",
+        color: "#777",
+      }}
+    >
+      Need a different size? Contact our team for exchange assistance.
+    </div>
+  </div>
+</div>
 
                   
                   </div>
